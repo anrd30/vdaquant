@@ -34,13 +34,37 @@ except ImportError:
 # Ensure repository root and Video-Depth-Anything submodule are in path
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-VDA_DIR = REPO_ROOT.parent / "Video-Depth-Anything"
-if not VDA_DIR.exists():
-    VDA_DIR = Path("/home/aniruddh/qcaimet/Video-Depth-Anything")
 
 sys.path.insert(0, str(REPO_ROOT))
-if VDA_DIR.exists():
-    sys.path.insert(0, str(VDA_DIR))
+
+# Search for Video-Depth-Anything in common paths or auto-clone for Google Colab
+possible_vda_paths = [
+    REPO_ROOT / "Video-Depth-Anything",
+    REPO_ROOT.parent / "Video-Depth-Anything",
+    Path("/content/Video-Depth-Anything"),
+    Path("/content/vdaquant/Video-Depth-Anything"),
+    Path("/home/aniruddh/qcaimet/Video-Depth-Anything")
+]
+
+vda_found = False
+for p in possible_vda_paths:
+    if p.exists() and (p / "video_depth_anything").exists():
+        if str(p) not in sys.path:
+            sys.path.insert(0, str(p))
+        vda_found = True
+        break
+
+if not vda_found:
+    print("  [Setup] Video-Depth-Anything repository not found. Auto-cloning for Google Colab...")
+    clone_path = REPO_ROOT / "Video-Depth-Anything"
+    try:
+        import subprocess
+        subprocess.run(["git", "clone", "https://github.com/DepthAnything/Video-Depth-Anything.git", str(clone_path)], check=True)
+        if str(clone_path) not in sys.path:
+            sys.path.insert(0, str(clone_path))
+        print(f"  [Setup] Successfully cloned Video-Depth-Anything to {clone_path}")
+    except Exception as e:
+        print(f"  [Warning] Could not auto-clone Video-Depth-Anything: {e}")
 
 from research.models.rotated_attention import apply_rotated_quantization_to_vda
 
@@ -95,23 +119,23 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
 
     print(f"  [Dataset] Downloading/generating benchmark sample frames for '{dataset_name}'...")
     
-    # Target public sample URLs for each benchmark dataset
+    # Target public sample URLs for each benchmark dataset (reliable URLs)
     sample_urls = {
         "kitti": [
-            "https://raw.githubusercontent.com/intel-isl/DPT/master/input/kitti_example.png",
-            "https://raw.githubusercontent.com/intel-isl/MiDaS/master/input/dog.jpg"
+            "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png",
+            "https://raw.githubusercontent.com/facebookresearch/dinov2/main/docs/assets/dinov2_figure1.png"
         ],
         "davis": [
-            "https://raw.githubusercontent.com/intel-isl/DPT/master/input/dog.jpg"
+            "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog1.jpg"
         ],
         "sintel": [
-            "https://raw.githubusercontent.com/intel-isl/DPT/master/input/dog.jpg"
+            "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog2.jpg"
         ],
         "nyuv2": [
-            "https://raw.githubusercontent.com/intel-isl/DPT/master/input/dog.jpg"
+            "https://raw.githubusercontent.com/facebookresearch/dinov2/main/docs/assets/dinov2_figure1.png"
         ],
         "scannet": [
-            "https://raw.githubusercontent.com/intel-isl/DPT/master/input/dog.jpg"
+            "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png"
         ]
     }
 
