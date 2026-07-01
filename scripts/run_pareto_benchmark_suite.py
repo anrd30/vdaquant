@@ -152,31 +152,33 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
         except Exception as e:
             print(f"    Warning: Could not download {url} ({e})")
 
-    # If we need more samples to reach max_samples, generate high-quality synthetic sequence
-    while len(downloaded) < max_samples:
-        idx = len(downloaded)
-        # Create domain-specific geometric gradient patterns
-        w, h = 384, 384
-        x = np.linspace(0, 1, w)
-        y = np.linspace(0, 1, h)
-        xx, yy = np.meshgrid(x, y)
-        
-        if dataset_name == "kitti": # Outdoor driving road perspective
-            depth_pattern = np.sin(yy * np.pi + idx * 0.2) * 0.7 + xx * 0.3
-        elif dataset_name == "davis": # Center object motion
-            depth_pattern = np.exp(-((xx - 0.5 - idx*0.05)**2 + (yy - 0.5)**2) / 0.1)
-        elif dataset_name == "sintel": # Complex synthetic motion
-            depth_pattern = np.sin(xx * 5 + idx * 0.5) * np.cos(yy * 5)
-        else: # Indoor room perspective
-            depth_pattern = (xx + yy) / 2.0 + np.sin(idx * 0.3) * 0.1
+    # If we need more samples to reach max_samples, generate realistic video sequence via simulated camera motion
+    if len(downloaded) > 0:
+        base_img = downloaded[0] # Use real photo as reference
+        h, w, _ = base_img.shape
+        while len(downloaded) < max_samples:
+            idx = len(downloaded)
+            # Apply smooth simulated camera pan & zoom (Ken Burns video effect)
+            zoom = 1.0 + 0.18 * (idx / max(max_samples - 1, 1)) # Smooth zoom up to 18%
+            new_h, new_w = int(h / zoom), int(w / zoom)
             
-        img_arr = np.uint8(np.clip(depth_pattern * 255, 0, 255))
-        img_rgb = np.stack([img_arr, np.flipud(img_arr), np.fliplr(img_arr)], axis=-1)
-        downloaded.append(img_rgb)
-        
-        # Save synthetic sample for consistency
-        save_path = target_dir / f"synthetic_{idx}.png"
-        Image.fromarray(img_rgb).save(save_path)
+            # Smooth circular pan trajectory
+            pan_y = int((h - new_h) * (0.5 + 0.4 * np.sin(idx * 0.3)))
+            pan_x = int((w - new_w) * (0.5 + 0.4 * np.cos(idx * 0.3)))
+            
+            crop_img = base_img[pan_y:pan_y+new_h, pan_x:pan_x+new_w]
+            resample_mode = getattr(Image, 'Resampling', Image).BILINEAR
+            frame_res = np.array(Image.fromarray(crop_img).resize((w, h), resample_mode))
+            downloaded.append(frame_res)
+            
+            save_path = target_dir / f"sim_frame_{idx}.png"
+            Image.fromarray(frame_res).save(save_path)
+    else:
+        # Emergency backup only if internet download fails entirely
+        while len(downloaded) < max_samples:
+            idx = len(downloaded)
+            img_arr = np.uint8(np.random.randint(0, 255, (384, 384, 3)))
+            downloaded.append(img_arr)
 
     print(f"  [Dataset] Ready with {len(downloaded)} video frames for '{dataset_name}'.")
     return downloaded[:max_samples]
