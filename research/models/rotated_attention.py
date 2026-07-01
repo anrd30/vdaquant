@@ -411,6 +411,8 @@ def apply_rotated_quantization_to_vda(
                 num_heads = getattr(old_attn, 'num_heads', dim // 64)
                 has_bias = old_attn.qkv.bias is not None
 
+                device = getattr(old_attn.qkv.weight, 'device', torch.device('cpu'))
+                dtype = getattr(old_attn.qkv.weight, 'dtype', torch.float32)
                 new_attn = RotatedSelfAttention(
                     dim=dim,
                     num_heads=num_heads,
@@ -418,7 +420,7 @@ def apply_rotated_quantization_to_vda(
                     bits=bits,
                     quantizer=quantizer,
                     use_qjl=use_qjl,
-                )
+                ).to(device=device, dtype=dtype)
 
                 # Copy pretrained weights
                 new_attn.qkv.weight.data.copy_(old_attn.qkv.weight.data)
@@ -451,13 +453,16 @@ def apply_rotated_quantization_to_vda(
 
                 if dim is not None:
                     num_heads = getattr(old_cross, 'heads', 8)
+                    weight_attr = getattr(old_cross, 'to_q', getattr(old_cross, 'q_proj', None))
+                    device = getattr(weight_attr.weight, 'device', torch.device('cpu')) if weight_attr is not None else torch.device('cpu')
+                    dtype = getattr(weight_attr.weight, 'dtype', torch.float32) if weight_attr is not None else torch.float32
                     new_cross = RotatedTemporalAttention(
                         dim=dim,
                         num_heads=num_heads,
                         bits=bits,
                         quantizer=quantizer,
                         use_qjl=use_qjl,
-                    )
+                    ).to(device=device, dtype=dtype)
                     # Copy weights where possible
                     if hasattr(old_cross, 'to_q'):
                         new_cross.q_proj.weight.data.copy_(old_cross.to_q.weight.data)
@@ -476,6 +481,12 @@ def apply_rotated_quantization_to_vda(
 
                     setattr(parent, attr_name, new_cross)
                     n_temporal += 1
+
+    try:
+        device = next(model.parameters()).device
+        model = model.to(device)
+    except StopIteration:
+        pass
 
     if verbose:
         print(f"{'=' * 60}")
