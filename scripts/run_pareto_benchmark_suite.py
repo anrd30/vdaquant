@@ -235,6 +235,41 @@ def compute_academic_metrics(pred: torch.Tensor, gt: torch.Tensor, valid_mask: t
     }
 
 # ============================================================
+# DYNAMIC SURGERY VERIFICATION & SANITY CHECK
+# ============================================================
+def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, sample_input: torch.Tensor):
+    """
+    Sanity checks that model surgery successfully replaced attention layers
+    and confirms that quantization actively alters internal activations by
+    computing MSE and max absolute difference on a sample forward pass.
+    """
+    if model_fp32 is None or model_quant is None:
+        return
+        
+    print(f"\n  [Sanity Check] Verifying dynamic quantization surgery & activation diff...")
+    replaced_backbone = 0
+    replaced_temporal = 0
+    for name, module in model_quant.named_modules():
+        if module.__class__.__name__ == 'RotatedSelfAttention':
+            replaced_backbone += 1
+        elif module.__class__.__name__ == 'RotatedTemporalAttention':
+            replaced_temporal += 1
+            
+    print(f"    -> Verified active surgical replacement: {replaced_backbone} backbone layers, {replaced_temporal} temporal layers.")
+    
+    with torch.no_grad():
+        out_fp32 = model_fp32(sample_input[:1]) # Test on first frame batch
+        out_q = model_quant(sample_input[:1])
+        
+    mse_diff = torch.mean((out_fp32 - out_q) ** 2).item()
+    max_diff = torch.max(torch.abs(out_fp32 - out_q)).item()
+    print(f"    -> Dynamic Activation Diff (FP32 vs Quantized): MSE = {mse_diff:.6e}, Max Abs Diff = {max_diff:.4f}")
+    if mse_diff < 1e-12:
+        print(f"    [Warning] Quantized activations are identical to FP32! Check quantizer parameters.")
+    else:
+        print(f"    [Success] Quantized forward pass actively modifying tensor computations.")
+
+# ============================================================
 # PARETO CURVE & CHARTS GENERATOR
 # ============================================================
 def generate_pareto_charts(results: dict, output_dir: Path):
@@ -308,7 +343,7 @@ def main():
     parser = argparse.ArgumentParser(description="VDA-HyperQuant Multi-Dataset Pareto Evaluation")
     parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "all"], help="Target benchmark dataset")
     parser.add_argument("--bits", nargs="+", type=int, default=[8, 4, 3, 2], help="Quantization bit-widths to sweep")
-    parser.add_argument("--max-samples", type=int, default=5, help="Number of video frames per dataset")
+    parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
     parser.add_argument("--output-dir", type=str, default="outputs/pareto_results", help="Directory to save benchmark reports and charts")
     parser.add_argument("--test-mode", action="store_true", help="Run fast verification test")
     args = parser.parse_args()
@@ -338,6 +373,24 @@ def main():
         from video_depth_anything.video_depth import VideoDepthAnything
         model_configs = {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]}
         model = VideoDepthAnything(**model_configs).eval()
+        
+        # Check for official VDA checkpoint weights if available
+        possible_ckpts = [
+            REPO_ROOT / "checkpoints" / "video_depth_anything_vits.pth",
+            REPO_ROOT / "video_depth_anything_vits.pth",
+            Path("/content/video_depth_anything_vits.pth"),
+            Path("/content/vdaquant/checkpoints/video_depth_anything_vits.pth")
+        ]
+        ckpt_loaded = False
+        for ckpt_path in possible_ckpts:
+            if ckpt_path.exists():
+                print(f"  [Model] Loading pretrained weights from {ckpt_path}...")
+                model.load_state_dict(torch.load(ckpt_path, map_location='cpu'))
+                ckpt_loaded = True
+                break
+        if not ckpt_loaded:
+            print("  [Model] Note: No local checkpoint .pth found. Using base model weights for rate-distortion evaluation.")
+
         if torch.cuda.is_available():
             model = model.cuda()
         else:
@@ -369,36 +422,61 @@ def main():
 
         # 1. Run FP32 Baseline
         print("  [1/5] Running FP32 Reference Baseline...")
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+            torch.cuda.synchronize()
         t0 = time.time()
         if model is not None:
             with torch.no_grad():
                 fp32_out = model(video_input)
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
             fps = len(frames) / max(time.time() - t0, 1e-4)
         else:
             fp32_out = torch.randn((len(frames), 266, 266)).abs()
             fps = 14.5
 
+        peak_mem_mb = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
         fp32_metrics = compute_academic_metrics(fp32_out, fp32_out) # Baseline self-comparison
         fp32_metrics["fps"] = round(fps, 1)
         fp32_metrics["mem_savings_x"] = 1.0
+        fp32_metrics["measured_mem_mb"] = peak_mem_mb
         dataset_results["FP32_Baseline"] = fp32_metrics
+        print(f"        -> Baseline FPS: {fp32_metrics['fps']} | Measured Peak Memory: {peak_mem_mb} MB")
 
         # 2. Sweep Quantization Bit-Widths
         for idx, bit in enumerate(args.bits):
             print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-HyperQuant Surgery ({bit}-bit lattice_d4)...")
-            t0 = time.time()
             if model is not None:
                 # Reload clean FP32 model for clean surgery
                 model_quant = VideoDepthAnything(**model_configs).eval()
+                if ckpt_loaded:
+                    for ckpt_path in possible_ckpts:
+                        if ckpt_path.exists():
+                            model_quant.load_state_dict(torch.load(ckpt_path, map_location='cpu'))
+                            break
+                else:
+                    model_quant.load_state_dict(model.state_dict())
+
                 if torch.cuda.is_available():
                     model_quant = model_quant.cuda()
-                model_quant.load_state_dict(model.state_dict())
                 
                 model_quant = apply_rotated_quantization_to_vda(
                     model_quant, bits=bit, quantizer='lattice_d4', use_qjl=True, verbose=False
                 )
+                
+                # Perform dynamic surgery verification on first bit-width sweep
+                if idx == 0:
+                    verify_quantization_surgery(model, model_quant, video_input)
+
+                if torch.cuda.is_available():
+                    torch.cuda.reset_peak_memory_stats()
+                    torch.cuda.synchronize()
+                t0 = time.time()
                 with torch.no_grad():
                     q_out = model_quant(video_input)
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
                 fps_q = len(frames) / max(time.time() - t0, 1e-4)
             else:
                 # Simulated degradation for offline verification
@@ -406,35 +484,44 @@ def main():
                 q_out = fp32_out + torch.randn_like(fp32_out) * noise_level
                 fps_q = 15.5
 
+            peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)
             metrics["mem_savings_x"] = round(32.0 / bit, 1)
+            metrics["measured_mem_mb"] = peak_mem_mb_q
             dataset_results[f"{bit}bit"] = metrics
-            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({metrics['mem_savings_x']}x mem)")
+            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({metrics['mem_savings_x']}x KV mem | {peak_mem_mb_q} MB)")
 
         all_results[dataset_name] = dataset_results
 
     # Export JSON Report
     json_path = output_dir / "pareto_benchmark_results.json"
     with open(json_path, "w") as f:
-        json.dump({"results": all_results, "baselines": PUBLISHED_BASELINES}, f, indent=2)
+        json.dump({
+            "results": all_results,
+            "baselines": PUBLISHED_BASELINES,
+            "note": "PyTorch simulated quantization runtime (quantize -> dequantize -> FP32 matmul). Python overhead dominates FPS; memory savings represent theoretical KV-cache compression alongside measured PyTorch allocations."
+        }, f, indent=2)
     print(f"\n  [Export] Full Pareto numerical results saved to {json_path}")
 
     # Generate Publication Charts
     generate_pareto_charts(all_results, output_dir)
 
     # Print Summary Table
-    print(f"\n{'=' * 80}")
+    print(f"\n{'=' * 95}")
     print(f"  PARETO BENCHMARK SUMMARY TABLE (ViT-Small)")
-    print(f"{'=' * 80}")
-    print(f"Dataset   | Bit-Width | δ < 1.25 ↑ | AbsRel ↓ | RMSE ↓   | Pearson ↑ | Memory   | FPS")
-    print(f"{'-' * 80}")
+    print(f"{'=' * 95}")
+    print(f"Dataset   | Bit-Width | δ < 1.25 ↑ | AbsRel ↓ | RMSE ↓   | Pearson ↑ | KV Savings | Measured Mem | FPS")
+    print(f"{'-' * 95}")
     for d_name, d_res in all_results.items():
         for b_name, m in d_res.items():
             b_label = f"{b_name:<9}"
-            print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {m['pearson']:<9} | {m['mem_savings_x']:<4}x   | {m['fps']}")
-        print(f"{'-' * 80}")
-    print(f"{'=' * 80}\n")
+            mem_meas = f"{m.get('measured_mem_mb', 0.0)} MB"
+            print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {m['pearson']:<9} | {m['mem_savings_x']:<4}x       | {mem_meas:<12} | {m['fps']}")
+        print(f"{'-' * 95}")
+    print(f"{'=' * 95}")
+    print("  * Note: FPS timed with torch.cuda.synchronize(). Quantized FPS reflects PyTorch simulated quant/dequant")
+    print("    Python overhead (rate-distortion evaluation mode), whereas KV Savings represent theoretical memory compression.\n")
 
 if __name__ == "__main__":
     main()
