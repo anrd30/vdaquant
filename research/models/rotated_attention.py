@@ -377,7 +377,7 @@ def apply_rotated_quantization_to_vda(
     if replace_temporal:
         # Replace DPT temporal CrossAttention layers
         for name, module in model.named_modules():
-            if module.__class__.__name__ in ('CrossAttention', 'MockCrossAttention'):
+            if module.__class__.__name__ in ('CrossAttention', 'MockCrossAttention', 'TemporalAttention'):
                 parent_name = '.'.join(name.split('.')[:-1])
                 attr_name = name.split('.')[-1]
 
@@ -407,7 +407,7 @@ def apply_rotated_quantization_to_vda(
                         new_cross.k_proj.weight.data.copy_(old_cross.to_k.weight.data)
                         new_cross.v_proj.weight.data.copy_(old_cross.to_v.weight.data)
                     if hasattr(old_cross, 'to_out'):
-                        out_layer = old_cross.to_out[0] if isinstance(old_cross.to_out, nn.Sequential) else old_cross.to_out
+                        out_layer = old_cross.to_out[0] if isinstance(old_cross.to_out, (nn.Sequential, nn.ModuleList)) else old_cross.to_out
                         new_cross.out_proj.weight.data.copy_(out_layer.weight.data)
                         if out_layer.bias is not None:
                             new_cross.out_proj.bias.data.copy_(out_layer.bias.data)
