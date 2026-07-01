@@ -124,7 +124,7 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
         "sintel": {
             "type": "zip",
             "url": "http://files.is.tue.mpg.de/sintel/MPI-Sintel-testing.zip",
-            "match_str": "test/clean/alley_1"
+            "match_str": "alley_1"
         },
         "davis": {
             "type": "video",
