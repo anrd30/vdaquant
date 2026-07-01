@@ -554,7 +554,8 @@ def main():
                     model_quant = model_quant.cuda()
                 
                 model_quant = apply_rotated_quantization_to_vda(
-                    model_quant, bits=bit, quantizer='lattice_d4', use_qjl=True, verbose=False
+                    model_quant, bits=bit, quantizer='lattice_d4', use_qjl=True, verbose=False,
+                    replace_temporal=False  # Only replace DinoV2 backbone attention (temporal uses incompatible reshape)
                 )
                 
                 # Perform dynamic surgery verification on first bit-width sweep
