@@ -166,7 +166,7 @@ def test_qjl_bias_correction():
     Q_rot = rot(Q)
     K_rot = rot(K)
 
-    # True scores
+    # True scores (using unquantized K)
     true_scores = Q_rot @ K_rot.transpose(-2, -1)
 
     # Quantized scores (no correction)
@@ -174,17 +174,18 @@ def test_qjl_bias_correction():
     quant_scores = Q_rot @ K_q.transpose(-2, -1)
 
     # QJL-corrected scores
-    _, K_signs = qjl.encode(K_rot, K_q)
-    corrected_scores = qjl.correct_scores(quant_scores, Q_rot, K_signs)
+    K_error_signs, K_error_norms = qjl.encode(K_rot, K_q)
+    corrected_scores = qjl.correct_scores(quant_scores, Q_rot, K_error_signs, K_error_norms)
 
     error_before = (true_scores - quant_scores).abs().mean().item()
     error_after = (true_scores - corrected_scores).abs().mean().item()
+    improvement = (1 - error_after / error_before) * 100
 
-    status = "✓" if error_after <= error_before else "~"
+    status = "✓" if improvement > 0 else "✗"
     print(f"\n  {status} QJL bias correction @ 3-bit:")
     print(f"    Score error before QJL: {error_before:.4f}")
     print(f"    Score error after QJL:  {error_after:.4f}")
-    print(f"    Improvement: {(1 - error_after/error_before)*100:.1f}%")
+    print(f"    Improvement: {improvement:.1f}%")
 
 def test_rotated_self_attention():
     """Verify RotatedSelfAttention runs end-to-end."""

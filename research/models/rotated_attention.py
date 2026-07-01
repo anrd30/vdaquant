@@ -166,8 +166,8 @@ class RotatedSelfAttention(nn.Module):
 
         # Step 5: QJL bias correction (if enabled)
         if self.qjl is not None and self.training is False:
-            _, K_error_signs = self.qjl.encode(K_rot, K_q)
-            attn = self.qjl.correct_scores(attn, Q_rot, K_error_signs)
+            K_error_signs, K_error_norms = self.qjl.encode(K_rot, K_q)
+            attn = self.qjl.correct_scores(attn, Q_rot, K_error_signs, K_error_norms)
 
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
@@ -292,8 +292,8 @@ class RotatedTemporalAttention(nn.Module):
         attn = (Q_rot @ K_q.transpose(-2, -1)) * self.scale
 
         if self.qjl is not None and not self.training:
-            _, K_signs = self.qjl.encode(K_rot, K_q)
-            attn = self.qjl.correct_scores(attn, Q_rot, K_signs)
+            K_signs, K_norms = self.qjl.encode(K_rot, K_q)
+            attn = self.qjl.correct_scores(attn, Q_rot, K_signs, K_norms)
 
         attn = attn.softmax(dim=-1)
         out_rot = attn @ V_q

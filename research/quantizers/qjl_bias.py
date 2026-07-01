@@ -1,34 +1,38 @@
 """
 Quantized Johnson-Lindenstrauss (QJL) Bias Correction.
 
-When we quantize Key and Value vectors in the attention mechanism,
-the quantization error introduces BIAS into the attention scores:
-    score = Q @ K^T  →  score_q = Q @ quant(K)^T ≠ Q @ K^T
+When we quantize Key vectors in the attention mechanism, the quantization
+error introduces BIAS into the attention scores:
 
-This bias causes systematic errors in the softmax distribution,
-leading to incorrect attention weights and degraded depth predictions.
+    True score:  s[i,j] = Q[i] · K[j]
+    Quant score: s_q[i,j] = Q[i] · K_q[j] = Q[i] · (K[j] - ε_K[j])
+    Bias:        s_q[i,j] - s[i,j] = -Q[i] · ε_K[j]
 
-QJL Bias Correction fixes this by maintaining a 1-bit "error signature"
-alongside each quantized vector. During attention computation, this
-signature is used to estimate and subtract the quantization bias,
-yielding UNBIASED attention scores at the cost of only 1 extra bit
-per dimension.
+where ε_K = K - K_q is the quantization error.
 
-Mathematical Foundation:
-    The Johnson-Lindenstrauss lemma states that random projections
-    preserve inner products in expectation. By projecting the
-    quantization error onto a random 1-bit vector, we can estimate
-    the bias term:
-        bias_estimate = (1/m) · sign(R · ε_K)^T · sign(R · ε_Q)
-    where ε_K = K - quant(K) is the quantization error and R is a
-    random projection matrix.
+This bias causes systematic errors in the softmax distribution, leading
+to incorrect attention weights and degraded depth predictions.
 
-    The corrected attention score is:
-        score_corrected = Q_q @ K_q^T - bias_estimate
+QJL Bias Correction estimates and removes this bias using:
+1. The ERROR NORMS ||ε_K[j]|| (stored as float16, cheap)
+2. The ERROR SIGNS sign(R · ε_K[j]) (stored as 1 bit each)
+
+Corrected score:
+    s_corrected[i,j] = s_q[i,j] + ||Q[i]|| · ||ε_K[j]|| · corr(i,j)
+where:
+    corr(i,j) = (1/m) · sign(R·Q[i])^T · sign(R·ε_K[j])
+    ≈ cos(angle between Q[i] and ε_K[j])
+
+This makes the correction MAGNITUDE-AWARE: it scales with how big
+the query and quantization error actually are.
+
+Memory Cost:
+    Per K vector: m bits (signs) + 16 bits (norm) ≈ (m+16) bits
+    For m=32, d=64: 48 bits vs 2048 bits (FP32) = 42x savings
 
 References:
     [1] TurboQuant, Section 4 (QJL for unbiased attention), Google 2026
-    [2] Achlioptas, "Database-friendly Random Projections", 2003
+    [2] Johnson & Lindenstrauss, 1984; Achlioptas, 2003
 """
 
 import torch
@@ -39,118 +43,134 @@ from typing import Optional, Tuple
 
 class QJLBiasCorrection(nn.Module):
     """
-    1-bit Quantized Johnson-Lindenstrauss (QJL) bias correction module.
+    Magnitude-aware 1-bit QJL bias correction for quantized attention.
 
-    For each quantized Key/Value vector, this module:
-    1. Computes the quantization error: ε = x - quant(x)
-    2. Projects the error onto a random matrix R: ε_proj = R @ ε
-    3. Stores only the SIGN of the projection: s = sign(ε_proj) (1 bit each!)
-    4. During attention, uses these 1-bit signatures to estimate and
-       remove the quantization-induced bias from dot-product scores.
+    Stores two things per quantized K vector:
+    1. error_signs: sign(R · ε_K) ∈ {-1, +1}^m  (m bits)
+    2. error_norms: ||ε_K|| ∈ ℝ                   (16 bits, float16)
 
-    Memory Cost:
-        Only 1 bit per dimension per vector (e.g., for d=384 ViT-Small,
-        this is 48 bytes per KV vector — negligible compared to the
-        full FP32 cost of 1536 bytes).
+    During attention, estimates the bias Q·ε_K using:
+        bias_est[i,j] = ||Q[i]|| · ||ε_K[j]|| · (1/m) · sign(R·Q)^T · sign(R·ε_K)
 
     Usage:
-        qjl = QJLBiasCorrection(dim=384, n_projections=64)
+        qjl = QJLBiasCorrection(dim=64, n_projections=32)
 
-        # During KV cache storage:
-        K_quant, K_error_sign = qjl.encode(K_original, K_quantized)
+        # Encode: store error metadata alongside quantized K
+        error_signs, error_norms = qjl.encode(K_original, K_quantized)
 
-        # During attention:
-        attn_scores = Q @ K_quant.T
-        attn_corrected = qjl.correct_scores(attn_scores, Q, K_error_sign)
+        # Correct: fix attention scores
+        attn_corrected = qjl.correct_scores(attn_raw, Q, error_signs, error_norms)
     """
 
     def __init__(self, dim: int, n_projections: Optional[int] = None):
         """
         Args:
-            dim: Feature dimension of K/V vectors (e.g., 384 for ViT-Small).
-            n_projections: Number of random projections for error estimation.
-                           More projections = more accurate correction but
-                           higher memory. Default: dim // 4.
+            dim: Feature dimension of K/V vectors (e.g., 64 for ViT head_dim).
+            n_projections: Number of random projections (m). More = better
+                           estimate but more memory. Default: dim // 2.
+                           Rule of thumb: m ≥ 4·log(n_tokens) for good estimates.
         """
         super().__init__()
         self.dim = dim
-        self.n_proj = n_projections or max(dim // 4, 16)
+        # For small dims (ViT head_dim=64), we need many more projections
+        # than for LLM dims (d=1024+) because the sign-correlation estimator
+        # has higher variance at low d. Use 4x for d≤128, 2x for d≤256.
+        if n_projections is None:
+            if dim <= 128:
+                self.n_proj = dim * 4
+            elif dim <= 256:
+                self.n_proj = dim * 2
+            else:
+                self.n_proj = dim
+        else:
+            self.n_proj = n_projections
 
-        # Random projection matrix R ∈ {-1/√m, +1/√m}^{m×d}
-        # Using Rademacher (±1) entries scaled by 1/√m
-        R = (torch.randint(0, 2, (self.n_proj, dim)).float() * 2 - 1) / math.sqrt(self.n_proj)
+        # Random projection matrix R ∈ {-1, +1}^{m×d} (Rademacher)
+        # NOT scaled by 1/√m here — we handle scaling in correct_scores
+        R = torch.randint(0, 2, (self.n_proj, dim)).float() * 2 - 1
         self.register_buffer('R', R)
 
     def encode(
         self, x_original: torch.Tensor, x_quantized: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Compute the 1-bit error signature for a batch of vectors.
+        Compute the error signature (signs + norms) for quantized vectors.
 
         Args:
             x_original: Original (unquantized) tensor, shape (..., dim).
             x_quantized: Quantized tensor, same shape.
 
         Returns:
-            (x_quantized, error_signs) where error_signs has shape
-            (..., n_projections) with entries in {-1, +1}.
+            error_signs: shape (..., n_projections) with entries in {-1, +1}
+            error_norms: shape (..., 1) with ||ε|| per vector
         """
         # Quantization error
         epsilon = x_original - x_quantized  # (..., dim)
+
+        # Store the L2 norm of each error vector (cheap: 1 float per vector)
+        error_norms = epsilon.norm(dim=-1, keepdim=True)  # (..., 1)
 
         # Project error onto random directions: ε @ R^T → (..., n_proj)
         error_proj = epsilon @ self.R.T
 
         # Store only the sign (1 bit per projection)
         error_signs = error_proj.sign()
+        error_signs[error_signs == 0] = 1.0  # Break ties consistently
 
-        # Replace zeros with +1 (arbitrary but consistent)
-        error_signs[error_signs == 0] = 1.0
-
-        return x_quantized, error_signs
+        return error_signs, error_norms
 
     def correct_scores(
         self,
         attn_scores: torch.Tensor,
         Q: torch.Tensor,
         K_error_signs: torch.Tensor,
+        K_error_norms: torch.Tensor,
     ) -> torch.Tensor:
         """
         Correct quantization bias in attention scores.
 
-        The bias in Q @ K_quant^T comes from the inner product between
-        Q and the quantization error ε_K. We estimate this bias using
-        the 1-bit error signatures.
+        The bias is:  bias[i,j] = -Q[i] · ε_K[j]
 
-        Correction formula:
-            bias_estimate[i,j] ≈ (||Q_i|| · ||ε_K_j||) / √m · sign(R·Q_i)^T · sign(R·ε_K_j)
+        We estimate it as:
+            bias_est[i,j] = ||Q[i]|| · ||ε_K[j]|| · cosine_est(i,j)
 
-        For simplicity (and following TurboQuant), we use the
-        sign-correlation estimator:
-            correction[i,j] = (1/m) · (Q_i @ R^T).sign()^T @ K_error_signs[j]
+        where cosine_est uses the sign-correlation:
+            cosine_est(i,j) = (1/m) · sign(R·Q[i])^T · sign(R·ε_K[j])
+
+        Then: corrected[i,j] = attn_scores[i,j] + bias_est[i,j]
+        (We ADD because the bias was -Q·ε, so we're undoing the subtraction)
 
         Args:
-            attn_scores: Raw attention scores Q @ K_q^T, shape (..., n_q, n_k).
+            attn_scores: Raw Q @ K_q^T scores, shape (..., n_q, n_k).
             Q: Query vectors, shape (..., n_q, dim).
-            K_error_signs: Error signatures from encode(), shape (..., n_k, n_proj).
+            K_error_signs: From encode(), shape (..., n_k, n_proj).
+            K_error_norms: From encode(), shape (..., n_k, 1).
 
         Returns:
-            Corrected attention scores, same shape as attn_scores.
+            Corrected attention scores, same shape.
         """
-        # Project queries onto same random directions
+        # Query norms: ||Q[i]||
+        Q_norms = Q.norm(dim=-1, keepdim=True)  # (..., n_q, 1)
+
+        # Project queries and take sign
         Q_proj_sign = (Q @ self.R.T).sign()  # (..., n_q, n_proj)
+        Q_proj_sign[Q_proj_sign == 0] = 1.0
 
-        # Estimate bias: (1/m) · sign(R·Q)^T · sign(R·ε_K)
-        # Q_proj_sign: (..., n_q, n_proj)
-        # K_error_signs: (..., n_k, n_proj)
-        bias_estimate = (Q_proj_sign @ K_error_signs.transpose(-2, -1)) / self.n_proj
+        # Sign-correlation: approximate cosine similarity between Q and ε_K
+        # (..., n_q, n_proj) @ (..., n_proj, n_k) → (..., n_q, n_k)
+        cosine_est = (Q_proj_sign @ K_error_signs.transpose(-2, -1)) / self.n_proj
 
-        # Scale by estimated error magnitude
-        # (We use a simple global scaling factor based on typical quantization error)
-        # In practice, this scaling is absorbed into the softmax temperature
-        corrected = attn_scores - bias_estimate
+        # Scale by norms: ||Q[i]|| · ||ε_K[j]||
+        # Q_norms: (..., n_q, 1),  K_error_norms: (..., n_k, 1) → need (..., 1, n_k)
+        norm_scale = Q_norms * K_error_norms.transpose(-2, -1)  # (..., n_q, n_k)
+
+        # Full bias estimate
+        bias_estimate = norm_scale * cosine_est
+
+        # ADD back the estimated bias (because quant removed Q·ε_K)
+        corrected = attn_scores + bias_estimate
 
         return corrected
 
     def extra_repr(self) -> str:
-        return f"dim={self.dim}, n_projections={self.n_proj}, cost=1bit/dim"
+        return f"dim={self.dim}, n_projections={self.n_proj}, cost={self.n_proj}bits+16bits/vector"
