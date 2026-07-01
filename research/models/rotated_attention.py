@@ -286,6 +286,9 @@ class RotatedTemporalAttention(nn.Module):
         query_input = hidden_states
         context_input = encoder_hidden_states if encoder_hidden_states is not None else hidden_states
 
+        orig_b_f = hidden_states.shape[0] if hidden_states is not None else None
+        orig_d_tokens = hidden_states.shape[1] if hidden_states is not None else None
+
         # Handle VDA temporal sequence formatting (rearrange across frames)
         d_in = 0
         input_hidden_states = hidden_states
@@ -352,10 +355,10 @@ class RotatedTemporalAttention(nn.Module):
             out = self.to_out[1](out)
 
         if is_vda_temporal:
-            # Reshape back from (b d) f c -> (b f) d c
+            # Reshape back from (b d) f c -> (b f) d c using exact original token and batch counts
             bd_size, f_len, c_dim = out.shape
-            d_tokens = input_hidden_states.shape[0] // (bd_size // (video_length or 1)) if (video_length or 1) > 0 else bd_size
-            b_size = bd_size // d_tokens
+            b_size = orig_b_f // f_len if orig_b_f is not None and f_len > 0 else bd_size // (orig_d_tokens or 1)
+            d_tokens = orig_d_tokens if orig_d_tokens is not None else bd_size // (b_size or 1)
             out = out.reshape(b_size, d_tokens, f_len, c_dim).permute(0, 2, 1, 3).reshape(b_size * f_len, d_tokens, c_dim)
             return out, input_hidden_states
 
