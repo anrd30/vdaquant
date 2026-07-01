@@ -347,7 +347,7 @@ def apply_rotated_quantization_to_vda(
         for name, module in model.named_modules():
             # Look for attention modules in DinoV2 blocks
             if hasattr(module, 'attn') and module.attn.__class__.__name__ in (
-                'MemEffAttention', 'QuantizableAttention'
+                'MemEffAttention', 'QuantizableAttention', 'MockMemEffAttention'
             ):
                 old_attn = module.attn
                 dim = old_attn.qkv.in_features
@@ -377,7 +377,7 @@ def apply_rotated_quantization_to_vda(
     if replace_temporal:
         # Replace DPT temporal CrossAttention layers
         for name, module in model.named_modules():
-            if module.__class__.__name__ == 'CrossAttention':
+            if module.__class__.__name__ in ('CrossAttention', 'MockCrossAttention'):
                 parent_name = '.'.join(name.split('.')[:-1])
                 attr_name = name.split('.')[-1]
 
