@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.virtual_documents/
+*.log
+outputs/
+calib_data/
+benchmark_data/
+checkpoints/
+.vscode/
+.idea/
+*.encodings
+*.onnx
+*.pth
+*.pkl
