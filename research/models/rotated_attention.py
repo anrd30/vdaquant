@@ -469,6 +469,11 @@ def apply_rotated_quantization_to_vda(
                         if out_layer.bias is not None:
                             new_cross.out_proj.bias.data.copy_(out_layer.bias.data)
 
+                    if hasattr(old_cross, 'pos_encoder'):
+                        new_cross.pos_encoder = old_cross.pos_encoder
+                    if hasattr(old_cross, 'group_norm'):
+                        new_cross.group_norm = old_cross.group_norm
+
                     setattr(parent, attr_name, new_cross)
                     n_temporal += 1
 
