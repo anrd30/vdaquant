@@ -440,15 +440,45 @@ def main():
             Path("/content/video_depth_anything_vits.pth"),
             Path("/content/vdaquant/checkpoints/video_depth_anything_vits.pth")
         ]
-        ckpt_loaded = False
         for ckpt_path in possible_ckpts:
             if ckpt_path.exists():
-                print(f"  [Model] Loading pretrained weights from {ckpt_path}...")
-                model.load_state_dict(torch.load(ckpt_path, map_location='cpu'))
-                ckpt_loaded = True
-                break
+                if ckpt_path.stat().st_size < 10_000_000:
+                    print(f"  [Model] Removing corrupt/incomplete checkpoint file {ckpt_path}...")
+                    try:
+                        ckpt_path.unlink()
+                    except Exception:
+                        pass
+                    continue
+                try:
+                    print(f"  [Model] Loading pretrained weights from {ckpt_path}...")
+                    model.load_state_dict(torch.load(ckpt_path, map_location='cpu'))
+                    ckpt_loaded = True
+                    break
+                except Exception as e:
+                    print(f"  [Warning] Failed to load checkpoint {ckpt_path} ({e}). Removing corrupt file...")
+                    try:
+                        ckpt_path.unlink()
+                    except Exception:
+                        pass
         if not ckpt_loaded:
-            print("  [Model] Note: No local checkpoint .pth found. Using base model weights for rate-distortion evaluation.")
+            print("  [Model] No valid checkpoint .pth found. Automatically downloading official pretrained VDA weights (~111MB)...")
+            try:
+                import urllib.request
+                ckpt_url = "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth"
+                save_ckpt_path = REPO_ROOT / "checkpoints" / "video_depth_anything_vits.pth"
+                save_ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+                req = urllib.request.Request(ckpt_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=60) as response, open(save_ckpt_path, 'wb') as out_file:
+                    while True:
+                        chunk = response.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        out_file.write(chunk)
+                model.load_state_dict(torch.load(save_ckpt_path, map_location='cpu'))
+                ckpt_loaded = True
+                print(f"  [Success] Downloaded and loaded pretrained weights to {save_ckpt_path}")
+            except Exception as e:
+                print(f"  [Warning] Could not auto-download checkpoint ({e}). Using base model weights for rate-distortion evaluation.")
 
         if torch.cuda.is_available():
             model = model.cuda()
