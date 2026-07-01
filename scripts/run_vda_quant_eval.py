@@ -61,7 +61,7 @@ def download_sample_resources():
         
     if not os.path.exists(frame_path):
         print("Downloading sample frame...")
-        url = "https://raw.githubusercontent.com/LiheYoung/Depth-Anything/main/assets/demo1.png"
+        url = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/City_grid_street_lights.jpg/640px-City_grid_street_lights.jpg"
         os.system(f"wget -q -O {frame_path} {url}")
 
 
@@ -91,16 +91,34 @@ def run_eval(args):
     
     # 2. Prepare sample frames (simulate video sequence)
     print("\n[2/4] Preparing input video frames...")
-    # Load frame and repeat to simulate a 10-frame video
     frame_path = "outputs/sample_frame.jpg"
+    
+    frame_np = None
     if os.path.exists(frame_path):
-        img = Image.open(frame_path).convert('RGB')
-        frame_np = np.array(img)
-        frames = [frame_np] * args.num_frames
-    else:
-        # Fallback to random noise
-        print("No sample frame found. Using random noise.")
-        frames = [np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)] * args.num_frames
+        try:
+            with Image.open(frame_path) as img:
+                frame_np = np.array(img.convert('RGB'))
+            print("Successfully loaded downloaded sample frame.")
+        except Exception as e:
+            print(f"Warning: Failed to parse downloaded image ({e}). Removing it.")
+            try:
+                os.remove(frame_path)
+            except:
+                pass
+                
+    if frame_np is None:
+        print("Generating a high-quality synthetic frame (color gradients) as fallback...")
+        # Create a 480x640 gradient image
+        h, w = 480, 640
+        y_grad = np.linspace(0, 255, h)[:, None, None]
+        x_grad = np.linspace(0, 255, w)[None, :, None]
+        synthetic = np.zeros((h, w, 3), dtype=np.uint8)
+        synthetic[:, :, 0] = y_grad.repeat(w, axis=1).squeeze(-1)
+        synthetic[:, :, 1] = x_grad.repeat(h, axis=0).squeeze(-1)
+        synthetic[:, :, 2] = (y_grad + x_grad).clip(0, 255).repeat(1, axis=-1).squeeze(-1)
+        frame_np = synthetic
+        
+    frames = [frame_np] * args.num_frames
         
     print(f"Running inference on {len(frames)} frames at resolution {args.input_size}x{args.input_size}...")
     
