@@ -130,16 +130,17 @@ class RotatedSelfAttention(nn.Module):
         else:
             self.qjl = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor = None, *args, **kwargs) -> torch.Tensor:
         """
         Forward pass with Hadamard-rotated quantized attention.
-
-        Args:
-            x: Input tensor of shape (B, N, C) where N = num_patches + 1.
-
-        Returns:
-            Output tensor of shape (B, N, C).
         """
+        if x is None and len(args) > 0:
+            x = args[0]
+        elif x is None:
+            x = kwargs.get('hidden_states', None)
+        if x is None:
+            x = kwargs.get('x', None)
+
         B, N, C = x.shape
         h = self.num_heads
         d = self.head_dim
@@ -242,6 +243,12 @@ class RotatedTemporalAttention(nn.Module):
         self.v_proj = nn.Linear(dim, dim, bias=qkv_bias)
         self.out_proj = nn.Linear(dim, dim)
 
+        # Aliases for VDA TemporalAttention compatibility
+        self.to_q = self.q_proj
+        self.to_k = self.k_proj
+        self.to_v = self.v_proj
+        self.to_out = nn.ModuleList([self.out_proj, nn.Dropout(0.0)])
+
         # Shared rotation for temporal consistency
         self.rotation = HadamardRotation(self.head_dim)
         self.k_quantizer = _get_quantizer(quantizer, bits)
@@ -253,33 +260,70 @@ class RotatedTemporalAttention(nn.Module):
 
     def forward(
         self,
-        query: torch.Tensor,
-        context: torch.Tensor,
-    ) -> torch.Tensor:
+        hidden_states: torch.Tensor = None,
+        encoder_hidden_states: torch.Tensor = None,
+        attention_mask: torch.Tensor = None,
+        video_length: int = None,
+        cached_hidden_states: torch.Tensor = None,
+        *args,
+        **kwargs,
+    ):
         """
         Temporal cross-attention with Hadamard-rotated quantized KV cache.
-
-        Args:
-            query: Current frame features, shape (B, N, C).
-            context: Previous frame(s) features, shape (B, M, C).
-
-        Returns:
-            Attended features, shape (B, N, C).
+        Supports both standard QKV calls and VDA DPT TemporalAttention calls.
         """
-        B, N, C = query.shape
-        M = context.shape[1]
+        # Resolve positional args if passed as query/context instead of hidden_states
+        if hidden_states is None and len(args) > 0:
+            hidden_states = args[0]
+        elif hidden_states is None:
+            hidden_states = kwargs.get('query', None)
+
+        if encoder_hidden_states is None and len(args) > 1:
+            encoder_hidden_states = args[1]
+        elif encoder_hidden_states is None:
+            encoder_hidden_states = kwargs.get('context', None)
+
+        query_input = hidden_states
+        context_input = encoder_hidden_states if encoder_hidden_states is not None else hidden_states
+
+        # Handle VDA temporal sequence formatting (rearrange across frames)
+        d_in = 0
+        input_hidden_states = hidden_states
+        is_vda_temporal = (video_length is not None or cached_hidden_states is not None)
+
+        if is_vda_temporal:
+            if cached_hidden_states is None and video_length is not None:
+                b_f, d_tokens, c_dim = hidden_states.shape
+                f_frames = video_length
+                b_size = b_f // f_frames
+                hidden_states = hidden_states.reshape(b_size, f_frames, d_tokens, c_dim).permute(0, 2, 1, 3).reshape(b_size * d_tokens, f_frames, c_dim)
+                input_hidden_states = hidden_states
+            elif cached_hidden_states is not None:
+                b_f, d_tokens, c_dim = hidden_states.shape
+                hidden_states = hidden_states.reshape(-1, 1, d_tokens, c_dim).permute(0, 2, 1, 3).reshape(-1, 1, c_dim)
+                input_hidden_states = hidden_states
+                d_in = cached_hidden_states.shape[1]
+                hidden_states = torch.cat([cached_hidden_states, hidden_states], dim=1)
+
+            if getattr(self, 'pos_encoder', None) is not None:
+                hidden_states = self.pos_encoder(hidden_states)
+            if getattr(self, 'group_norm', None) is not None:
+                hidden_states = self.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
+
+            query_input = hidden_states[:, d_in:, ...]
+            context_input = hidden_states
+
+        B, N, C = query_input.shape
+        M = context_input.shape[1]
         h = self.num_heads
         d = self.head_dim
 
-        # Project Q from current frame, K/V from context (previous frames)
-        Q = self.q_proj(query).reshape(B, N, h, d).transpose(1, 2)
-        K = self.k_proj(context).reshape(B, M, h, d).transpose(1, 2)
-        V = self.v_proj(context).reshape(B, M, h, d).transpose(1, 2)
+        # Project Q from query, K/V from context
+        Q = self.q_proj(query_input).reshape(B, N, h, d).transpose(1, 2)
+        K = self.k_proj(context_input).reshape(B, M, h, d).transpose(1, 2)
+        V = self.v_proj(context_input).reshape(B, M, h, d).transpose(1, 2)
 
         # ═══ TEMPORAL-COUPLED ROTATION + QUANTIZATION ═══
-        # The same frozen rotation is applied to K/V of every frame,
-        # ensuring temporally consistent quantization grids.
-
         K_rot = self.rotation(K)
         V_rot = self.rotation(V)
 
@@ -304,6 +348,16 @@ class RotatedTemporalAttention(nn.Module):
         # Reshape and project
         out = out.transpose(1, 2).reshape(B, N, C)
         out = self.out_proj(out)
+        if hasattr(self, 'to_out') and isinstance(self.to_out, (nn.Sequential, nn.ModuleList)) and len(self.to_out) > 1:
+            out = self.to_out[1](out)
+
+        if is_vda_temporal:
+            # Reshape back from (b d) f c -> (b f) d c
+            bd_size, f_len, c_dim = out.shape
+            d_tokens = input_hidden_states.shape[0] // (bd_size // (video_length or 1)) if (video_length or 1) > 0 else bd_size
+            b_size = bd_size // d_tokens
+            out = out.reshape(b_size, d_tokens, f_len, c_dim).permute(0, 2, 1, 3).reshape(b_size * f_len, d_tokens, c_dim)
+            return out, input_hidden_states
 
         return out
 
