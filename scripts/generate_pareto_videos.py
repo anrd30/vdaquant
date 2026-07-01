@@ -146,13 +146,15 @@ def main():
         print(f"\n━━━ Generating Visual Comparison Video: {dataset_name.upper()} ━━━")
         frames = get_dataset_samples(dataset_name, data_dir, max_samples=args.max_samples)
         
-        # Prepare tensor sequence [1, T, C, H, W]
+        # Prepare tensor sequence [1, T, C, H, W] with ImageNet normalization for DINOv2
         frame_tensors = []
         rgb_resized = []
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
         for f in frames:
             img_res = np.array(Image.fromarray(f).resize((266, 266)))
             rgb_resized.append(img_res)
-            tensor = torch.from_numpy(img_res).float().permute(2, 0, 1) / 255.0
+            tensor = (torch.from_numpy(img_res).float().permute(2, 0, 1) / 255.0 - mean) / std
             frame_tensors.append(tensor)
         video_input = torch.stack(frame_tensors, dim=0).unsqueeze(0) # [1, T, C, H, W]
         if torch.cuda.is_available():
