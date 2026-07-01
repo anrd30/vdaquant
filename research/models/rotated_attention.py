@@ -126,7 +126,7 @@ class RotatedSelfAttention(nn.Module):
         self.k_quantizer = _get_quantizer(quantizer, bits)
         self.v_quantizer = _get_quantizer(quantizer, bits)
         if use_qjl:
-            self.qjl = QJLBiasCorrection(self.head_dim)
+            self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
             self.qjl = None
 
@@ -254,7 +254,7 @@ class RotatedTemporalAttention(nn.Module):
         self.k_quantizer = _get_quantizer(quantizer, bits)
         self.v_quantizer = _get_quantizer(quantizer, bits)
         if use_qjl:
-            self.qjl = QJLBiasCorrection(self.head_dim)
+            self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
             self.qjl = None
 
