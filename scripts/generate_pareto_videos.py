@@ -91,6 +91,7 @@ def main():
             Path("/content/video_depth_anything_vits.pth"),
             Path("/content/vdaquant/checkpoints/video_depth_anything_vits.pth")
         ]
+        ckpt_loaded = False
         for ckpt_path in possible_ckpts:
             if ckpt_path.exists():
                 if ckpt_path.stat().st_size < 10_000_000:
