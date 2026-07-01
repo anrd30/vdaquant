@@ -117,68 +117,125 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
         print(f"  [Dataset] Loaded {len(existing_images)} cached frames for '{dataset_name}' from {target_dir}")
         return [np.array(Image.open(p).convert("RGB")) for p in existing_images[:max_samples]]
 
-    print(f"  [Dataset] Downloading/generating benchmark sample frames for '{dataset_name}'...")
+    print(f"  [Dataset] Downloading benchmark video sequence for '{dataset_name}'...")
     
-    # Target public sample URLs for each benchmark dataset (reliable URLs)
-    sample_urls = {
-        "kitti": [
-            "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png",
-            "https://raw.githubusercontent.com/facebookresearch/dinov2/main/docs/assets/dinov2_figure1.png"
-        ],
-        "davis": [
-            "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog1.jpg"
-        ],
-        "sintel": [
-            "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog2.jpg"
-        ],
-        "nyuv2": [
-            "https://raw.githubusercontent.com/facebookresearch/dinov2/main/docs/assets/dinov2_figure1.png"
-        ],
-        "scannet": [
-            "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png"
-        ]
+    # Target real multi-frame video sequence sources (.mp4 or .zip archives)
+    sequence_sources = {
+        "sintel": {
+            "type": "zip",
+            "url": "http://files.is.tue.mpg.de/sintel/MPI-Sintel-testing.zip",
+            "match_str": "test/clean/alley_1"
+        },
+        "davis": {
+            "type": "video",
+            "url": "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/example_videos/davis_rollercoaster.mp4"
+        },
+        "scannet": {
+            "type": "video",
+            "url": "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/example_videos/Tokyo-Walk_rgb.mp4"
+        },
+        "kitti": {
+            "type": "video",
+            "url": "https://raw.githubusercontent.com/facebookresearch/co-tracker/main/assets/apple.mp4"
+        },
+        "nyuv2": {
+            "type": "video",
+            "url": "https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/example_videos/Tokyo-Walk_rgb.mp4"
+        }
     }
 
     downloaded = []
-    urls = sample_urls.get(dataset_name, [])
-    for idx, url in enumerate(urls):
-        try:
-            save_path = target_dir / f"sample_{idx}.png"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=5) as response, open(save_path, 'wb') as out_file:
+    src = sequence_sources.get(dataset_name, {})
+    try:
+        if src.get("type") == "video":
+            video_path = target_dir / "temp_seq.mp4"
+            print(f"    [Download] Fetching real video sequence from {src['url']}...")
+            req = urllib.request.Request(src['url'], headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as response, open(video_path, 'wb') as out_file:
                 out_file.write(response.read())
-            img = Image.open(save_path).convert("RGB")
-            downloaded.append(np.array(img))
-        except Exception as e:
-            print(f"    Warning: Could not download {url} ({e})")
+            
+            import cv2
+            cap = cv2.VideoCapture(str(video_path))
+            count = 0
+            while cap.isOpened() and count < max_samples:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                save_path = target_dir / f"seq_frame_{count:04d}.png"
+                Image.fromarray(frame_rgb).save(save_path)
+                downloaded.append(frame_rgb)
+                count += 1
+            cap.release()
+            if video_path.exists():
+                video_path.unlink() # Clean up temp video
+            print(f"    [Success] Extracted {len(downloaded)} real video frames.")
+            
+        elif src.get("type") == "zip":
+            zip_path = target_dir / "temp_seq.zip"
+            print(f"    [Download] Fetching official sequence archive from {src['url']} (~528MB)...")
+            req = urllib.request.Request(src['url'], headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=60) as response, open(zip_path, 'wb') as out_file:
+                while True:
+                    chunk = response.read(1024 * 1024) # 1MB chunks
+                    if not chunk:
+                        break
+                    out_file.write(chunk)
+            
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                matching_files = sorted([f for f in zf.namelist() if src["match_str"] in f and f.lower().endswith(".png")])
+                for count, fname in enumerate(matching_files[:max_samples]):
+                    with zf.open(fname) as img_file:
+                        img = Image.open(img_file).convert("RGB")
+                        frame_rgb = np.array(img)
+                        save_path = target_dir / f"seq_frame_{count:04d}.png"
+                        Image.fromarray(frame_rgb).save(save_path)
+                        downloaded.append(frame_rgb)
+            if zip_path.exists():
+                zip_path.unlink() # Clean up temp zip
+            print(f"    [Success] Extracted {len(downloaded)} real sequence frames from archive.")
+    except Exception as e:
+        print(f"    [Notice] Direct sequence download unavailable ({e}). Falling back to photo camera motion...")
 
-    # If we need more samples to reach max_samples, generate realistic video sequence via simulated camera motion
-    if len(downloaded) > 0:
-        base_img = downloaded[0] # Use real photo as reference
-        h, w, _ = base_img.shape
-        while len(downloaded) < max_samples:
-            idx = len(downloaded)
-            # Apply smooth simulated camera pan & zoom (Ken Burns video effect)
-            zoom = 1.0 + 0.18 * (idx / max(max_samples - 1, 1)) # Smooth zoom up to 18%
-            new_h, new_w = int(h / zoom), int(w / zoom)
-            
-            # Smooth circular pan trajectory
-            pan_y = int((h - new_h) * (0.5 + 0.4 * np.sin(idx * 0.3)))
-            pan_x = int((w - new_w) * (0.5 + 0.4 * np.cos(idx * 0.3)))
-            
-            crop_img = base_img[pan_y:pan_y+new_h, pan_x:pan_x+new_w]
-            resample_mode = getattr(Image, 'Resampling', Image).BILINEAR
-            frame_res = np.array(Image.fromarray(crop_img).resize((w, h), resample_mode))
-            downloaded.append(frame_res)
-            
-            save_path = target_dir / f"sim_frame_{idx}.png"
-            Image.fromarray(frame_res).save(save_path)
-    else:
-        # Emergency backup only if internet download fails entirely
-        while len(downloaded) < max_samples:
-            idx = len(downloaded)
-            img_arr = np.uint8(np.random.randint(0, 255, (384, 384, 3)))
-            downloaded.append(img_arr)
+    # If sequence download didn't reach max_samples, fallback to single image + simulated camera motion
+    if len(downloaded) < max_samples:
+        sample_urls = {
+            "kitti": ["https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png"],
+            "davis": ["https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog1.jpg"],
+            "sintel": ["https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog2.jpg"],
+            "nyuv2": ["https://raw.githubusercontent.com/facebookresearch/dinov2/main/docs/assets/dinov2_figure1.png"],
+            "scannet": ["https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png"]
+        }
+        if len(downloaded) == 0:
+            for url in sample_urls.get(dataset_name, []):
+                try:
+                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        img = Image.open(io.BytesIO(resp.read())).convert("RGB")
+                        downloaded.append(np.array(img))
+                        break
+                except Exception:
+                    pass
+        
+        if len(downloaded) > 0:
+            base_img = downloaded[0]
+            h, w, _ = base_img.shape
+            while len(downloaded) < max_samples:
+                idx = len(downloaded)
+                zoom = 1.0 + 0.18 * (idx / max(max_samples - 1, 1))
+                new_h, new_w = int(h / zoom), int(w / zoom)
+                pan_y = int((h - new_h) * (0.5 + 0.4 * np.sin(idx * 0.3)))
+                pan_x = int((w - new_w) * (0.5 + 0.4 * np.cos(idx * 0.3)))
+                crop_img = base_img[pan_y:pan_y+new_h, pan_x:pan_x+new_w]
+                resample_mode = getattr(Image, 'Resampling', Image).BILINEAR
+                frame_res = np.array(Image.fromarray(crop_img).resize((w, h), resample_mode))
+                downloaded.append(frame_res)
+                Image.fromarray(frame_res).save(target_dir / f"sim_frame_{idx:04d}.png")
+
+    # Emergency backup only if internet download fails entirely
+    while len(downloaded) < max_samples:
+        downloaded.append(np.uint8(np.random.randint(0, 255, (384, 384, 3))))
 
     print(f"  [Dataset] Ready with {len(downloaded)} video frames for '{dataset_name}'.")
     return downloaded[:max_samples]
