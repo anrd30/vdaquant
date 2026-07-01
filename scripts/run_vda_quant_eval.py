@@ -40,21 +40,29 @@ def download_sample_resources():
     os.makedirs("checkpoints", exist_ok=True)
     os.makedirs("outputs", exist_ok=True)
     
-    # 1. Download ViT-Small checkpoint if missing
     ckpt_path = "checkpoints/video_depth_anything_vits.pth"
+    
+    # Check if checkpoint exists but is corrupted/empty (e.g. < 50MB)
+    if os.path.exists(ckpt_path) and os.path.getsize(ckpt_path) < 50 * 1024 * 1024:
+        print("Checkpoint file exists but is corrupted/incomplete. Removing and redownloading...")
+        os.remove(ckpt_path)
+        
+    # 1. Download ViT-Small checkpoint if missing (using correct HF repo name: Video-Depth-Anything-Small)
     if not os.path.exists(ckpt_path):
         print("Downloading Video-Depth-Anything checkpoint (ViT-S)...")
         # Direct download from Hugging Face
-        url = "https://huggingface.co/depth-anything/Video-Depth-Anything-ViT-Small/resolve/main/video_depth_anything_vits.pth"
-        os.system(f"wget -O {ckpt_path} {url}")
+        url = "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth"
+        os.system(f"wget -q --show-progress -O {ckpt_path} {url}")
         
-    # 2. Download sample video if missing
-    video_path = "outputs/sample_video.mp4"
-    if not os.path.exists(video_path):
-        print("Downloading sample video...")
-        url = "https://raw.githubusercontent.com/intel-isl/DensePredictionTransformer/master/dpt/assets/dog.jpg"
-        # We can also download a small video or use an image repeated as frames
-        os.system(f"wget -O outputs/sample_frame.jpg {url}")
+    # 2. Download sample image if missing or corrupted
+    frame_path = "outputs/sample_frame.jpg"
+    if os.path.exists(frame_path) and os.path.getsize(frame_path) < 1024:
+        os.remove(frame_path)
+        
+    if not os.path.exists(frame_path):
+        print("Downloading sample frame...")
+        url = "https://raw.githubusercontent.com/LiheYoung/Depth-Anything/main/assets/demo1.png"
+        os.system(f"wget -q -O {frame_path} {url}")
 
 
 def run_eval(args):
