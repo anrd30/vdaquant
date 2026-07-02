@@ -1,0 +1,14 @@
+# Install PyTorch with CUDA separately, e.g.:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+numpy
+opencv-python
+pillow
+matplotlib
+timm
+einops
+easydict
+imageio
+imageio-ffmpeg
+tqdm
+decord

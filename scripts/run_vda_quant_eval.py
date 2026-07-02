@@ -35,6 +35,18 @@ except ImportError:
     VDA_AVAILABLE = False
 
 
+def _download_file(url: str, dest_path: str, timeout: int = 120):
+    """Cross-platform file download (works on Windows, Linux, Colab)."""
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as response, open(dest_path, "wb") as out_file:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            out_file.write(chunk)
+
+
 def download_sample_resources():
     """Download a sample video and model checkpoint if not present."""
     os.makedirs("checkpoints", exist_ok=True)
@@ -50,9 +62,8 @@ def download_sample_resources():
     # 1. Download ViT-Small checkpoint if missing (using correct HF repo name: Video-Depth-Anything-Small)
     if not os.path.exists(ckpt_path):
         print("Downloading Video-Depth-Anything checkpoint (ViT-S)...")
-        # Direct download from Hugging Face
         url = "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth"
-        os.system(f"wget -q --show-progress -O {ckpt_path} {url}")
+        _download_file(url, ckpt_path)
         
     # 2. Download sample image if missing or corrupted
     frame_path = "outputs/sample_frame.jpg"
@@ -62,7 +73,10 @@ def download_sample_resources():
     if not os.path.exists(frame_path):
         print("Downloading sample frame...")
         url = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/City_grid_street_lights.jpg/640px-City_grid_street_lights.jpg"
-        os.system(f"wget -q -O {frame_path} {url}")
+        try:
+            _download_file(url, frame_path, timeout=30)
+        except Exception as e:
+            print(f"Sample frame download failed ({e}). Will use synthetic fallback or local Sintel frames.")
 
 
 def run_eval(args):
