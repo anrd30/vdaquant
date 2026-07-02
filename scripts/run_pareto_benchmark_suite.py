@@ -329,6 +329,28 @@ def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, s
         print(f"    [Success] Quantized forward pass actively modifying tensor computations.")
 
 # ============================================================
+# HONEST BIT ACCOUNTING & QJL OVERHEAD CALCULATOR
+# ============================================================
+def compute_real_bit_accounting(bit_val: int, head_dim: int = 64, use_qjl: bool = True):
+    """
+    Computes honest bit accounting including QJL side-channel overhead.
+    For head_dim=64 (ViT-Small), QJL stores n_projections=256 sign bits + 16-bit norm per vector.
+    Total side-channel = 272 bits/vector.
+    Returns: (total_bits_per_vector, real_compression_ratio, nominal_compression_ratio)
+    """
+    fp32_bits = head_dim * 32 # 2048 bits
+    primary_bits = head_dim * bit_val
+    if use_qjl and bit_val > 0:
+        n_proj = head_dim * 4 if head_dim <= 128 else (head_dim * 2 if head_dim <= 256 else head_dim)
+        side_bits = n_proj + 16 # 272 bits for d=64
+    else:
+        side_bits = 0
+    total_bits = primary_bits + side_bits
+    real_ratio = round(fp32_bits / total_bits, 1) if total_bits > 0 else 1.0
+    nominal_ratio = round(32.0 / bit_val, 1) if bit_val > 0 else 1.0
+    return total_bits, real_ratio, nominal_ratio
+
+# ============================================================
 # PARETO CURVE & CHARTS GENERATOR
 # ============================================================
 def generate_pareto_charts(results: dict, output_dir: Path):
@@ -351,7 +373,7 @@ def generate_pareto_charts(results: dict, output_dir: Path):
                 mem_val = 1.0
             else:
                 bit_val = int(bit.replace("bit", ""))
-                mem_val = 32.0 / bit_val
+                _, mem_val, _ = compute_real_bit_accounting(bit_val, head_dim=64, use_qjl=True)
                 
             bit_widths.append(bit_val)
             delta1_scores.append(metrics["delta1"])
@@ -361,20 +383,16 @@ def generate_pareto_charts(results: dict, output_dir: Path):
             
         # 1. Memory Savings vs Delta1 Accuracy (Pareto Frontier)
         fig, ax1 = plt.subplots(figsize=(8, 5))
-        ax1.plot(mem_savings, delta1_scores, marker='o', color='#2b5c8f', linewidth=2, label='VDA-HyperQuant')
+        ax1.plot(mem_savings, delta1_scores, marker='o', color='#2b5c8f', linewidth=2, label='VDA-HyperQuant (Rate-Distortion Fidelity)')
         for i, txt in enumerate(bit_widths):
             ax1.annotate(f"{txt}-bit", (mem_savings[i], delta1_scores[i]), textcoords="offset points", xytext=(0,10), ha='center', fontweight='bold')
-        ax1.set_xlabel('KV-Cache Memory Reduction (x-fold over FP32)', fontsize=12, fontweight='bold')
-        ax1.set_ylabel('δ < 1.25 Accuracy (Higher is better)', fontsize=12, fontweight='bold', color='#2b5c8f')
+        ax1.set_xlabel('Real KV-Cache Memory Reduction (x-fold over FP32, incl. QJL side-channel)', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('δ < 1.25 Fidelity vs FP32 (Higher is better)', fontsize=11, fontweight='bold', color='#2b5c8f')
         ax1.grid(True, linestyle='--', alpha=0.6)
-        ax1.set_title(f"Pareto Frontier: Memory vs Accuracy ({dataset_name.upper()})", fontsize=14, fontweight='bold')
+        ax1.set_title(f"Pareto Frontier: Rate-Distortion Fidelity vs Memory ({dataset_name.upper()})", fontsize=13, fontweight='bold')
         
-        # Plot published 4-bit baselines if available
-        base_lit = PUBLISHED_BASELINES.get(dataset_name, {})
-        if "RTN_4bit_Literature" in base_lit:
-            ax1.scatter([8.0], [base_lit["RTN_4bit_Literature"]["delta1"]], color='red', marker='x', s=100, label='RTN 4-bit (Literature)')
-        if "SmoothQuant_4bit" in base_lit:
-            ax1.scatter([8.0], [base_lit["SmoothQuant_4bit"]["delta1"]], color='orange', marker='^', s=100, label='SmoothQuant 4-bit')
+        # Note: We intentionally omit literature ground-truth baselines from this plot to clearly distinguish
+        # Rate-Distortion fidelity (measured against FP32 model output) from sensor ground-truth accuracy.
         ax1.legend(loc='lower left')
         plt.tight_layout()
         plt.savefig(output_dir / f"pareto_memory_vs_delta1_{dataset_name}.png", dpi=300)
@@ -532,6 +550,8 @@ def main():
         fp32_metrics = compute_academic_metrics(fp32_out, fp32_out) # Baseline self-comparison
         fp32_metrics["fps"] = round(fps, 1)
         fp32_metrics["mem_savings_x"] = 1.0
+        fp32_metrics["nominal_savings_x"] = 1.0
+        fp32_metrics["total_bits_per_vec"] = 64 * 32
         fp32_metrics["measured_mem_mb"] = peak_mem_mb
         dataset_results["FP32_Baseline"] = fp32_metrics
         print(f"        -> Baseline FPS: {fp32_metrics['fps']} | Measured Peak Memory: {peak_mem_mb} MB")
@@ -578,12 +598,15 @@ def main():
                 fps_q = 15.5
 
             peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
+            total_bits, real_ratio, nominal_ratio = compute_real_bit_accounting(bit, head_dim=64, use_qjl=True)
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)
-            metrics["mem_savings_x"] = round(32.0 / bit, 1)
+            metrics["mem_savings_x"] = real_ratio
+            metrics["nominal_savings_x"] = nominal_ratio
+            metrics["total_bits_per_vec"] = total_bits
             metrics["measured_mem_mb"] = peak_mem_mb_q
             dataset_results[f"{bit}bit"] = metrics
-            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({metrics['mem_savings_x']}x KV mem | {peak_mem_mb_q} MB)")
+            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({real_ratio}x real KV save [{nominal_ratio}x nom] | {peak_mem_mb_q} MB)")
 
         all_results[dataset_name] = dataset_results
 
@@ -593,7 +616,7 @@ def main():
         json.dump({
             "results": all_results,
             "baselines": PUBLISHED_BASELINES,
-            "note": "PyTorch simulated quantization runtime (quantize -> dequantize -> FP32 matmul). Python overhead dominates FPS; memory savings represent theoretical KV-cache compression alongside measured PyTorch allocations."
+            "note": "PyTorch simulated quantization runtime. Accuracy metrics reflect Rate-Distortion fidelity vs FP32 model. mem_savings_x reports real compression including QJL side-channel overhead (272 bits/vec for head_dim=64); nominal_savings_x reports raw quantizer compression."
         }, f, indent=2)
     print(f"\n  [Export] Full Pareto numerical results saved to {json_path}")
 
@@ -601,20 +624,23 @@ def main():
     generate_pareto_charts(all_results, output_dir)
 
     # Print Summary Table
-    print(f"\n{'=' * 95}")
-    print(f"  PARETO BENCHMARK SUMMARY TABLE (ViT-Small)")
-    print(f"{'=' * 95}")
-    print(f"Dataset   | Bit-Width | δ < 1.25 ↑ | AbsRel ↓ | RMSE ↓   | Pearson ↑ | KV Savings | Measured Mem | FPS")
-    print(f"{'-' * 95}")
+    print(f"\n{'=' * 110}")
+    print(f"  PARETO RATE-DISTORTION FIDELITY BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64)")
+    print(f"  * Accuracy measured vs FP32 baseline (Fidelity/Rate-Distortion), distinct from sensor ground-truth *")
+    print(f"{'=' * 110}")
+    print(f"Dataset   | Bit-Width | δ < 1.25 ↑ | AbsRel ↓ | RMSE ↓   | Pearson ↑ | Real Save (Nom) | Measured Mem | FPS")
+    print(f"{'-' * 110}")
     for d_name, d_res in all_results.items():
         for b_name, m in d_res.items():
             b_label = f"{b_name:<9}"
             mem_meas = f"{m.get('measured_mem_mb', 0.0)} MB"
-            print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {m['pearson']:<9} | {m['mem_savings_x']:<4}x       | {mem_meas:<12} | {m['fps']}")
-        print(f"{'-' * 95}")
-    print(f"{'=' * 95}")
-    print("  * Note: FPS timed with torch.cuda.synchronize(). Quantized FPS reflects PyTorch simulated quant/dequant")
-    print("    Python overhead (rate-distortion evaluation mode), whereas KV Savings represent theoretical memory compression.\n")
+            real_save = f"{m['mem_savings_x']}x ({m.get('nominal_savings_x', m['mem_savings_x'])}x)"
+            print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {m['pearson']:<9} | {real_save:<15} | {mem_meas:<12} | {m['fps']}")
+        print(f"{'-' * 110}")
+    print(f"{'=' * 110}")
+    print("  * Note 1: Real Save accounts for honest bit accounting including QJL side-channel overhead (272 bits/vector).")
+    print("  * Note 2: Accuracy metrics (δ1, AbsRel, etc.) evaluate rate-distortion fidelity relative to the FP32 model.")
+    print("            These should be reported separately from physical LiDAR ground-truth baselines in publications.\n")
 
 if __name__ == "__main__":
     main()
