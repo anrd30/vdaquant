@@ -294,6 +294,32 @@ def compute_academic_metrics(pred: torch.Tensor, gt: torch.Tensor, valid_mask: t
     }
 
 # ============================================================
+# CHUNKED INFERENCE FOR LONG VIDEO SEQUENCES (T > 32)
+# ============================================================
+def run_vda_chunked(model: nn.Module, video_input: torch.Tensor, max_chunk: int = 32) -> torch.Tensor:
+    """
+    Run VideoDepthAnything forward pass in sliding windows / chunks of at most max_chunk frames.
+    The official VDA motion module positional encoding supports up to 32 frames per sequence.
+    For longer videos (e.g. 200 frames), we evaluate in chunks and concatenate the depth outputs.
+    """
+    B, T, C, H, W = video_input.shape
+    if T <= max_chunk:
+        return model(video_input)
+    
+    outputs = []
+    for start_idx in range(0, T, max_chunk):
+        end_idx = min(start_idx + max_chunk, T)
+        chunk = video_input[:, start_idx:end_idx, ...]
+        out_chunk = model(chunk)
+        outputs.append(out_chunk)
+        
+    if isinstance(outputs[0], tuple):
+        return (torch.cat([o[0] for o in outputs], dim=1),) + outputs[0][1:]
+    else:
+        cat_dim = 1 if outputs[0].ndim == 4 else 0
+        return torch.cat(outputs, dim=cat_dim)
+
+# ============================================================
 # DYNAMIC SURGERY VERIFICATION & SANITY CHECK
 # ============================================================
 def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, sample_input: torch.Tensor):
@@ -317,8 +343,9 @@ def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, s
     print(f"    -> Verified active surgical replacement: {replaced_backbone} backbone layers, {replaced_temporal} temporal layers.")
     
     with torch.no_grad():
-        out_fp32 = model_fp32(sample_input[:1]) # Test on first frame batch
-        out_q = model_quant(sample_input[:1])
+        test_chunk = sample_input[:, :min(8, sample_input.shape[1]), ...]
+        out_fp32 = model_fp32(test_chunk)
+        out_q = model_quant(test_chunk)
         
     mse_diff = torch.mean((out_fp32 - out_q) ** 2).item()
     max_diff = torch.max(torch.abs(out_fp32 - out_q)).item()
@@ -538,7 +565,7 @@ def main():
         t0 = time.time()
         if model is not None:
             with torch.no_grad():
-                fp32_out = model(video_input)
+                fp32_out = run_vda_chunked(model, video_input, max_chunk=32)
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             fps = len(frames) / max(time.time() - t0, 1e-4)
@@ -587,7 +614,7 @@ def main():
                     torch.cuda.synchronize()
                 t0 = time.time()
                 with torch.no_grad():
-                    q_out = model_quant(video_input)
+                    q_out = run_vda_chunked(model_quant, video_input, max_chunk=32)
                 if torch.cuda.is_available():
                     torch.cuda.synchronize()
                 fps_q = len(frames) / max(time.time() - t0, 1e-4)
