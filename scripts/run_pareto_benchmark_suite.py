@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ============================================================
-VDA-HyperQuant: Multi-Dataset Pareto Evaluation Suite
+VDA-DeltaLattice: Multi-Dataset Pareto Evaluation Suite
 ============================================================
 Evaluates Video-Depth-Anything (ViT-Small) across 8, 4, 3, and 2-bit
 quantization on target academic benchmarks (KITTI, DAVIS, Sintel, NYUv2, ScanNet).
@@ -410,7 +410,7 @@ def generate_pareto_charts(results: dict, output_dir: Path):
             
         # 1. Memory Savings vs Delta1 Accuracy (Pareto Frontier)
         fig, ax1 = plt.subplots(figsize=(8, 5))
-        ax1.plot(mem_savings, delta1_scores, marker='o', color='#2b5c8f', linewidth=2, label='VDA-HyperQuant (Rate-Distortion Fidelity)')
+        ax1.plot(mem_savings, delta1_scores, marker='o', color='#2b5c8f', linewidth=2, label='VDA-DeltaLattice (Rate-Distortion Fidelity)')
         for i, txt in enumerate(bit_widths):
             ax1.annotate(f"{txt}-bit", (mem_savings[i], delta1_scores[i]), textcoords="offset points", xytext=(0,10), ha='center', fontweight='bold')
         ax1.set_xlabel('Real KV-Cache Memory Reduction (x-fold over FP32, incl. QJL side-channel)', fontsize=11, fontweight='bold')
@@ -444,7 +444,7 @@ def generate_pareto_charts(results: dict, output_dir: Path):
 # MAIN EVALUATION EXECUTION
 # ============================================================
 def main():
-    parser = argparse.ArgumentParser(description="VDA-HyperQuant Multi-Dataset Pareto Evaluation")
+    parser = argparse.ArgumentParser(description="VDA-DeltaLattice Multi-Dataset Pareto Evaluation")
     parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "all"], help="Target benchmark dataset")
     parser.add_argument("--bits", nargs="+", type=int, default=[8, 4, 3, 2], help="Quantization bit-widths to sweep")
     parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
@@ -459,7 +459,7 @@ def main():
     datasets_to_run = ["kitti", "davis", "sintel", "nyuv2", "scannet"] if args.dataset == "all" else [args.dataset]
     
     print(f"{'=' * 65}")
-    print(f"  VDA-HyperQuant Multi-Dataset Pareto Benchmark Suite")
+    print(f"  VDA-DeltaLattice Multi-Dataset Pareto Benchmark Suite")
     print(f"{'=' * 65}")
     print(f"  Target Datasets: {', '.join([d.upper() for d in datasets_to_run])}")
     print(f"  Bit-Width Sweep: {args.bits} bits + FP32 Baseline")
@@ -585,7 +585,7 @@ def main():
 
         # 2. Sweep Quantization Bit-Widths
         for idx, bit in enumerate(args.bits):
-            print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-HyperQuant Surgery ({bit}-bit lattice_d4)...")
+            print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-DeltaLattice Surgery ({bit}-bit lattice_d4)...")
             if model is not None:
                 # Reload clean FP32 model for clean surgery
                 model_quant = VideoDepthAnything(**model_configs).eval()

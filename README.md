@@ -1,4 +1,4 @@
-# VDA-HyperQuant (Temporal-TurboQuant)
+# VDA-DeltaLattice (Temporal-Residual Lattice Quantization)
 
 Research repository for training-free, domain-invariant extreme vector and lattice quantization of Video Vision Transformers, applied to Video-Depth-Anything (VDA).
 

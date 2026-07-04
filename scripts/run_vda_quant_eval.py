@@ -1,5 +1,5 @@
 """
-VDA-HyperQuant: End-to-End Evaluation on Video-Depth-Anything
+VDA-DeltaLattice: End-to-End Evaluation on Video-Depth-Anything
 
 This script:
 1. Loads the real Video-Depth-Anything (VDA) model.
@@ -138,8 +138,8 @@ def run_eval(args):
         time_fp32 = (time.time() - start) / len(frames)
     print(f"FP32 Baseline: {1/time_fp32:.1f} FPS ({time_fp32*1000:.1f} ms/frame)")
     
-    # 3. Apply VDA-HyperQuant Model Surgery
-    print(f"\n[3/4] Rebuilding model with VDA-HyperQuant ({args.bits}-bit {args.quantizer})...")
+    # 3. Apply VDA-DeltaLattice Model Surgery
+    print(f"\n[3/4] Rebuilding model with VDA-DeltaLattice ({args.bits}-bit {args.quantizer})...")
     from research.models import apply_rotated_quantization_to_vda
     
     model_quant = VideoDepthAnything(**configs)
@@ -220,7 +220,7 @@ def run_eval(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate VDA-HyperQuant")
+    parser = argparse.ArgumentParser(description="Evaluate VDA-DeltaLattice")
     parser.add_argument("--bits", type=int, default=4, help="Quantization bits (3 or 4)")
     parser.add_argument("--quantizer", type=str, default="lattice_d4", choices=["scalar", "uniform_vector", "lattice_d4"])
     parser.add_argument("--use_qjl", action="store_true", default=True, help="Use QJL bias correction")

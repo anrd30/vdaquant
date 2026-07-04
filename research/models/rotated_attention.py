@@ -512,7 +512,7 @@ def apply_rotated_quantization_to_vda(
 
     if verbose:
         print(f"{'=' * 60}")
-        print(f"  VDA-HyperQuant Model Surgery Complete")
+        print(f"  VDA-DeltaLattice Model Surgery Complete")
         print(f"{'=' * 60}")
         print(f"  Backbone (DinoV2) attention layers replaced: {n_backbone}")
         print(f"  Temporal (DPT) cross-attention layers replaced: {n_temporal}")
