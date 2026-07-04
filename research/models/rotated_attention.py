@@ -49,6 +49,7 @@ from research.quantizers.lattice_vq import (
     ScalarRoundQuantizer,
     UniformVectorQuantizer,
     LatticeD4Quantizer,
+    residual_vector_quantize,
 )
 from research.quantizers.qjl_bias import QJLBiasCorrection
 
@@ -95,6 +96,7 @@ class RotatedSelfAttention(nn.Module):
         bits: int = 4,
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
+        use_residual: bool = False,
     ):
         """
         Args:
@@ -106,6 +108,9 @@ class RotatedSelfAttention(nn.Module):
             bits: Quantization bit-width for K and V caches.
             quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4').
             use_qjl: Whether to apply QJL bias correction.
+            use_residual: Enable temporal residual (delta) quantization.
+                Frame 0 = I-frame (direct quant), frames 1+ = P-frames
+                (quantize only the residual from previous reconstruction).
         """
         super().__init__()
         self.dim = dim
@@ -114,6 +119,7 @@ class RotatedSelfAttention(nn.Module):
         self.scale = self.head_dim ** -0.5
         self.bits = bits
         self.use_qjl = use_qjl
+        self.use_residual = use_residual
 
         # Standard attention projections (same as original)
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
@@ -155,9 +161,15 @@ class RotatedSelfAttention(nn.Module):
         K_rot = self.rotation(K)  # (B, h, N, d) → rotated
         V_rot = self.rotation(V)
 
-        # Step 2: Quantize rotated K and V (3-4 bit compression)
-        K_q, k_info = self.k_quantizer(K_rot)
-        V_q, v_info = self.v_quantizer(V_rot)
+        # Step 2: Quantize rotated K and V
+        # With use_residual: B dimension = frames in chunk, so temporal_dim=0
+        # Frame 0 (I-frame): quantize directly. Frames 1+ (P-frames): quantize residual only.
+        if self.use_residual and B > 1:
+            K_q, k_info = residual_vector_quantize(K_rot, self.k_quantizer, temporal_dim=0)
+            V_q, v_info = residual_vector_quantize(V_rot, self.v_quantizer, temporal_dim=0)
+        else:
+            K_q, k_info = self.k_quantizer(K_rot)
+            V_q, v_info = self.v_quantizer(V_rot)
 
         # Step 3: Rotate Q into the same basis for correct dot products
         Q_rot = self.rotation(Q)
@@ -220,6 +232,7 @@ class RotatedTemporalAttention(nn.Module):
         bits: int = 4,
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
+        use_residual: bool = False,
     ):
         """
         Args:
@@ -236,6 +249,7 @@ class RotatedTemporalAttention(nn.Module):
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.5
         self.bits = bits
+        self.use_residual = use_residual
 
         # Cross-attention projections
         self.q_proj = nn.Linear(dim, dim, bias=qkv_bias)
@@ -330,8 +344,13 @@ class RotatedTemporalAttention(nn.Module):
         K_rot = self.rotation(K)
         V_rot = self.rotation(V)
 
-        K_q, _ = self.k_quantizer(K_rot)
-        V_q, _ = self.v_quantizer(V_rot)
+        # Apply residual quantization along the frame/sequence dimension (dim=2 = M)
+        if self.use_residual and K_rot.shape[2] > 1:
+            K_q, _ = residual_vector_quantize(K_rot, self.k_quantizer, temporal_dim=2)
+            V_q, _ = residual_vector_quantize(V_rot, self.v_quantizer, temporal_dim=2)
+        else:
+            K_q, _ = self.k_quantizer(K_rot)
+            V_q, _ = self.v_quantizer(V_rot)
 
         Q_rot = self.rotation(Q)
 
@@ -372,6 +391,7 @@ def apply_rotated_quantization_to_vda(
     use_qjl: bool = True,
     replace_backbone: bool = True,
     replace_temporal: bool = True,
+    use_residual: bool = False,
     verbose: bool = True,
 ) -> nn.Module:
     """
@@ -420,6 +440,7 @@ def apply_rotated_quantization_to_vda(
                     bits=bits,
                     quantizer=quantizer,
                     use_qjl=use_qjl,
+                    use_residual=use_residual,
                 ).to(device=device, dtype=dtype)
 
                 # Copy pretrained weights
@@ -462,6 +483,7 @@ def apply_rotated_quantization_to_vda(
                         bits=bits,
                         quantizer=quantizer,
                         use_qjl=use_qjl,
+                        use_residual=use_residual,
                     ).to(device=device, dtype=dtype)
                     # Copy weights where possible
                     if hasattr(old_cross, 'to_q'):

@@ -602,7 +602,8 @@ def main():
                 
                 model_quant = apply_rotated_quantization_to_vda(
                     model_quant, bits=bit, quantizer='lattice_d4', use_qjl=True, verbose=False,
-                    replace_temporal=True  # Replace both DinoV2 backbone AND DPT temporal attention layers
+                    replace_temporal=True,  # Replace both DinoV2 backbone AND DPT temporal attention layers
+                    use_residual=True,  # Enable temporal residual (delta) quantization for inter-frame compression
                 )
                 
                 # Perform dynamic surgery verification on first bit-width sweep
