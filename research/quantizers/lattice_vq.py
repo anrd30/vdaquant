@@ -323,3 +323,56 @@ class LatticeD4Quantizer(nn.Module):
 
     def extra_repr(self) -> str:
         return f"bits={self.bits}, lattice=D4, coding_gain=1.19dB"
+
+
+def residual_vector_quantize(
+    x: torch.Tensor,
+    quantizer: nn.Module,
+    temporal_dim: int = 0,
+) -> Tuple[torch.Tensor, dict]:
+    """
+    Apply Inter-Frame Temporal Residual Quantization (Delta Quantization).
+
+    Instead of quantizing x[t] directly, we quantize the residual:
+        res[t] = x[t] - x_quant[t-1]
+    Because consecutive video frames are highly correlated, res[t] has a much smaller
+    dynamic range than x[t], resulting in significantly lower quantization distortion
+    at the same bit-width.
+
+    Args:
+        x: Input tensor of shape (..., T, ...) where T is the temporal dimension.
+        quantizer: Base quantizer module (e.g., LatticeD4Quantizer).
+        temporal_dim: Dimension index corresponding to video frames/time T.
+
+    Returns:
+        (x_quant, info_dict)
+    """
+    T = x.shape[temporal_dim]
+    if T <= 1:
+        return quantizer(x)
+
+    # Unbind along temporal dimension into a tuple of tensors
+    frames = torch.unbind(x, dim=temporal_dim)
+
+    quant_frames = []
+    total_info = {}
+
+    # Frame 0 (I-Frame / Anchor): quantize directly at base precision
+    q0, info0 = quantizer(frames[0])
+    quant_frames.append(q0)
+    total_info = info0.copy() if isinstance(info0, dict) else {}
+
+    # Subsequent frames (P-Frames / Delta): quantize residuals
+    q_prev = q0
+    for t in range(1, T):
+        res_t = frames[t] - q_prev
+        q_res_t, info_t = quantizer(res_t)
+        q_t = q_prev + q_res_t
+        quant_frames.append(q_t)
+        q_prev = q_t
+
+    x_quant = torch.stack(quant_frames, dim=temporal_dim)
+    total_info["method"] = f"{total_info.get('method', 'quant')}_temporal_residual"
+    total_info["temporal_residual_applied"] = True
+    return x_quant, total_info
+

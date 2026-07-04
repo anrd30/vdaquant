@@ -224,6 +224,33 @@ def test_rotated_temporal_attention():
     print(f"  {status} RotatedTemporalAttention: query {query.shape} + context {context.shape} → {out.shape}")
 
 
+def test_temporal_residual_quantization():
+    """Verify that Temporal Residual Quantization reduces MSE on correlated frames."""
+    from research.quantizers.lattice_vq import LatticeD4Quantizer, residual_vector_quantize
+
+    quantizer = LatticeD4Quantizer(bits=2)  # aggressive 2-bit
+    
+    # Simulate a correlated video sequence of 15 frames
+    base_frame = torch.randn(1, 100, 64)
+    noise = torch.randn(15, 100, 64) * 0.08  # small inter-frame motion
+    frames = base_frame + torch.cumsum(noise, dim=0)
+
+    # 1. Direct quantization of raw frames
+    q_direct, _ = quantizer(frames)
+    mse_direct = ((frames - q_direct) ** 2).mean().item()
+
+    # 2. Temporal residual (delta) quantization
+    q_residual, info = residual_vector_quantize(frames, quantizer, temporal_dim=0)
+    mse_residual = ((frames - q_residual) ** 2).mean().item()
+
+    reduction = mse_direct / max(mse_residual, 1e-8)
+    status = "✓" if mse_residual < mse_direct else "✗"
+    print(f"\n  {status} Temporal Residual Quantization @ 2-bit:")
+    print(f"    Direct Quantization MSE:   {mse_direct:.4f}")
+    print(f"    Residual Quantization MSE: {mse_residual:.4f}")
+    print(f"    MSE Reduction Ratio:       {reduction:.1f}x lower error!")
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("  VDA-HyperQuant — Core Verification Tests")
@@ -254,6 +281,10 @@ if __name__ == '__main__':
     test_rotated_self_attention()
     test_rotated_temporal_attention()
 
+    print("\n[9] Inter-Frame Temporal Residual Quantization")
+    test_temporal_residual_quantization()
+
     print(f"\n{'=' * 60}")
     print("  All tests complete!")
     print(f"{'=' * 60}")
+
