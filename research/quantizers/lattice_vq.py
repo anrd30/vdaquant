@@ -206,8 +206,8 @@ class LatticeD4Quantizer(nn.Module):
         3. Find the nearest D4 lattice point for each 4-vector:
            - Round to nearest integer → candidate z_round
            - If sum(z_round) is even → z_round is already a D4 point
-           - If sum(z_round) is odd → flip the coordinate with smallest
-             fractional residual (this is the standard D4 decoding trick)
+           - If sum(z_round) is odd → flip the coordinate with largest
+             rounding error (this is the standard D4 decoding trick)
         4. Scale back to original range
 
     References:

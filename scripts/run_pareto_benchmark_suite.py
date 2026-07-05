@@ -66,7 +66,7 @@ if not vda_found:
     except Exception as e:
         print(f"  [Warning] Could not auto-clone Video-Depth-Anything: {e}")
 
-from research.models.rotated_attention import apply_rotated_quantization_to_vda
+from research.models.rotated_attention import apply_rotated_quantization_to_vda, reset_vda_cache, compute_persisted_kv_cache_mem_mb
 
 # ============================================================
 # PUBLISHED LITERATURE BASELINES (For Academic Reference)
@@ -114,8 +114,13 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
     
     existing_images = sorted(list(target_dir.glob("*.jpg")) + list(target_dir.glob("*.png")))
     if len(existing_images) >= max_samples:
-        print(f"  [Dataset] Loaded {len(existing_images)} cached frames for '{dataset_name}' from {target_dir}")
-        return [np.array(Image.open(p).convert("RGB")) for p in existing_images[:max_samples]]
+        resolved = existing_images[:max_samples]
+        print(f"  [Dataset Audit] Resolved {len(resolved)} real benchmark frames for '{dataset_name}':")
+        for p in resolved[:3]:
+            print(f"    -> {p.resolve()}")
+        if len(resolved) > 3:
+            print(f"    -> ... (+{len(resolved) - 3} more files)")
+        return [np.array(Image.open(p).convert("RGB")) for p in resolved]
 
     print(f"  [Dataset] Downloading benchmark video sequence for '{dataset_name}'...")
     
@@ -196,49 +201,23 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
                 zip_path.unlink() # Clean up temp zip
             print(f"    [Success] Extracted {len(downloaded)} real sequence frames from archive.")
     except Exception as e:
-        print(f"    [Notice] Direct sequence download unavailable ({e}). Falling back to photo camera motion...")
+        print(f"    [Notice] Direct sequence download failed: {e}")
 
-    # If sequence download didn't reach max_samples, fallback to single image + simulated camera motion
-    if len(downloaded) < max_samples:
-        sample_urls = {
-            "kitti": ["https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png"],
-            "davis": ["https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog1.jpg"],
-            "sintel": ["https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/dog2.jpg"],
-            "nyuv2": ["https://raw.githubusercontent.com/facebookresearch/dinov2/main/docs/assets/dinov2_figure1.png"],
-            "scannet": ["https://raw.githubusercontent.com/DepthAnything/Video-Depth-Anything/main/assets/teaser_video_v2.png"]
-        }
-        if len(downloaded) == 0:
-            for url in sample_urls.get(dataset_name, []):
-                try:
-                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, timeout=5) as resp:
-                        img = Image.open(io.BytesIO(resp.read())).convert("RGB")
-                        downloaded.append(np.array(img))
-                        break
-                except Exception:
-                    pass
-        
-        if len(downloaded) > 0:
-            base_img = downloaded[0]
-            h, w, _ = base_img.shape
-            while len(downloaded) < max_samples:
-                idx = len(downloaded)
-                zoom = 1.0 + 0.18 * (idx / max(max_samples - 1, 1))
-                new_h, new_w = int(h / zoom), int(w / zoom)
-                pan_y = int((h - new_h) * (0.5 + 0.4 * np.sin(idx * 0.3)))
-                pan_x = int((w - new_w) * (0.5 + 0.4 * np.cos(idx * 0.3)))
-                crop_img = base_img[pan_y:pan_y+new_h, pan_x:pan_x+new_w]
-                resample_mode = getattr(Image, 'Resampling', Image).BILINEAR
-                frame_res = np.array(Image.fromarray(crop_img).resize((w, h), resample_mode))
-                downloaded.append(frame_res)
-                Image.fromarray(frame_res).save(target_dir / f"sim_frame_{idx:04d}.png")
+    existing_images = sorted(list(target_dir.glob("*.jpg")) + list(target_dir.glob("*.png")))
+    if len(existing_images) >= max_samples:
+        resolved = existing_images[:max_samples]
+        print(f"  [Dataset Audit] Resolved {len(resolved)} real benchmark frames for '{dataset_name}':")
+        for p in resolved[:3]:
+            print(f"    -> {p.resolve()}")
+        if len(resolved) > 3:
+            print(f"    -> ... (+{len(resolved) - 3} more files)")
+        return [np.array(Image.open(p).convert("RGB")) for p in resolved]
 
-    # Emergency backup only if internet download fails entirely
-    while len(downloaded) < max_samples:
-        downloaded.append(np.uint8(np.random.randint(0, 255, (384, 384, 3))))
-
-    print(f"  [Dataset] Ready with {len(downloaded)} video frames for '{dataset_name}'.")
-    return downloaded[:max_samples]
+    raise FileNotFoundError(
+        f"[Hard Error] Real dataset files for '{dataset_name}' not found at {target_dir} "
+        f"(found {len(existing_images)} files, required {max_samples}). "
+        "Never silently substitute proxy videos or random noise for real benchmarks!"
+    )
 
 # ============================================================
 # ACADEMIC DEPTH EVALUATION METRICS
@@ -302,6 +281,12 @@ def run_vda_chunked(model: nn.Module, video_input: torch.Tensor, max_chunk: int 
     The official VDA motion module positional encoding supports up to 32 frames per sequence.
     For longer videos (e.g. 200 frames), we evaluate in chunks and concatenate the depth outputs.
     """
+    if model is not None:
+        try:
+            reset_vda_cache(model)
+        except Exception:
+            pass
+
     B, T, C, H, W = video_input.shape
     if T <= max_chunk:
         return model(video_input)
@@ -380,7 +365,7 @@ def compute_real_bit_accounting(bit_val: int, head_dim: int = 64, use_qjl: bool 
 # ============================================================
 # PARETO CURVE & CHARTS GENERATOR
 # ============================================================
-def generate_pareto_charts(results: dict, output_dir: Path):
+def generate_pareto_charts(results: dict, output_dir: Path, use_qjl: bool = True):
     if not HAS_MATPLOTLIB:
         print("  [Warning] matplotlib not found, skipping PNG chart generation.")
         return
@@ -400,7 +385,7 @@ def generate_pareto_charts(results: dict, output_dir: Path):
                 mem_val = 1.0
             else:
                 bit_val = int(bit.replace("bit", ""))
-                _, mem_val, _ = compute_real_bit_accounting(bit_val, head_dim=64, use_qjl=True)
+                _, mem_val, _ = compute_real_bit_accounting(bit_val, head_dim=64, use_qjl=use_qjl)
                 
             bit_widths.append(bit_val)
             delta1_scores.append(metrics["delta1"])
@@ -450,6 +435,7 @@ def main():
     parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
     parser.add_argument("--output-dir", type=str, default="outputs/pareto_results", help="Directory to save benchmark reports and charts")
     parser.add_argument("--test-mode", action="store_true", help="Run fast verification test")
+    parser.add_argument("--disable-qjl", action="store_true", help="Disable QJL bias correction to compare performance/overhead")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -601,7 +587,7 @@ def main():
                     model_quant = model_quant.cuda()
                 
                 model_quant = apply_rotated_quantization_to_vda(
-                    model_quant, bits=bit, quantizer='lattice_d4', use_qjl=True, verbose=False,
+                    model_quant, bits=bit, quantizer='lattice_d4', use_qjl=not args.disable_qjl, verbose=False,
                     replace_temporal=True,  # Replace both DinoV2 backbone AND DPT temporal attention layers
                     use_residual=True,  # Enable temporal residual (delta) quantization for inter-frame compression
                 )
@@ -626,15 +612,20 @@ def main():
                 fps_q = 15.5
 
             peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
-            total_bits, real_ratio, nominal_ratio = compute_real_bit_accounting(bit, head_dim=64, use_qjl=True)
+            try:
+                persisted_kv_mb = compute_persisted_kv_cache_mem_mb(model_quant)
+            except Exception:
+                persisted_kv_mb = 0.0
+            total_bits, real_ratio, nominal_ratio = compute_real_bit_accounting(bit, head_dim=64, use_qjl=not args.disable_qjl)
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)
             metrics["mem_savings_x"] = real_ratio
             metrics["nominal_savings_x"] = nominal_ratio
             metrics["total_bits_per_vec"] = total_bits
             metrics["measured_mem_mb"] = peak_mem_mb_q
+            metrics["persisted_kv_cache_mb"] = persisted_kv_mb
             dataset_results[f"{bit}bit"] = metrics
-            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({real_ratio}x real KV save [{nominal_ratio}x nom] | {peak_mem_mb_q} MB)")
+            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({real_ratio}x real KV save [{nominal_ratio}x nom] | Peak Mem: {peak_mem_mb_q} MB | Persisted KV: {persisted_kv_mb} MB)")
 
         all_results[dataset_name] = dataset_results
 
@@ -649,7 +640,7 @@ def main():
     print(f"\n  [Export] Full Pareto numerical results saved to {json_path}")
 
     # Generate Publication Charts
-    generate_pareto_charts(all_results, output_dir)
+    generate_pareto_charts(all_results, output_dir, use_qjl=not args.disable_qjl)
 
     # Print Summary Table
     print(f"\n{'=' * 110}")

@@ -53,6 +53,18 @@ from research.quantizers.lattice_vq import (
 )
 from research.quantizers.qjl_bias import QJLBiasCorrection
 
+_QJL_WARNED_BITS = set()
+
+def _check_qjl_gate(use_qjl: bool, bits: int, qjl_min_bits: int, dim: int, verbose: bool = True):
+    if not use_qjl:
+        return None
+    if bits < qjl_min_bits:
+        if verbose and bits not in _QJL_WARNED_BITS:
+            print(f"  [Warning] QJL auto-disabled at {bits}-bit (< {qjl_min_bits} min bits). Correction magnitude scales with ||error|| and is unstable at low bit-widths.")
+            _QJL_WARNED_BITS.add(bits)
+        return None
+    return QJLBiasCorrection(dim)
+
 
 def _get_quantizer(
     method: Literal['scalar', 'uniform_vector', 'lattice_d4'],
@@ -97,6 +109,8 @@ class RotatedSelfAttention(nn.Module):
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
         use_residual: bool = False,
+        qjl_min_bits: int = 6,
+        frames_are_temporally_ordered: bool = True,
     ):
         """
         Args:
@@ -111,6 +125,8 @@ class RotatedSelfAttention(nn.Module):
             use_residual: Enable temporal residual (delta) quantization.
                 Frame 0 = I-frame (direct quant), frames 1+ = P-frames
                 (quantize only the residual from previous reconstruction).
+            qjl_min_bits: Minimum bit-width threshold to enable QJL bias correction.
+            frames_are_temporally_ordered: Whether batch dim holds ordered consecutive frames.
         """
         super().__init__()
         self.dim = dim
@@ -120,6 +136,8 @@ class RotatedSelfAttention(nn.Module):
         self.bits = bits
         self.use_qjl = use_qjl
         self.use_residual = use_residual
+        self.qjl_min_bits = qjl_min_bits
+        self.frames_are_temporally_ordered = frames_are_temporally_ordered
 
         # Standard attention projections (same as original)
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
@@ -131,10 +149,7 @@ class RotatedSelfAttention(nn.Module):
         self.rotation = HadamardRotation(self.head_dim)
         self.k_quantizer = _get_quantizer(quantizer, bits)
         self.v_quantizer = _get_quantizer(quantizer, bits)
-        if use_qjl:
-            self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
-        else:
-            self.qjl = None
+        self.qjl = _check_qjl_gate(use_qjl, bits, qjl_min_bits, self.rotation.padded_dim)
 
     def forward(self, x: torch.Tensor = None, *args, **kwargs) -> torch.Tensor:
         """
@@ -165,6 +180,10 @@ class RotatedSelfAttention(nn.Module):
         # With use_residual: B dimension = frames in chunk, so temporal_dim=0
         # Frame 0 (I-frame): quantize directly. Frames 1+ (P-frames): quantize residual only.
         if self.use_residual and B > 1:
+            assert self.frames_are_temporally_ordered, (
+                "RotatedSelfAttention assumes batch dimension B holds temporally-ordered consecutive "
+                "frames when use_residual=True. Set frames_are_temporally_ordered=True if confirmed."
+            )
             K_q, k_info = residual_vector_quantize(K_rot, self.k_quantizer, temporal_dim=0)
             V_q, v_info = residual_vector_quantize(V_rot, self.v_quantizer, temporal_dim=0)
         else:
@@ -233,6 +252,7 @@ class RotatedTemporalAttention(nn.Module):
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
         use_residual: bool = False,
+        qjl_min_bits: int = 6,
     ):
         """
         Args:
@@ -242,6 +262,7 @@ class RotatedTemporalAttention(nn.Module):
             bits: Quantization bits for temporal K/V cache.
             quantizer: Quantizer type.
             use_qjl: Enable QJL bias correction.
+            qjl_min_bits: Minimum bit-width threshold for QJL.
         """
         super().__init__()
         self.dim = dim
@@ -250,6 +271,7 @@ class RotatedTemporalAttention(nn.Module):
         self.scale = self.head_dim ** -0.5
         self.bits = bits
         self.use_residual = use_residual
+        self.qjl_min_bits = qjl_min_bits
 
         # Cross-attention projections
         self.q_proj = nn.Linear(dim, dim, bias=qkv_bias)
@@ -267,10 +289,20 @@ class RotatedTemporalAttention(nn.Module):
         self.rotation = HadamardRotation(self.head_dim)
         self.k_quantizer = _get_quantizer(quantizer, bits)
         self.v_quantizer = _get_quantizer(quantizer, bits)
-        if use_qjl:
-            self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
-        else:
-            self.qjl = None
+        self.qjl = _check_qjl_gate(use_qjl, bits, qjl_min_bits, self.rotation.padded_dim)
+
+        # Persistent internal cache buffers for O(1) temporal attention across chunks
+        self.register_buffer('cached_k_q', None, persistent=False)
+        self.register_buffer('cached_v_q', None, persistent=False)
+        self.register_buffer('cached_k_signs', None, persistent=False)
+        self.register_buffer('cached_k_norms', None, persistent=False)
+
+    def reset_cache(self):
+        """Clear persistent KV cache for a new video sequence."""
+        self.cached_k_q = None
+        self.cached_v_q = None
+        self.cached_k_signs = None
+        self.cached_k_norms = None
 
     def forward(
         self,
@@ -319,23 +351,27 @@ class RotatedTemporalAttention(nn.Module):
                 b_f, d_tokens, c_dim = hidden_states.shape
                 hidden_states = hidden_states.reshape(-1, 1, d_tokens, c_dim).permute(0, 2, 1, 3).reshape(-1, 1, c_dim)
                 input_hidden_states = hidden_states
-                d_in = cached_hidden_states.shape[1]
-                hidden_states = torch.cat([cached_hidden_states, hidden_states], dim=1)
+                # Note: We do NOT concatenate cached_hidden_states!
+                # Since RotatedTemporalAttention owns its persistent quantized cache (self.cached_k_q/self.cached_v_q),
+                # we only project and quantize the new incoming frame(s) in hidden_states!
 
             if getattr(self, 'pos_encoder', None) is not None:
                 hidden_states = self.pos_encoder(hidden_states)
             if getattr(self, 'group_norm', None) is not None:
                 hidden_states = self.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
 
-            query_input = hidden_states[:, d_in:, ...]
+            query_input = hidden_states
             context_input = hidden_states
+        else:
+            query_input = hidden_states
+            context_input = encoder_hidden_states if encoder_hidden_states is not None else hidden_states
 
         B, N, C = query_input.shape
         M = context_input.shape[1]
         h = self.num_heads
         d = self.head_dim
 
-        # Project Q from query, K/V from context
+        # Project Q from query, K/V from context (new frames only!)
         Q = self.q_proj(query_input).reshape(B, N, h, d).transpose(1, 2)
         K = self.k_proj(context_input).reshape(B, M, h, d).transpose(1, 2)
         V = self.v_proj(context_input).reshape(B, M, h, d).transpose(1, 2)
@@ -345,24 +381,61 @@ class RotatedTemporalAttention(nn.Module):
         V_rot = self.rotation(V)
 
         # Apply residual quantization along the frame/sequence dimension (dim=2 = M)
-        if self.use_residual and K_rot.shape[2] > 1:
-            K_q, _ = residual_vector_quantize(K_rot, self.k_quantizer, temporal_dim=2)
-            V_q, _ = residual_vector_quantize(V_rot, self.v_quantizer, temporal_dim=2)
+        if self.cached_k_q is None:
+            if self.use_residual and K_rot.shape[2] > 1:
+                K_new_q, _ = residual_vector_quantize(K_rot, self.k_quantizer, temporal_dim=2)
+                V_new_q, _ = residual_vector_quantize(V_rot, self.v_quantizer, temporal_dim=2)
+            else:
+                K_new_q, _ = self.k_quantizer(K_rot)
+                V_new_q, _ = self.v_quantizer(V_rot)
+            self.cached_k_q = K_new_q
+            self.cached_v_q = V_new_q
+            if self.qjl is not None and not self.training:
+                self.cached_k_signs, self.cached_k_norms = self.qjl.encode(K_rot, K_new_q)
+            else:
+                self.cached_k_signs, self.cached_k_norms = None, None
         else:
-            K_q, _ = self.k_quantizer(K_rot)
-            V_q, _ = self.v_quantizer(V_rot)
+            if self.use_residual:
+                k_frames = torch.unbind(K_rot, dim=2)
+                v_frames = torch.unbind(V_rot, dim=2)
+                k_q_list, v_q_list = [], []
+                q_prev_k = self.cached_k_q[:, :, -1, :]
+                q_prev_v = self.cached_v_q[:, :, -1, :]
+                for kt, vt in zip(k_frames, v_frames):
+                    res_k = kt - q_prev_k
+                    res_v = vt - q_prev_v
+                    q_res_k, _ = self.k_quantizer(res_k)
+                    q_res_v, _ = self.v_quantizer(res_v)
+                    q_prev_k = q_prev_k + q_res_k
+                    q_prev_v = q_prev_v + q_res_v
+                    k_q_list.append(q_prev_k)
+                    v_q_list.append(q_prev_v)
+                K_new_q = torch.stack(k_q_list, dim=2)
+                V_new_q = torch.stack(v_q_list, dim=2)
+            else:
+                K_new_q, _ = self.k_quantizer(K_rot)
+                V_new_q, _ = self.v_quantizer(V_rot)
+                
+            self.cached_k_q = torch.cat([self.cached_k_q, K_new_q], dim=2)
+            self.cached_v_q = torch.cat([self.cached_v_q, V_new_q], dim=2)
+            if self.qjl is not None and not self.training:
+                signs_new, norms_new = self.qjl.encode(K_rot, K_new_q)
+                if self.cached_k_signs is not None and self.cached_k_norms is not None:
+                    self.cached_k_signs = torch.cat([self.cached_k_signs, signs_new], dim=2)
+                    self.cached_k_norms = torch.cat([self.cached_k_norms, norms_new], dim=2)
+                else:
+                    self.cached_k_signs, self.cached_k_norms = signs_new, norms_new
 
         Q_rot = self.rotation(Q)
 
-        # Attention with optional QJL correction
-        attn = (Q_rot @ K_q.transpose(-2, -1)) * self.scale
+        # Attention with optional QJL correction using FULL persisted cache
+        attn = (Q_rot @ self.cached_k_q.transpose(-2, -1)) * self.scale
 
-        if self.qjl is not None and not self.training:
-            K_signs, K_norms = self.qjl.encode(K_rot, K_q)
-            attn = self.qjl.correct_scores(attn, Q_rot, K_signs, K_norms)
+        if self.qjl is not None and not self.training and self.cached_k_signs is not None and self.cached_k_norms is not None:
+            attn = self.qjl.correct_scores(attn, Q_rot, self.cached_k_signs, self.cached_k_norms)
 
         attn = attn.softmax(dim=-1)
-        out_rot = attn @ V_q
+        out_rot = attn @ self.cached_v_q
 
         # Inverse rotation
         out = self.rotation.inverse(out_rot)
@@ -379,7 +452,7 @@ class RotatedTemporalAttention(nn.Module):
             b_size = orig_b_f // f_len if orig_b_f is not None and f_len > 0 else bd_size // (orig_d_tokens or 1)
             d_tokens = orig_d_tokens if orig_d_tokens is not None else bd_size // (b_size or 1)
             out = out.reshape(b_size, d_tokens, f_len, c_dim).permute(0, 2, 1, 3).reshape(b_size * f_len, d_tokens, c_dim)
-            return out, input_hidden_states
+            return out, torch.empty(1, 0, c_dim, device=out.device, dtype=out.dtype)
 
         return out
 
@@ -441,6 +514,8 @@ def apply_rotated_quantization_to_vda(
                     quantizer=quantizer,
                     use_qjl=use_qjl,
                     use_residual=use_residual,
+                    qjl_min_bits=6,
+                    frames_are_temporally_ordered=True,
                 ).to(device=device, dtype=dtype)
 
                 # Copy pretrained weights
@@ -448,7 +523,7 @@ def apply_rotated_quantization_to_vda(
                 if has_bias:
                     new_attn.qkv.bias.data.copy_(old_attn.qkv.bias.data)
                 new_attn.proj.weight.data.copy_(old_attn.proj.weight.data)
-                if old_attn.proj.bias is not None:
+                if hasattr(old_attn.proj, 'bias') and old_attn.proj.bias is not None and new_attn.proj.bias is not None:
                     new_attn.proj.bias.data.copy_(old_attn.proj.bias.data)
 
                 module.attn = new_attn
@@ -484,6 +559,7 @@ def apply_rotated_quantization_to_vda(
                         quantizer=quantizer,
                         use_qjl=use_qjl,
                         use_residual=use_residual,
+                        qjl_min_bits=6,
                     ).to(device=device, dtype=dtype)
                     # Copy weights where possible
                     if hasattr(old_cross, 'to_q'):
@@ -517,8 +593,37 @@ def apply_rotated_quantization_to_vda(
         print(f"  Backbone (DinoV2) attention layers replaced: {n_backbone}")
         print(f"  Temporal (DPT) cross-attention layers replaced: {n_temporal}")
         print(f"  Quantizer: {quantizer} @ {bits}-bit")
-        print(f"  QJL bias correction: {'Enabled' if use_qjl else 'Disabled'}")
-        print(f"  Compression: ~{32 / bits:.1f}x over FP32 KV cache")
+        print(f"  QJL bias correction: {'Enabled' if use_qjl and bits >= 6 else 'Disabled (gate < 6-bit)'}")
+        print(f"  Compression: ~{32 / bits:.1f}x nominal over FP32 KV cache")
         print(f"{'=' * 60}")
 
     return model
+
+
+def reset_vda_cache(model: nn.Module):
+    """Reset persistent KV cache across all temporal attention layers."""
+    for module in model.modules():
+        if hasattr(module, 'reset_cache') and callable(module.reset_cache):
+            module.reset_cache()
+
+
+def compute_persisted_kv_cache_mem_mb(model: nn.Module) -> float:
+    """
+    Compute actual memory footprint in MB of the compressed persistent KV cache
+    across all temporal attention modules in the model.
+    """
+    total_bits = 0
+    for module in model.modules():
+        if isinstance(module, RotatedTemporalAttention) and getattr(module, 'cached_k_q', None) is not None:
+            k_numel = module.cached_k_q.numel()
+            v_numel = module.cached_v_q.numel()
+            n_vecs = (k_numel + v_numel) // module.head_dim
+            primary_bits = module.head_dim * module.bits
+            if module.qjl is not None:
+                n_proj = module.head_dim * 4 if module.head_dim <= 128 else (module.head_dim * 2 if module.head_dim <= 256 else module.head_dim)
+                side_bits = n_proj + 16
+            else:
+                side_bits = 0
+            bits_per_vec = primary_bits + side_bits
+            total_bits += n_vecs * bits_per_vec
+    return round(total_bits / (8 * 1024 * 1024), 2)
