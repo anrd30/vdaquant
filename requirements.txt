@@ -1,0 +1,13 @@
+# Install eparately : pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+numpy==1.26.4
+opencv-python==4.11.0.86
+pillow
+matplotlib
+timm
+einops
+easydict
+imageio
+imageio-ffmpeg
+tqdm
+decord

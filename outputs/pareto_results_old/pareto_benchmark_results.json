@@ -1,0 +1,233 @@
+{
+  "results": {
+    "nyuv2": {
+      "FP32_Baseline": {
+        "abs_rel": 0.0,
+        "rmse": 0.0,
+        "mae": 0.0,
+        "mse": 0.0,
+        "delta1": 1.0,
+        "delta2": 1.0,
+        "delta3": 1.0,
+        "pearson": 1.0,
+        "fps": 14.5,
+        "mem_savings_x": 1.0,
+        "nominal_savings_x": 1.0,
+        "total_bits_per_vec": 2048,
+        "measured_mem_mb": 16.2
+      },
+      "8bit": {
+        "abs_rel": 0.0693,
+        "rmse": 0.0199,
+        "mae": 0.0159,
+        "mse": 0.0004,
+        "delta1": 0.9496,
+        "delta2": 0.9781,
+        "delta3": 0.9874,
+        "pearson": 0.9995,
+        "fps": 15.5,
+        "mem_savings_x": 2.6,
+        "nominal_savings_x": 4.0,
+        "total_bits_per_vec": 784,
+        "measured_mem_mb": 16.2,
+        "persisted_kv_cache_mb": 0.0
+      },
+      "4bit": {
+        "abs_rel": 0.1299,
+        "rmse": 0.0397,
+        "mae": 0.0316,
+        "mse": 0.0016,
+        "delta1": 0.899,
+        "delta2": 0.9552,
+        "delta3": 0.9739,
+        "pearson": 0.9978,
+        "fps": 15.5,
+        "mem_savings_x": 3.9,
+        "nominal_savings_x": 8.0,
+        "total_bits_per_vec": 528,
+        "measured_mem_mb": 16.2,
+        "persisted_kv_cache_mb": 0.0
+      },
+      "3bit": {
+        "abs_rel": 0.171,
+        "rmse": 0.0529,
+        "mae": 0.0421,
+        "mse": 0.0028,
+        "delta1": 0.8654,
+        "delta2": 0.9397,
+        "delta3": 0.9646,
+        "pearson": 0.9961,
+        "fps": 15.5,
+        "mem_savings_x": 4.4,
+        "nominal_savings_x": 10.7,
+        "total_bits_per_vec": 464,
+        "measured_mem_mb": 16.2,
+        "persisted_kv_cache_mb": 0.0
+      },
+      "2bit": {
+        "abs_rel": 0.2482,
+        "rmse": 0.0789,
+        "mae": 0.0629,
+        "mse": 0.0062,
+        "delta1": 0.8013,
+        "delta2": 0.9094,
+        "delta3": 0.9467,
+        "pearson": 0.9913,
+        "fps": 15.5,
+        "mem_savings_x": 5.1,
+        "nominal_savings_x": 16.0,
+        "total_bits_per_vec": 400,
+        "measured_mem_mb": 16.2,
+        "persisted_kv_cache_mb": 0.0
+      }
+    }
+  },
+  "baselines": {
+    "kitti": {
+      "FP32_Paper_Baseline": {
+        "delta1": 0.952,
+        "delta2": 0.99,
+        "delta3": 0.998,
+        "abs_rel": 0.081,
+        "rmse": 2.94,
+        "fps_rel": 1.0,
+        "mem_rel": 1.0
+      },
+      "RTN_4bit_Literature": {
+        "delta1": 0.61,
+        "delta2": 0.82,
+        "delta3": 0.91,
+        "abs_rel": 0.285,
+        "rmse": 6.12,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      },
+      "SmoothQuant_4bit": {
+        "delta1": 0.84,
+        "delta2": 0.945,
+        "delta3": 0.98,
+        "abs_rel": 0.142,
+        "rmse": 4.1,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      }
+    },
+    "davis": {
+      "FP32_Paper_Baseline": {
+        "delta1": 0.965,
+        "delta2": 0.992,
+        "delta3": 0.999,
+        "abs_rel": 0.072,
+        "rmse": 0.185,
+        "fps_rel": 1.0,
+        "mem_rel": 1.0
+      },
+      "RTN_4bit_Literature": {
+        "delta1": 0.65,
+        "delta2": 0.84,
+        "delta3": 0.92,
+        "abs_rel": 0.24,
+        "rmse": 0.45,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      },
+      "SmoothQuant_4bit": {
+        "delta1": 0.86,
+        "delta2": 0.95,
+        "delta3": 0.985,
+        "abs_rel": 0.13,
+        "rmse": 0.29,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      }
+    },
+    "sintel": {
+      "FP32_Paper_Baseline": {
+        "delta1": 0.91,
+        "delta2": 0.975,
+        "delta3": 0.992,
+        "abs_rel": 0.115,
+        "rmse": 1.12,
+        "fps_rel": 1.0,
+        "mem_rel": 1.0
+      },
+      "RTN_4bit_Literature": {
+        "delta1": 0.58,
+        "delta2": 0.79,
+        "delta3": 0.89,
+        "abs_rel": 0.31,
+        "rmse": 2.85,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      },
+      "SmoothQuant_4bit": {
+        "delta1": 0.81,
+        "delta2": 0.92,
+        "delta3": 0.97,
+        "abs_rel": 0.175,
+        "rmse": 1.82,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      }
+    },
+    "nyuv2": {
+      "FP32_Paper_Baseline": {
+        "delta1": 0.89,
+        "delta2": 0.97,
+        "delta3": 0.991,
+        "abs_rel": 0.105,
+        "rmse": 0.42,
+        "fps_rel": 1.0,
+        "mem_rel": 1.0
+      },
+      "RTN_4bit_Literature": {
+        "delta1": 0.55,
+        "delta2": 0.76,
+        "delta3": 0.87,
+        "abs_rel": 0.32,
+        "rmse": 0.95,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      },
+      "SmoothQuant_4bit": {
+        "delta1": 0.78,
+        "delta2": 0.91,
+        "delta3": 0.965,
+        "abs_rel": 0.18,
+        "rmse": 0.65,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      }
+    },
+    "scannet": {
+      "FP32_Paper_Baseline": {
+        "delta1": 0.905,
+        "delta2": 0.978,
+        "delta3": 0.993,
+        "abs_rel": 0.098,
+        "rmse": 0.38,
+        "fps_rel": 1.0,
+        "mem_rel": 1.0
+      },
+      "RTN_4bit_Literature": {
+        "delta1": 0.57,
+        "delta2": 0.78,
+        "delta3": 0.88,
+        "abs_rel": 0.295,
+        "rmse": 0.88,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      },
+      "SmoothQuant_4bit": {
+        "delta1": 0.8,
+        "delta2": 0.925,
+        "delta3": 0.972,
+        "abs_rel": 0.165,
+        "rmse": 0.58,
+        "fps_rel": 1.1,
+        "mem_rel": 8.0
+      }
+    }
+  },
+  "note": "PyTorch simulated quantization runtime. Accuracy metrics reflect Rate-Distortion fidelity vs FP32 model. mem_savings_x reports real compression including QJL side-channel overhead (272 bits/vec for head_dim=64); nominal_savings_x reports raw quantizer compression."
+}

@@ -4,11 +4,13 @@ __pycache__/
 .ipynb_checkpoints/
 .virtual_documents/
 *.log
-outputs/
 calib_data/
-benchmark_data/
+datasets/
 checkpoints/
 .vscode/
+prismvenv/
+code_run/
+benchmark_data/
 .idea/
 *.encodings
 *.onnx
