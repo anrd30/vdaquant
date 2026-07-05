@@ -51,19 +51,24 @@ from research.quantizers.lattice_vq import (
     LatticeD4Quantizer,
     residual_vector_quantize,
 )
-from research.quantizers.qjl_bias import QJLBiasCorrection
+from research.quantizers.qjl_bias import QJLBiasCorrection, ShrinkageQJLBiasCorrection
 
 _QJL_WARNED_BITS = set()
 
-def _check_qjl_gate(use_qjl: bool, bits: int, qjl_min_bits: int, dim: int, verbose: bool = True):
-    if not use_qjl:
+def _check_qjl_gate(qjl_mode: str, bits: int, qjl_min_bits: int, dim: int, verbose: bool = True):
+    if qjl_mode == "off":
         return None
-    if bits < qjl_min_bits:
-        if verbose and bits not in _QJL_WARNED_BITS:
-            print(f"  [Warning] QJL auto-disabled at {bits}-bit (< {qjl_min_bits} min bits). Correction magnitude scales with ||error|| and is unstable at low bit-widths.")
-            _QJL_WARNED_BITS.add(bits)
-        return None
-    return QJLBiasCorrection(dim)
+    elif qjl_mode == "full":
+        if bits < qjl_min_bits:
+            if verbose and bits not in _QJL_WARNED_BITS:
+                print(f"  [Warning] QJL auto-disabled at {bits}-bit (< {qjl_min_bits} min bits). Correction magnitude scales with ||error|| and is unstable at low bit-widths.")
+                _QJL_WARNED_BITS.add(bits)
+            return None
+        return QJLBiasCorrection(dim)
+    elif qjl_mode == "shrinkage":
+        return ShrinkageQJLBiasCorrection(dim)
+    else:
+        raise ValueError(f"Unknown qjl_mode: {qjl_mode}")
 
 
 def _get_quantizer(
@@ -107,7 +112,8 @@ class RotatedSelfAttention(nn.Module):
         proj_drop: float = 0.0,
         bits: int = 4,
         quantizer: str = 'lattice_d4',
-        use_qjl: bool = True,
+        qjl_mode: str = "off",
+        use_qjl: Optional[bool] = None,
         use_residual: bool = False,
         qjl_min_bits: int = 6,
         frames_are_temporally_ordered: bool = True,
@@ -121,7 +127,8 @@ class RotatedSelfAttention(nn.Module):
             proj_drop: Dropout on output projection.
             bits: Quantization bit-width for K and V caches.
             quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4').
-            use_qjl: Whether to apply QJL bias correction.
+            qjl_mode: QJL bias correction mode ('off', 'full', 'shrinkage').
+            use_qjl: Deprecated boolean flag for backwards compatibility.
             use_residual: Enable temporal residual (delta) quantization.
                 Frame 0 = I-frame (direct quant), frames 1+ = P-frames
                 (quantize only the residual from previous reconstruction).
@@ -134,7 +141,10 @@ class RotatedSelfAttention(nn.Module):
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.5
         self.bits = bits
-        self.use_qjl = use_qjl
+        if use_qjl is not None:
+            qjl_mode = "full" if use_qjl else "off"
+        self.qjl_mode = qjl_mode
+        self.use_qjl = (qjl_mode != "off")
         self.use_residual = use_residual
         self.qjl_min_bits = qjl_min_bits
         self.frames_are_temporally_ordered = frames_are_temporally_ordered
@@ -149,7 +159,7 @@ class RotatedSelfAttention(nn.Module):
         self.rotation = HadamardRotation(self.head_dim)
         self.k_quantizer = _get_quantizer(quantizer, bits)
         self.v_quantizer = _get_quantizer(quantizer, bits)
-        self.qjl = _check_qjl_gate(use_qjl, bits, qjl_min_bits, self.rotation.padded_dim)
+        self.qjl = _check_qjl_gate(qjl_mode, bits, qjl_min_bits, self.rotation.padded_dim)
 
     def forward(self, x: torch.Tensor = None, *args, **kwargs) -> torch.Tensor:
         """
@@ -250,7 +260,8 @@ class RotatedTemporalAttention(nn.Module):
         qkv_bias: bool = True,
         bits: int = 4,
         quantizer: str = 'lattice_d4',
-        use_qjl: bool = True,
+        qjl_mode: str = "off",
+        use_qjl: Optional[bool] = None,
         use_residual: bool = False,
         qjl_min_bits: int = 6,
     ):
@@ -261,7 +272,8 @@ class RotatedTemporalAttention(nn.Module):
             qkv_bias: Use bias in projections.
             bits: Quantization bits for temporal K/V cache.
             quantizer: Quantizer type.
-            use_qjl: Enable QJL bias correction.
+            qjl_mode: QJL bias correction mode ('off', 'full', 'shrinkage').
+            use_qjl: Enable QJL bias correction (deprecated, for backwards compat).
             qjl_min_bits: Minimum bit-width threshold for QJL.
         """
         super().__init__()
@@ -270,6 +282,10 @@ class RotatedTemporalAttention(nn.Module):
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.5
         self.bits = bits
+        if use_qjl is not None:
+            qjl_mode = "full" if use_qjl else "off"
+        self.qjl_mode = qjl_mode
+        self.use_qjl = (qjl_mode != "off")
         self.use_residual = use_residual
         self.qjl_min_bits = qjl_min_bits
 
@@ -289,7 +305,7 @@ class RotatedTemporalAttention(nn.Module):
         self.rotation = HadamardRotation(self.head_dim)
         self.k_quantizer = _get_quantizer(quantizer, bits)
         self.v_quantizer = _get_quantizer(quantizer, bits)
-        self.qjl = _check_qjl_gate(use_qjl, bits, qjl_min_bits, self.rotation.padded_dim)
+        self.qjl = _check_qjl_gate(qjl_mode, bits, qjl_min_bits, self.rotation.padded_dim)
 
         # Persistent internal cache buffers for O(1) temporal attention across chunks
         self.register_buffer('cached_k_q', None, persistent=False)
@@ -461,7 +477,8 @@ def apply_rotated_quantization_to_vda(
     model: nn.Module,
     bits: int = 4,
     quantizer: str = 'lattice_d4',
-    use_qjl: bool = True,
+    qjl_mode: str = "off",
+    use_qjl: Optional[bool] = None,
     replace_backbone: bool = True,
     replace_temporal: bool = True,
     use_residual: bool = False,
@@ -481,7 +498,8 @@ def apply_rotated_quantization_to_vda(
         model: A loaded VDA model (e.g., VideoDepthAnything with vits encoder).
         bits: Target bit-width for KV cache quantization.
         quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4').
-        use_qjl: Enable QJL bias correction for attention scores.
+        qjl_mode: QJL bias correction mode ('off', 'full', 'shrinkage').
+        use_qjl: Deprecated boolean flag for backwards compatibility.
         replace_backbone: Replace DinoV2 self-attention layers.
         replace_temporal: Replace DPT temporal cross-attention layers.
         verbose: Print replacement summary.
@@ -489,6 +507,9 @@ def apply_rotated_quantization_to_vda(
     Returns:
         Modified model with rotated quantized attention layers.
     """
+    if use_qjl is not None:
+        qjl_mode = "full" if use_qjl else "off"
+
     n_backbone = 0
     n_temporal = 0
 
@@ -512,7 +533,8 @@ def apply_rotated_quantization_to_vda(
                     qkv_bias=has_bias,
                     bits=bits,
                     quantizer=quantizer,
-                    use_qjl=use_qjl,
+                    qjl_mode=qjl_mode,
+                    use_qjl=None,
                     use_residual=use_residual,
                     qjl_min_bits=6,
                     frames_are_temporally_ordered=True,
@@ -557,7 +579,8 @@ def apply_rotated_quantization_to_vda(
                         num_heads=num_heads,
                         bits=bits,
                         quantizer=quantizer,
-                        use_qjl=use_qjl,
+                        qjl_mode=qjl_mode,
+                        use_qjl=None,
                         use_residual=use_residual,
                         qjl_min_bits=6,
                     ).to(device=device, dtype=dtype)
@@ -593,7 +616,7 @@ def apply_rotated_quantization_to_vda(
         print(f"  Backbone (DinoV2) attention layers replaced: {n_backbone}")
         print(f"  Temporal (DPT) cross-attention layers replaced: {n_temporal}")
         print(f"  Quantizer: {quantizer} @ {bits}-bit")
-        print(f"  QJL bias correction: {'Enabled' if use_qjl and bits >= 6 else 'Disabled (gate < 6-bit)'}")
+        print(f"  QJL bias correction: {qjl_mode} mode")
         print(f"  Compression: ~{32 / bits:.1f}x nominal over FP32 KV cache")
         print(f"{'=' * 60}")
 

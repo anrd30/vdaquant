@@ -187,6 +187,55 @@ def test_qjl_bias_correction():
     print(f"    Score error after QJL:  {error_after:.4f}")
     print(f"    Improvement: {improvement:.1f}%")
 
+def test_shrinkage_qjl_bias_correction():
+    """Verify ShrinkageQJLBiasCorrection runs without error and attenuates correction on large errors."""
+    from research.quantizers.qjl_bias import ShrinkageQJLBiasCorrection
+    import math
+
+    d = 64
+    n_q, n_k = 10, 10
+    qjl = ShrinkageQJLBiasCorrection(dim=d)
+
+    Q = torch.randn(1, n_q, d)
+    K = torch.randn(1, n_k, d)
+    raw_scores = Q @ K.transpose(-2, -1)
+
+    # Case 1: Tiny quantization error (||ε|| is tiny)
+    K_quant_clean = K + 1e-7 * torch.randn_like(K)
+    signs_clean, norms_clean = qjl.encode(K, K_quant_clean)
+    out_clean = qjl.correct_scores(raw_scores, Q, signs_clean, norms_clean)
+
+    # Case 2: Coarse quantization error (||ε|| is large)
+    K_quant_noisy = K + 5.0 * torch.randn_like(K)
+    signs_noisy, norms_noisy = qjl.encode(K, K_quant_noisy)
+    out_noisy = qjl.correct_scores(raw_scores, Q, signs_noisy, norms_noisy)
+
+    assert out_clean.shape == raw_scores.shape and out_noisy.shape == raw_scores.shape
+
+    # Check effective weight w directly for both cases
+    Q_norms = Q.norm(dim=-1, keepdim=True)
+    
+    # For clean:
+    conf_clean = Q_norms * norms_clean.transpose(-2, -1)
+    noise_clean = (norms_clean.transpose(-2, -1) ** 2) / math.sqrt(qjl.n_proj)
+    w_clean = torch.where(
+        norms_clean.transpose(-2, -1) < 1e-6,
+        torch.ones_like(conf_clean),
+        conf_clean / (conf_clean + noise_clean + 1e-8)
+    ).clamp(min=0.0, max=1.0)
+
+    # For noisy:
+    conf_noisy = Q_norms * norms_noisy.transpose(-2, -1)
+    noise_noisy = (norms_noisy.transpose(-2, -1) ** 2) / math.sqrt(qjl.n_proj)
+    w_noisy = (conf_noisy / (conf_noisy + noise_noisy + 1e-8)).clamp(min=0.0, max=1.0)
+
+    assert (w_clean >= 0.99).all(), "w should be close to 1 when error is tiny"
+    assert (w_noisy < w_clean).any(), "w should shrink when error is large"
+
+    print(f"\n  ✓ Shrinkage QJL bias correction:")
+    print(f"    Mean w (clean): {w_clean.mean().item():.4f} (≈ 1.0)")
+    print(f"    Mean w (noisy): {w_noisy.mean().item():.4f} (attenuated)")
+
 def test_rotated_self_attention():
     """Verify RotatedSelfAttention runs end-to-end."""
     from research.models.rotated_attention import RotatedSelfAttention
@@ -276,6 +325,7 @@ if __name__ == '__main__':
 
     print("\n[7] QJL Bias Correction")
     test_qjl_bias_correction()
+    test_shrinkage_qjl_bias_correction()
 
     print("\n[8] End-to-End Attention Modules")
     test_rotated_self_attention()

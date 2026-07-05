@@ -174,3 +174,83 @@ class QJLBiasCorrection(nn.Module):
 
     def extra_repr(self) -> str:
         return f"dim={self.dim}, n_projections={self.n_proj}, cost={self.n_proj}bits+16bits/vector"
+
+
+class ShrinkageQJLBiasCorrection(QJLBiasCorrection):
+    """
+    Confidence-weighted (shrinkage) variant of QJL bias correction.
+
+    This is a first-pass heuristic weighting (not a rigorously derived variance formula)
+    meant to make the QJL correction fade out smoothly at low bit-widths instead of
+    requiring a hard qjl_min_bits cutoff.
+
+    When quantization error is large (low bit-widths), the estimated bias can be noisy.
+    We scale the correction by a shrinkage factor w ∈ [0, 1]:
+        correction = w · bias_estimate
+        corrected_score = raw_score + correction
+
+    where:
+        confidence = ||Q|| · ||ε_K||
+        noise_floor = ||ε_K|| / sqrt(m)
+        w = confidence / (confidence + noise_floor + eps), clamped to [0, 1]
+
+    When ||ε_K|| is tiny (high precision), w ≈ 1.
+    When ||ε_K|| is large (coarse precision), w shrinks to attenuate noise.
+    """
+
+    def correct_scores(
+        self,
+        attn_scores: torch.Tensor,
+        Q: torch.Tensor,
+        K_error_signs: torch.Tensor,
+        K_error_norms: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Correct quantization bias in attention scores using confidence shrinkage.
+
+        Args:
+            attn_scores: Raw Q @ K_q^T scores, shape (..., n_q, n_k).
+            Q: Query vectors, shape (..., n_q, dim).
+            K_error_signs: From encode(), shape (..., n_k, n_proj).
+            K_error_norms: From encode(), shape (..., n_k, 1).
+
+        Returns:
+            Corrected attention scores, same shape.
+        """
+        # Query norms: ||Q[i]||
+        Q_norms = Q.norm(dim=-1, keepdim=True)  # (..., n_q, 1)
+
+        # Project queries and take sign
+        Q_proj_sign = (Q @ self.R.T).sign()  # (..., n_q, n_proj)
+        Q_proj_sign[Q_proj_sign == 0] = 1.0
+
+        # Sign-correlation: approximate cosine similarity between Q and ε_K
+        cosine_est = (Q_proj_sign @ K_error_signs.transpose(-2, -1)) / self.n_proj
+
+        # Scale by norms: ||Q[i]|| · ||ε_K[j]||
+        norm_scale = Q_norms * K_error_norms.transpose(-2, -1)  # (..., n_q, n_k)
+
+        # Full bias estimate
+        bias_estimate = norm_scale * cosine_est
+
+        # Compute confidence and noise floor for shrinkage weight w
+        # Using ||ε_K||^2 / sqrt(m) for noise floor so that w shrinks at coarse quantization
+        confidence = norm_scale  # ||Q|| * ||ε_K||
+        noise_floor = (K_error_norms.transpose(-2, -1) ** 2) / math.sqrt(self.n_proj)  # (..., 1, n_k)
+
+        # When ||ε_K|| is tiny, set w ≈ 1.0 to avoid divide-by-zero or vanishing weights
+        eps = 1e-8
+        w = torch.where(
+            K_error_norms.transpose(-2, -1) < 1e-6,
+            torch.ones_like(confidence),
+            confidence / (confidence + noise_floor + eps)
+        ).clamp(min=0.0, max=1.0)
+
+        # Scale correction by confidence weight w
+        correction = w * bias_estimate
+
+        # ADD back the weighted estimated bias
+        corrected = attn_scores + correction
+
+        return corrected
+

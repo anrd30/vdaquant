@@ -435,8 +435,13 @@ def main():
     parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
     parser.add_argument("--output-dir", type=str, default="outputs/pareto_results", help="Directory to save benchmark reports and charts")
     parser.add_argument("--test-mode", action="store_true", help="Run fast verification test")
+    parser.add_argument("--qjl-mode", choices=["off", "full", "shrinkage"], default="off", help="QJL bias correction mode")
     parser.add_argument("--disable-qjl", action="store_true", help="Disable QJL bias correction to compare performance/overhead")
     args = parser.parse_args()
+
+    if args.disable_qjl:
+        args.qjl_mode = "off"
+    use_qjl_bool = (args.qjl_mode != "off")
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -587,7 +592,7 @@ def main():
                     model_quant = model_quant.cuda()
                 
                 model_quant = apply_rotated_quantization_to_vda(
-                    model_quant, bits=bit, quantizer='lattice_d4', use_qjl=not args.disable_qjl, verbose=False,
+                    model_quant, bits=bit, quantizer='lattice_d4', qjl_mode=args.qjl_mode, use_qjl=None, verbose=False,
                     replace_temporal=True,  # Replace both DinoV2 backbone AND DPT temporal attention layers
                     use_residual=True,  # Enable temporal residual (delta) quantization for inter-frame compression
                 )
@@ -616,7 +621,7 @@ def main():
                 persisted_kv_mb = compute_persisted_kv_cache_mem_mb(model_quant)
             except Exception:
                 persisted_kv_mb = 0.0
-            total_bits, real_ratio, nominal_ratio = compute_real_bit_accounting(bit, head_dim=64, use_qjl=not args.disable_qjl)
+            total_bits, real_ratio, nominal_ratio = compute_real_bit_accounting(bit, head_dim=64, use_qjl=use_qjl_bool)
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)
             metrics["mem_savings_x"] = real_ratio
@@ -640,7 +645,7 @@ def main():
     print(f"\n  [Export] Full Pareto numerical results saved to {json_path}")
 
     # Generate Publication Charts
-    generate_pareto_charts(all_results, output_dir, use_qjl=not args.disable_qjl)
+    generate_pareto_charts(all_results, output_dir, use_qjl=use_qjl_bool)
 
     # Print Summary Table
     print(f"\n{'=' * 110}")
