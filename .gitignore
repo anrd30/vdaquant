@@ -10,6 +10,8 @@ checkpoints/
 .vscode/
 prismvenv/
 code_run/
+outputs/custom_videos/
+videos/
 benchmark_data/
 .idea/
 *.encodings
