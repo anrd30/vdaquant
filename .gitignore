@@ -6,11 +6,13 @@ __pycache__/
 *.log
 calib_data/
 datasets/
+
 checkpoints/
 .vscode/
 prismvenv/
 code_run/
-outputs/custom_videos/
+outputs/
+newone/
 videos/
 benchmark_data/
 .idea/
