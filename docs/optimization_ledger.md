@@ -228,15 +228,39 @@ quantizer, not this specific 4-bit RTN baseline on this distribution; the
 E8-vs-D4 differential, which cancels most of that modeling mismatch, is the
 number that validates the implementation.)
 
-### Not done in this session (explicitly deferred, per instruction not to
-### download datasets or run GPU work locally)
-The T8 "suite gate" (full pipeline at b=3/E8/8-bit-scales/no-QJL reporting
-`eff == 4.0` AND GT δ1 drop ≤ 0.02 on real NYUv2 via T2's protocol) requires a
-real VDA checkpoint + the NYUv2 labeled dataset + GPU inference — none of which
-were run locally. All the code paths are wired and unit-tested; running
-`python scripts/run_pareto_benchmark_suite.py --dataset nyuv2 --eval-mode
-groundtruth --bits 3 --quantizer lattice_e8 --scale-bits 8 --no-qjl` on Colab
-is the remaining step to produce the actual headline-table numbers.
+### GATE PASSED — real Colab run, N=200 NYUv2 ground-truth images, T8 headline result
+`python scripts/run_pareto_benchmark_suite.py --dataset nyuv2 --eval-mode groundtruth
+--bits 3 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200`
+
+Surgery verified active before trusting these numbers (not a no-op): 12 backbone
++ 8 temporal attention layers replaced; FP32-vs-quantized activation diff
+MSE=0.2854, max abs diff=4.95 (`verify_quantization_surgery`, added this session
+specifically to rule out a silent-no-op explanation for suspiciously-small
+accuracy deltas — see the N=20 smoke-test run that preceded this one).
+
+| | δ1 ↑ | δ2 | δ3 | AbsRel ↓ | RMSE ↓ | eff bits/scalar | vs FP32 | vs FP16 |
+|---|---|---|---|---|---|---|---|---|
+| FP32 baseline | 0.8105 | 0.9482 | 0.9741 | 0.1513 | 0.5477 | 32.0 | 1.0x | 0.5x |
+| 3-bit E8 (T8 config) | 0.8044 | 0.9444 | 0.9741 | 0.1523 | 0.5417 | **4.0** | **8.0x** | **4.0x** |
+
+**δ1 drop = 0.0061** (0.8105 → 0.8044) — more than 3x under the ≤0.02 gate.
+AbsRel moved +0.0010 (negligible); RMSE and δ3 essentially unchanged/improved.
+**Gate: PASSED.** eff == 4.0 exactly; GT δ1 drop ≤ 0.02.
+
+This is the paper's headline result: **8x real compression vs FP32 (4x vs the
+honest FP16 deployment baseline), on real NYUv2 ground truth (not the
+fidelity-vs-FP32 proxy the original code reported), with δ1 degrading by only
+0.61 points.**
+
+Remaining before treating this as final for publication:
+- N=200 of 654 in the official test split — re-run with `--max-samples 654`
+  (full split) for the paper's real number; N=200 is a strong signal but not
+  the complete evaluation.
+- This run used QJL disabled per the T8 config; an ablation row with QJL on
+  (at whatever m makes F3b's bias-variance tradeoff net-positive, m≳512) would
+  quantify what QJL costs/buys at this operating point, if wanted for the paper.
+- Only bits=3 was swept here; run `--bits 8 4 3 2` for the full Pareto curve
+  the suite already produces (`generate_pareto_charts`).
 
 ---
 
