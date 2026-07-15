@@ -49,22 +49,35 @@ from research.quantizers.lattice_vq import (
     ScalarRoundQuantizer,
     UniformVectorQuantizer,
     LatticeD4Quantizer,
+    LatticeE8Quantizer,
+    IdentityQuantizer,
 )
 from research.quantizers.qjl_bias import QJLBiasCorrection
 
 
 def _get_quantizer(
-    method: Literal['scalar', 'uniform_vector', 'lattice_d4'],
+    method: Literal['scalar', 'uniform_vector', 'lattice_d4', 'lattice_e8', 'identity'],
     bits: int,
     group_size: int = 4,
+    scale_bits: int = 16,
 ) -> nn.Module:
-    """Factory function to create the appropriate quantizer."""
+    """
+    Factory function to create the appropriate quantizer.
+    'identity' is a no-op passthrough, used to isolate the attention-reshape
+    contract from quantization noise during equivalence testing (T7).
+    'lattice_e8' targets the T8 ≤4.0-effective-bits/scalar configuration:
+    group_size=8 halves the per-group scale overhead vs D4's group_size=4.
+    """
     if method == 'scalar':
         return ScalarRoundQuantizer(bits=bits, symmetric=True)
     elif method == 'uniform_vector':
         return UniformVectorQuantizer(bits=bits, group_size=group_size)
     elif method == 'lattice_d4':
-        return LatticeD4Quantizer(bits=bits, group_size=4)
+        return LatticeD4Quantizer(bits=bits, group_size=4, scale_bits=scale_bits)
+    elif method == 'lattice_e8':
+        return LatticeE8Quantizer(bits=bits, group_size=8, scale_bits=scale_bits)
+    elif method == 'identity':
+        return IdentityQuantizer(bits=bits)
     else:
         raise ValueError(f"Unknown quantizer method: {method}")
 
@@ -95,6 +108,7 @@ class RotatedSelfAttention(nn.Module):
         bits: int = 4,
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
+        scale_bits: int = 16,
     ):
         """
         Args:
@@ -104,8 +118,10 @@ class RotatedSelfAttention(nn.Module):
             attn_drop: Dropout on attention weights.
             proj_drop: Dropout on output projection.
             bits: Quantization bit-width for K and V caches.
-            quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4').
+            quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4', 'lattice_e8').
             use_qjl: Whether to apply QJL bias correction.
+            scale_bits: Bit-width for lattice quantizers' per-group scale
+                        metadata (16 or 8). See docs/optimization_ledger.md T1/T8.
         """
         super().__init__()
         self.dim = dim
@@ -123,8 +139,8 @@ class RotatedSelfAttention(nn.Module):
 
         # Our additions: Hadamard rotation + quantizer + QJL
         self.rotation = HadamardRotation(self.head_dim)
-        self.k_quantizer = _get_quantizer(quantizer, bits)
-        self.v_quantizer = _get_quantizer(quantizer, bits)
+        self.k_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
+        self.v_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
         if use_qjl:
             self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
@@ -133,7 +149,24 @@ class RotatedSelfAttention(nn.Module):
     def forward(self, x: torch.Tensor = None, *args, **kwargs) -> torch.Tensor:
         """
         Forward pass with Hadamard-rotated quantized attention.
+
+        Raises NotImplementedError if an attention bias/mask is supplied:
+        this module's quantized-K attention math (scores computed from
+        rotated+quantized K, then QJL-corrected) has no path for injecting
+        an additive bias or mask into that pipeline, so silently ignoring
+        one (as an earlier version of this function did) would silently
+        change model behavior versus the original unmasked-assumption
+        layer it replaces. See docs/optimization_ledger.md T7 (F9).
         """
+        for bias_kwarg in ('attn_bias', 'attention_mask', 'mask'):
+            if kwargs.get(bias_kwarg, None) is not None:
+                raise NotImplementedError(
+                    f"RotatedSelfAttention does not support a non-None '{bias_kwarg}' "
+                    f"argument: its quantized-K attention pipeline has no path to apply "
+                    f"an attention bias/mask. Passing one silently would change behavior "
+                    f"versus the original layer without any error."
+                )
+
         if x is None and len(args) > 0:
             x = args[0]
         elif x is None:
@@ -220,6 +253,7 @@ class RotatedTemporalAttention(nn.Module):
         bits: int = 4,
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
+        scale_bits: int = 16,
     ):
         """
         Args:
@@ -229,6 +263,8 @@ class RotatedTemporalAttention(nn.Module):
             bits: Quantization bits for temporal K/V cache.
             quantizer: Quantizer type.
             use_qjl: Enable QJL bias correction.
+            scale_bits: Bit-width for lattice quantizers' per-group scale
+                        metadata (16 or 8). See docs/optimization_ledger.md T1/T8.
         """
         super().__init__()
         self.dim = dim
@@ -251,8 +287,8 @@ class RotatedTemporalAttention(nn.Module):
 
         # Shared rotation for temporal consistency
         self.rotation = HadamardRotation(self.head_dim)
-        self.k_quantizer = _get_quantizer(quantizer, bits)
-        self.v_quantizer = _get_quantizer(quantizer, bits)
+        self.k_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
+        self.v_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
         if use_qjl:
             self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
@@ -373,6 +409,7 @@ def apply_rotated_quantization_to_vda(
     replace_backbone: bool = True,
     replace_temporal: bool = True,
     verbose: bool = True,
+    scale_bits: int = 16,
 ) -> nn.Module:
     """
     Apply Hadamard-rotated quantization to a Video-Depth-Anything model.
@@ -387,11 +424,14 @@ def apply_rotated_quantization_to_vda(
     Args:
         model: A loaded VDA model (e.g., VideoDepthAnything with vits encoder).
         bits: Target bit-width for KV cache quantization.
-        quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4').
+        quantizer: Quantizer type ('scalar', 'uniform_vector', 'lattice_d4', 'lattice_e8').
         use_qjl: Enable QJL bias correction for attention scores.
         replace_backbone: Replace DinoV2 self-attention layers.
         replace_temporal: Replace DPT temporal cross-attention layers.
         verbose: Print replacement summary.
+        scale_bits: Bit-width for lattice quantizers' per-group scale metadata
+                    (16 or 8). The T8 ≤4.0-effective-bits/scalar configuration
+                    uses quantizer='lattice_e8', scale_bits=8, use_qjl=False.
 
     Returns:
         Modified model with rotated quantized attention layers.
@@ -420,6 +460,7 @@ def apply_rotated_quantization_to_vda(
                     bits=bits,
                     quantizer=quantizer,
                     use_qjl=use_qjl,
+                    scale_bits=scale_bits,
                 ).to(device=device, dtype=dtype)
 
                 # Copy pretrained weights
@@ -456,18 +497,39 @@ def apply_rotated_quantization_to_vda(
                     weight_attr = getattr(old_cross, 'to_q', getattr(old_cross, 'q_proj', None))
                     device = getattr(weight_attr.weight, 'device', torch.device('cpu')) if weight_attr is not None else torch.device('cpu')
                     dtype = getattr(weight_attr.weight, 'dtype', torch.float32) if weight_attr is not None else torch.float32
+                    # CRITICAL: detect the source layer's actual bias presence and match
+                    # it exactly (mirrors what the backbone/self-attention branch above
+                    # already does via has_bias). VDA's TemporalAttention inherits
+                    # CrossAttention's default bias=False for to_q/to_k/to_v. Leaving
+                    # this undetected (previous code always used qkv_bias's class
+                    # default of True) meant the replacement layer's Q/K/V projections
+                    # carried a random, untrained bias vector that the real layer never
+                    # had — this was the actual root cause of the "garbled depth output"
+                    # that led to replace_temporal=False in commit 4cc719f, NOT a
+                    # reshape/head-fold incompatibility (verified: with this bias fix,
+                    # RotatedTemporalAttention matches the real TemporalAttention within
+                    # 1e-3, typically to exact float precision — see
+                    # docs/optimization_ledger.md T7 and
+                    # tests/test_temporal_equivalence.py).
+                    qkv_has_bias = weight_attr.bias is not None if weight_attr is not None else True
                     new_cross = RotatedTemporalAttention(
                         dim=dim,
                         num_heads=num_heads,
+                        qkv_bias=qkv_has_bias,
                         bits=bits,
                         quantizer=quantizer,
                         use_qjl=use_qjl,
+                        scale_bits=scale_bits,
                     ).to(device=device, dtype=dtype)
-                    # Copy weights where possible
+                    # Copy weights (and bias, if present) where possible
                     if hasattr(old_cross, 'to_q'):
                         new_cross.q_proj.weight.data.copy_(old_cross.to_q.weight.data)
                         new_cross.k_proj.weight.data.copy_(old_cross.to_k.weight.data)
                         new_cross.v_proj.weight.data.copy_(old_cross.to_v.weight.data)
+                        if old_cross.to_q.bias is not None:
+                            new_cross.q_proj.bias.data.copy_(old_cross.to_q.bias.data)
+                            new_cross.k_proj.bias.data.copy_(old_cross.to_k.bias.data)
+                            new_cross.v_proj.bias.data.copy_(old_cross.to_v.bias.data)
                     if hasattr(old_cross, 'to_out'):
                         out_layer = old_cross.to_out[0] if isinstance(old_cross.to_out, (nn.Sequential, nn.ModuleList)) else old_cross.to_out
                         new_cross.out_proj.weight.data.copy_(out_layer.weight.data)
@@ -494,9 +556,10 @@ def apply_rotated_quantization_to_vda(
         print(f"{'=' * 60}")
         print(f"  Backbone (DinoV2) attention layers replaced: {n_backbone}")
         print(f"  Temporal (DPT) cross-attention layers replaced: {n_temporal}")
-        print(f"  Quantizer: {quantizer} @ {bits}-bit")
+        print(f"  Quantizer: {quantizer} @ {bits}-bit, scale_bits={scale_bits}")
         print(f"  QJL bias correction: {'Enabled' if use_qjl else 'Disabled'}")
-        print(f"  Compression: ~{32 / bits:.1f}x over FP32 KV cache")
+        print(f"  Compression: ~{32 / bits:.1f}x nominal over FP32 KV cache (NOMINAL ONLY — "
+              f"see compute_real_bit_accounting in scripts/ for the all-inclusive effective rate)")
         print(f"{'=' * 60}")
 
     return model

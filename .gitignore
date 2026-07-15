@@ -14,3 +14,4 @@ checkpoints/
 *.onnx
 *.pth
 *.pkl
+Video-Depth-Anything/

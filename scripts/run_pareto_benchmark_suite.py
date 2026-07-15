@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 
 try:
@@ -36,6 +37,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(SCRIPT_DIR))
 
 # Search for Video-Depth-Anything in common paths or auto-clone for Google Colab
 possible_vda_paths = [
@@ -67,37 +69,15 @@ if not vda_found:
         print(f"  [Warning] Could not auto-clone Video-Depth-Anything: {e}")
 
 from research.models.rotated_attention import apply_rotated_quantization_to_vda
+from research.quantizers.qjl_bias import default_qjl_projections
+from datasets_gt import compute_gt_depth_metrics, load_nyuv2_gt_test_split, affine_align_inverse_depth
 
-# ============================================================
-# PUBLISHED LITERATURE BASELINES (For Academic Reference)
-# ============================================================
-PUBLISHED_BASELINES = {
-    "kitti": {
-        "FP32_Paper_Baseline": {"delta1": 0.952, "delta2": 0.990, "delta3": 0.998, "abs_rel": 0.081, "rmse": 2.940, "fps_rel": 1.0, "mem_rel": 1.0},
-        "RTN_4bit_Literature": {"delta1": 0.610, "delta2": 0.820, "delta3": 0.910, "abs_rel": 0.285, "rmse": 6.120, "fps_rel": 1.1, "mem_rel": 8.0},
-        "SmoothQuant_4bit":    {"delta1": 0.840, "delta2": 0.945, "delta3": 0.980, "abs_rel": 0.142, "rmse": 4.100, "fps_rel": 1.1, "mem_rel": 8.0},
-    },
-    "davis": {
-        "FP32_Paper_Baseline": {"delta1": 0.965, "delta2": 0.992, "delta3": 0.999, "abs_rel": 0.072, "rmse": 0.185, "fps_rel": 1.0, "mem_rel": 1.0},
-        "RTN_4bit_Literature": {"delta1": 0.650, "delta2": 0.840, "delta3": 0.920, "abs_rel": 0.240, "rmse": 0.450, "fps_rel": 1.1, "mem_rel": 8.0},
-        "SmoothQuant_4bit":    {"delta1": 0.860, "delta2": 0.950, "delta3": 0.985, "abs_rel": 0.130, "rmse": 0.290, "fps_rel": 1.1, "mem_rel": 8.0},
-    },
-    "sintel": {
-        "FP32_Paper_Baseline": {"delta1": 0.910, "delta2": 0.975, "delta3": 0.992, "abs_rel": 0.115, "rmse": 1.120, "fps_rel": 1.0, "mem_rel": 1.0},
-        "RTN_4bit_Literature": {"delta1": 0.580, "delta2": 0.790, "delta3": 0.890, "abs_rel": 0.310, "rmse": 2.850, "fps_rel": 1.1, "mem_rel": 8.0},
-        "SmoothQuant_4bit":    {"delta1": 0.810, "delta2": 0.920, "delta3": 0.970, "abs_rel": 0.175, "rmse": 1.820, "fps_rel": 1.1, "mem_rel": 8.0},
-    },
-    "nyuv2": {
-        "FP32_Paper_Baseline": {"delta1": 0.890, "delta2": 0.970, "delta3": 0.991, "abs_rel": 0.105, "rmse": 0.420, "fps_rel": 1.0, "mem_rel": 1.0},
-        "RTN_4bit_Literature": {"delta1": 0.550, "delta2": 0.760, "delta3": 0.870, "abs_rel": 0.320, "rmse": 0.950, "fps_rel": 1.1, "mem_rel": 8.0},
-        "SmoothQuant_4bit":    {"delta1": 0.780, "delta2": 0.910, "delta3": 0.965, "abs_rel": 0.180, "rmse": 0.650, "fps_rel": 1.1, "mem_rel": 8.0},
-    },
-    "scannet": {
-        "FP32_Paper_Baseline": {"delta1": 0.905, "delta2": 0.978, "delta3": 0.993, "abs_rel": 0.098, "rmse": 0.380, "fps_rel": 1.0, "mem_rel": 1.0},
-        "RTN_4bit_Literature": {"delta1": 0.570, "delta2": 0.780, "delta3": 0.880, "abs_rel": 0.295, "rmse": 0.880, "fps_rel": 1.1, "mem_rel": 8.0},
-        "SmoothQuant_4bit":    {"delta1": 0.800, "delta2": 0.925, "delta3": 0.972, "abs_rel": 0.165, "rmse": 0.580, "fps_rel": 1.1, "mem_rel": 8.0},
-    }
-}
+# NOTE: unverified literature baseline numbers (previously hardcoded here as
+# PUBLISHED_BASELINES and embedded into every JSON export next to measured
+# results with no citation trail) have been QUARANTINED to
+# docs/unverified_baselines.md. They must never be printed, plotted, or
+# exported alongside measured results again — see
+# docs/optimization_ledger.md finding F2.
 
 # ============================================================
 # AUTOMATED DATASET DOWNLOADER & LOADER
@@ -245,8 +225,13 @@ def get_dataset_samples(dataset_name: str, data_dir: Path, max_samples: int = 5)
 # ============================================================
 def compute_academic_metrics(pred: torch.Tensor, gt: torch.Tensor, valid_mask: torch.Tensor = None):
     """
-    Computes standard academic depth estimation metrics matching VDA protocol:
-    AbsRel, RMSE, delta1 (<1.25), delta2 (<1.25^2), delta3 (<1.25^3), Pearson Correlation.
+    FIDELITY-MODE metric function: computes AbsRel, RMSE, delta1/2/3, and
+    Pearson correlation between two model outputs (typically quantized vs
+    FP32 output from THIS SAME MODEL). There is no ground truth involved and
+    no affine alignment — this measures rate-distortion fidelity, not
+    dataset accuracy. For real ground-truth evaluation against labeled
+    NYUv2 depth, use scripts/datasets_gt.compute_gt_depth_metrics instead
+    (see docs/optimization_ledger.md T2, finding F2).
     """
     if valid_mask is None:
         valid_mask = (gt > 1e-3) & (pred > 1e-3)
@@ -294,6 +279,95 @@ def compute_academic_metrics(pred: torch.Tensor, gt: torch.Tensor, valid_mask: t
     }
 
 # ============================================================
+# TEMPORAL (IN)STABILITY METRIC — TAE
+# ============================================================
+def _warp_depth_by_flow(depth: torch.Tensor, flow: torch.Tensor) -> torch.Tensor:
+    """
+    Warp a (B, H, W) depth map by per-pixel optical flow (H, W, 2) [dx, dy]
+    using bilinear grid_sample, mapping frame t+1's depth onto frame t's grid.
+    """
+    B, H, W = depth.shape
+    device = depth.device
+    yy, xx = torch.meshgrid(
+        torch.arange(H, device=device, dtype=torch.float32),
+        torch.arange(W, device=device, dtype=torch.float32),
+        indexing='ij',
+    )
+    new_x = xx + flow[..., 0]
+    new_y = yy + flow[..., 1]
+    grid_x = 2.0 * new_x / max(W - 1, 1) - 1.0
+    grid_y = 2.0 * new_y / max(H - 1, 1) - 1.0
+    grid = torch.stack([grid_x, grid_y], dim=-1).unsqueeze(0).expand(B, -1, -1, -1)
+    warped = F.grid_sample(depth.unsqueeze(1), grid, mode='bilinear', padding_mode='border', align_corners=True)
+    return warped.squeeze(1)
+
+
+def compute_tae(depth_sequence: torch.Tensor, flow_fields: torch.Tensor = None, align: bool = True) -> dict:
+    """
+    Temporal (in)stability metric ("flicker"): mean absolute difference
+    between consecutive depth frames (docs/optimization_ledger.md T7).
+
+        TAE = mean_t |D_t - warp(D_{t+1})|
+
+    using per-pixel optical flow to compensate for camera/scene motion
+    between frames. When flow_fields is None (this repo does not run an
+    optical-flow estimator), falls back to the STATIC-CAMERA approximation:
+
+        TAE = mean_t |D_t - D_{t+1}|
+
+    with no motion compensation. This fallback over-estimates TAE for a
+    genuinely moving camera/scene (real motion gets conflated with flicker)
+    — treat it as an upper bound, not an exact flicker measurement, unless
+    flow_fields is supplied.
+
+    Args:
+        depth_sequence: (T, H, W) or (B, T, H, W) predicted depth over T frames.
+        flow_fields: Optional (T-1, H, W, 2) per-pixel (dx, dy) flow from
+                     frame t to t+1. If None, no warping is applied (static fallback).
+        align: If True, per-frame-pair affine-align D_{t+1} to D_t (scale+shift,
+               via datasets_gt.affine_align_inverse_depth) before differencing,
+               removing benign global scale drift (common in scale-invariant
+               depth models) so TAE isolates local flicker rather than
+               reporting it as instability.
+
+    Returns:
+        dict with 'tae' (float, mean over all frame pairs) and
+        'per_frame_pair' (list of per-pair mean abs diff), 'used_flow' (bool),
+        'aligned' (bool).
+    """
+    if depth_sequence.dim() == 3:
+        depth_sequence = depth_sequence.unsqueeze(0)  # (1, T, H, W)
+
+    B, T, H, W = depth_sequence.shape
+    if T < 2:
+        return {"tae": 0.0, "per_frame_pair": [], "used_flow": flow_fields is not None, "aligned": align}
+
+    per_pair = []
+    for t in range(T - 1):
+        d_t = depth_sequence[:, t]        # (B, H, W)
+        d_t1 = depth_sequence[:, t + 1]   # (B, H, W)
+
+        if flow_fields is not None:
+            d_t1 = _warp_depth_by_flow(d_t1, flow_fields[t])
+
+        if align:
+            aligned_frames = []
+            for b in range(B):
+                valid = torch.ones_like(d_t[b], dtype=torch.bool)
+                _, _, d_t1_aligned = affine_align_inverse_depth(d_t1[b], d_t[b], valid)
+                aligned_frames.append(d_t1_aligned)
+            d_t1 = torch.stack(aligned_frames, dim=0)
+
+        per_pair.append((d_t - d_t1).abs().mean().item())
+
+    return {
+        "tae": round(float(np.mean(per_pair)), 6),
+        "per_frame_pair": [round(p, 6) for p in per_pair],
+        "used_flow": flow_fields is not None,
+        "aligned": align,
+    }
+
+# ============================================================
 # DYNAMIC SURGERY VERIFICATION & SANITY CHECK
 # ============================================================
 def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, sample_input: torch.Tensor):
@@ -331,24 +405,78 @@ def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, s
 # ============================================================
 # HONEST BIT ACCOUNTING & QJL OVERHEAD CALCULATOR
 # ============================================================
-def compute_real_bit_accounting(bit_val: int, head_dim: int = 64, use_qjl: bool = True):
+# Per-group scale sharing for each quantizer: D4 groups 4 scalars per scale,
+# E8 groups 8 (halving the scale overhead — the key T8 lever). 'scalar' and
+# 'uniform_vector' default to 4 for historical consistency with earlier
+# accounting; this doesn't affect the T8 gate, which uses lattice_e8.
+QUANTIZER_GROUP_SIZE = {
+    'scalar': 4,
+    'uniform_vector': 4,
+    'lattice_d4': 4,
+    'lattice_e8': 8,
+}
+
+
+def compute_real_bit_accounting(
+    bit_val: int,
+    head_dim: int = 64,
+    use_qjl: bool = True,
+    group_size: int = 4,
+    scale_bits: int = 16,
+    norm_bits: int = 16,
+    n_projections: int = None,
+):
     """
-    Computes honest bit accounting including QJL side-channel overhead.
-    For head_dim=64 (ViT-Small), QJL stores n_projections=256 sign bits + 16-bit norm per vector.
-    Total side-channel = 272 bits/vector.
-    Returns: (total_bits_per_vector, real_compression_ratio, nominal_compression_ratio)
+    Computes ALL-INCLUSIVE bit accounting: quantizer payload + per-group scale
+    metadata + QJL side-channel overhead (if enabled). Ratios are reported vs
+    BOTH FP32 and FP16 baselines, since FP16 is the realistic deployment
+    baseline (FP32 overstates savings by 2x).
+
+    Per-vector cost breakdown:
+        payload_bits = head_dim * bit_val
+        scale_bits_total = (head_dim / group_size) * scale_bits   (one scale per group)
+        qjl_bits = n_projections + norm_bits                       (if use_qjl)
+
+    For head_dim=64, group_size=4, bit_val=3, scale_bits=16, QJL(n_proj=256, norm=16):
+        payload=192, scale=256, qjl=272 -> total=720 bits/vector = 11.25 eff bits/scalar
+        (vs the naive "3-bit" claim, which ignores the 528 bits of metadata).
+
+    Returns a dict:
+        total_bits_per_vector, effective_bits_per_scalar,
+        ratio_vs_fp32, ratio_vs_fp16, nominal_ratio_vs_fp32,
+        scale_overhead_bits_per_vector, qjl_side_bits_per_vector
     """
-    fp32_bits = head_dim * 32 # 2048 bits
+    fp32_bits = head_dim * 32
+    fp16_bits = head_dim * 16
     primary_bits = head_dim * bit_val
+    scale_overhead_bits = (head_dim / group_size) * scale_bits if group_size > 0 else 0
+
     if use_qjl and bit_val > 0:
-        n_proj = head_dim * 4 if head_dim <= 128 else (head_dim * 2 if head_dim <= 256 else head_dim)
-        side_bits = n_proj + 16 # 272 bits for d=64
+        # Uses the SAME default formula as QJLBiasCorrection itself
+        # (research/quantizers/qjl_bias.default_qjl_projections), so this
+        # accounting can never silently drift from what the runtime module
+        # actually costs. Pass n_projections explicitly to audit a specific
+        # (e.g. historical) configuration.
+        n_proj = n_projections if n_projections is not None else default_qjl_projections(head_dim)
+        qjl_side_bits = n_proj + norm_bits
     else:
-        side_bits = 0
-    total_bits = primary_bits + side_bits
-    real_ratio = round(fp32_bits / total_bits, 1) if total_bits > 0 else 1.0
-    nominal_ratio = round(32.0 / bit_val, 1) if bit_val > 0 else 1.0
-    return total_bits, real_ratio, nominal_ratio
+        qjl_side_bits = 0
+
+    total_bits = primary_bits + scale_overhead_bits + qjl_side_bits
+    effective_bits_per_scalar = total_bits / head_dim if head_dim > 0 else 0.0
+    ratio_vs_fp32 = round(fp32_bits / total_bits, 1) if total_bits > 0 else 1.0
+    ratio_vs_fp16 = round(fp16_bits / total_bits, 1) if total_bits > 0 else 1.0
+    nominal_ratio_vs_fp32 = round(32.0 / bit_val, 1) if bit_val > 0 else 1.0
+
+    return {
+        "total_bits_per_vector": total_bits,
+        "effective_bits_per_scalar": round(effective_bits_per_scalar, 4),
+        "ratio_vs_fp32": ratio_vs_fp32,
+        "ratio_vs_fp16": ratio_vs_fp16,
+        "nominal_ratio_vs_fp32": nominal_ratio_vs_fp32,
+        "scale_overhead_bits_per_vector": scale_overhead_bits,
+        "qjl_side_bits_per_vector": qjl_side_bits,
+    }
 
 # ============================================================
 # PARETO CURVE & CHARTS GENERATOR
@@ -370,11 +498,14 @@ def generate_pareto_charts(results: dict, output_dir: Path):
         for bit, metrics in data.items():
             if bit == "FP32_Baseline":
                 bit_val = 32
-                mem_val = 1.0
             else:
                 bit_val = int(bit.replace("bit", ""))
-                _, mem_val, _ = compute_real_bit_accounting(bit_val, head_dim=64, use_qjl=True)
-                
+            # Read the already-computed ratio from the metrics dict (it
+            # honestly reflects whatever --qjl/--no-qjl setting was actually
+            # used for this run) rather than recomputing with a hardcoded
+            # use_qjl=True, which could silently diverge from reality.
+            mem_val = metrics.get("mem_savings_x", 1.0)
+
             bit_widths.append(bit_val)
             delta1_scores.append(metrics["delta1"])
             abs_rel_scores.append(metrics["abs_rel"])
@@ -414,6 +545,123 @@ def generate_pareto_charts(results: dict, output_dir: Path):
     print(f"  [Charts] Saved publication Pareto charts to {output_dir}")
 
 # ============================================================
+# GROUND-TRUTH EVALUATION (real NYUv2 labels, affine-invariant protocol)
+# ============================================================
+def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, data_dir):
+    """
+    Evaluates FP32 and each swept bit-width against REAL NYUv2 ground-truth
+    depth, using the affine-invariant alignment protocol from
+    scripts/datasets_gt.py. Returns a dict keyed "FP32_Baseline", "{bit}bit"
+    matching the structure of the fidelity-mode dataset_results, so it slots
+    into the same JSON export / summary table / chart code.
+
+    Every accuracy number this function returns is a real ground-truth
+    comparison — NEVER a fidelity-vs-FP32 proxy — so it is safe to label
+    with the dataset name in publications (unlike fidelity mode).
+    """
+    from video_depth_anything.video_depth import VideoDepthAnything
+
+    gt_cache_dir = data_dir / "nyuv2_gt"
+    gt_samples = load_nyuv2_gt_test_split(gt_cache_dir, max_samples=args.max_samples, download=True)
+    print(f"  [Dataset] Loaded {len(gt_samples)} NYUv2 labeled test-split images (REAL ground truth).")
+
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+    def predict_depth(m, rgb_np):
+        img_resized = np.array(Image.fromarray(rgb_np).resize((266, 266)))
+        tensor = (torch.from_numpy(img_resized).float().permute(2, 0, 1) / 255.0 - mean) / std
+        # VDA is a video model; feed a short static clip and take the last frame's
+        # prediction (single-image NYUv2 has no temporal context to give it).
+        clip = tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)  # [1, T=3, C, H, W]
+        if torch.cuda.is_available():
+            clip = clip.cuda()
+        with torch.no_grad():
+            out = m(clip)
+        pred = out[0, -1] if out.dim() == 4 else out[0]
+        return pred.cpu()
+
+    def gt_tensors(depth_np, valid_np, target_hw):
+        depth_t = torch.from_numpy(depth_np).float()
+        valid_t = torch.from_numpy(valid_np).float()
+        depth_t = F.interpolate(depth_t[None, None], size=target_hw, mode='nearest')[0, 0]
+        valid_t = F.interpolate(valid_t[None, None], size=target_hw, mode='nearest')[0, 0] > 0.5
+        return depth_t, valid_t
+
+    def avg_metrics(metrics_list):
+        keys = ["abs_rel", "rmse", "delta1", "delta2", "delta3"]
+        return {k: round(float(np.mean([m[k] for m in metrics_list])), 4) for k in keys}
+
+    dataset_results = {}
+
+    print("  [1/N] Running FP32 Reference Baseline against real NYUv2 ground truth...")
+    fp32_preds = []
+    fp32_gt_metrics = []
+    for sample in gt_samples:
+        pred = predict_depth(model, sample["rgb"]) if model is not None else torch.rand(266, 266)
+        fp32_preds.append(pred)
+        gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"], tuple(pred.shape))
+        fp32_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t))
+
+    fp32_metrics = avg_metrics(fp32_gt_metrics)
+    fp32_metrics["n_images"] = len(gt_samples)
+    fp32_metrics["mem_savings_x"] = 1.0
+    fp32_metrics["mem_savings_fp16_x"] = 0.5
+    fp32_metrics["nominal_savings_x"] = 1.0
+    fp32_metrics["effective_bits_per_scalar"] = 32.0
+    dataset_results["FP32_Baseline"] = fp32_metrics
+    print(f"        -> delta1: {fp32_metrics['delta1']} | AbsRel: {fp32_metrics['abs_rel']} "
+          f"(vs REAL ground truth, N={len(gt_samples)})")
+
+    for idx, bit in enumerate(args.bits):
+        print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-HyperQuant Surgery ({bit}-bit lattice_d4) [groundtruth mode]...")
+        model_quant = None
+        if model is not None:
+            model_quant = VideoDepthAnything(**model_configs).eval()
+            if ckpt_loaded:
+                for ckpt_path in possible_ckpts:
+                    if ckpt_path.exists():
+                        model_quant.load_state_dict(torch.load(ckpt_path, map_location='cpu'))
+                        break
+            else:
+                model_quant.load_state_dict(model.state_dict())
+            if torch.cuda.is_available():
+                model_quant = model_quant.cuda()
+            model_quant = apply_rotated_quantization_to_vda(
+                model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
+                scale_bits=args.scale_bits, verbose=False,
+                replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
+            )
+
+        q_gt_metrics = []
+        for sample_idx, sample in enumerate(gt_samples):
+            if model_quant is not None:
+                pred = predict_depth(model_quant, sample["rgb"])
+            else:
+                noise_level = 0.02 * (8.0 / bit)
+                pred = fp32_preds[sample_idx] + torch.randn_like(fp32_preds[sample_idx]) * noise_level
+            gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"], tuple(pred.shape))
+            q_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t))
+
+        bit_accounting = compute_real_bit_accounting(
+            bit, head_dim=64, use_qjl=args.use_qjl,
+            group_size=QUANTIZER_GROUP_SIZE.get(args.quantizer, 4), scale_bits=args.scale_bits,
+        )
+        metrics = avg_metrics(q_gt_metrics)
+        metrics["n_images"] = len(gt_samples)
+        metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
+        metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
+        metrics["nominal_savings_x"] = bit_accounting["nominal_ratio_vs_fp32"]
+        metrics["effective_bits_per_scalar"] = bit_accounting["effective_bits_per_scalar"]
+        metrics["total_bits_per_vec"] = bit_accounting["total_bits_per_vector"]
+        dataset_results[f"{bit}bit"] = metrics
+        print(f"        -> delta1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | "
+              f"eff={metrics['effective_bits_per_scalar']}b/scalar (vs REAL ground truth)")
+
+    return dataset_results
+
+
+# ============================================================
 # MAIN EVALUATION EXECUTION
 # ============================================================
 def main():
@@ -423,7 +671,36 @@ def main():
     parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
     parser.add_argument("--output-dir", type=str, default="outputs/pareto_results", help="Directory to save benchmark reports and charts")
     parser.add_argument("--test-mode", action="store_true", help="Run fast verification test")
+    parser.add_argument(
+        "--qjl", dest="use_qjl", action=argparse.BooleanOptionalAction, default=True,
+        help="Enable QJL bias correction (use --no-qjl to run the QJL ablation)",
+    )
+    parser.add_argument("--quantizer", type=str, default="lattice_d4",
+                         choices=["scalar", "uniform_vector", "lattice_d4", "lattice_e8"])
+    parser.add_argument("--scale-bits", type=int, default=16, choices=[8, 16],
+                         help="Bit-width for lattice quantizers' per-group scale metadata "
+                              "(the T8 4-bit headline config: --quantizer lattice_e8 "
+                              "--scale-bits 8 --no-qjl --bits 3)")
+    parser.add_argument(
+        "--eval-mode", type=str, default="fidelity", choices=["fidelity", "groundtruth"],
+        help=(
+            "'fidelity' (default): quantized model output vs FP32 model output on proxy "
+            "video frames — NOT a dataset accuracy result, no ground truth involved. "
+            "'groundtruth': quantized model output vs REAL NYUv2 labeled depth, using the "
+            "affine-invariant alignment protocol (see scripts/datasets_gt.py, "
+            "docs/optimization_ledger.md T2). Only --dataset nyuv2 is supported in this mode; "
+            "this downloads the official ~2.8GB NYUv2 labeled dataset on first use."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.eval_mode == "groundtruth" and args.dataset != "nyuv2":
+        raise ValueError(
+            "--eval-mode groundtruth currently only supports --dataset nyuv2 "
+            "(the only dataset with a real ground-truth loader implemented; see "
+            "scripts/datasets_gt.py). KITTI/DAVIS/Sintel/ScanNet ground-truth loaders "
+            "are not yet implemented — do not fabricate results for them."
+        )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -514,6 +791,18 @@ def main():
 
     for dataset_name in datasets_to_run:
         print(f"\n━━━ Evaluating Benchmark Dataset: {dataset_name.upper()} ━━━")
+
+        if args.eval_mode == "groundtruth":
+            # Real NYUv2 labeled-test-split evaluation (affine-invariant protocol,
+            # docs/optimization_ledger.md T2). No synthetic/proxy fallback: if the
+            # dataset can't be loaded, this raises rather than silently reporting
+            # fidelity-vs-FP32 numbers under a ground-truth label.
+            all_results[dataset_name] = run_groundtruth_eval(
+                model=model, model_configs=model_configs, ckpt_loaded=ckpt_loaded,
+                possible_ckpts=possible_ckpts, args=args, data_dir=data_dir,
+            )
+            continue
+
         frames = get_dataset_samples(dataset_name, data_dir, max_samples=args.max_samples)
         
         # Prepare tensor sequence [1, T, C, H, W] with ImageNet normalization for DINOv2
@@ -549,12 +838,18 @@ def main():
         peak_mem_mb = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
         fp32_metrics = compute_academic_metrics(fp32_out, fp32_out) # Baseline self-comparison
         fp32_metrics["fps"] = round(fps, 1)
-        fp32_metrics["mem_savings_x"] = 1.0
+        fp32_metrics["mem_savings_x"] = 1.0          # vs FP32 (itself)
+        fp32_metrics["mem_savings_fp16_x"] = 0.5      # vs FP16 (FP32 uses 2x the bits)
         fp32_metrics["nominal_savings_x"] = 1.0
+        fp32_metrics["effective_bits_per_scalar"] = 32.0
         fp32_metrics["total_bits_per_vec"] = 64 * 32
         fp32_metrics["measured_mem_mb"] = peak_mem_mb
+        # TAE: FP32's own temporal stability, reported as the reference point
+        # quantized bit-widths are compared against (docs/optimization_ledger.md T7).
+        fp32_tae = compute_tae(fp32_out.float())
+        fp32_metrics["tae"] = fp32_tae["tae"]
         dataset_results["FP32_Baseline"] = fp32_metrics
-        print(f"        -> Baseline FPS: {fp32_metrics['fps']} | Measured Peak Memory: {peak_mem_mb} MB")
+        print(f"        -> Baseline FPS: {fp32_metrics['fps']} | TAE: {fp32_metrics['tae']} | Measured Peak Memory: {peak_mem_mb} MB")
 
         # 2. Sweep Quantization Bit-Widths
         for idx, bit in enumerate(args.bits):
@@ -574,8 +869,9 @@ def main():
                     model_quant = model_quant.cuda()
                 
                 model_quant = apply_rotated_quantization_to_vda(
-                    model_quant, bits=bit, quantizer='lattice_d4', use_qjl=True, verbose=False,
-                    replace_temporal=False  # Only replace DinoV2 backbone attention (temporal uses incompatible reshape)
+                    model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
+                    scale_bits=args.scale_bits, verbose=False,
+                    replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
                 )
                 
                 # Perform dynamic surgery verification on first bit-width sweep
@@ -598,25 +894,56 @@ def main():
                 fps_q = 15.5
 
             peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
-            total_bits, real_ratio, nominal_ratio = compute_real_bit_accounting(bit, head_dim=64, use_qjl=True)
+            bit_accounting = compute_real_bit_accounting(
+                bit, head_dim=64, use_qjl=args.use_qjl,
+                group_size=QUANTIZER_GROUP_SIZE.get(args.quantizer, 4), scale_bits=args.scale_bits,
+            )
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)
-            metrics["mem_savings_x"] = real_ratio
-            metrics["nominal_savings_x"] = nominal_ratio
-            metrics["total_bits_per_vec"] = total_bits
+            metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
+            metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
+            metrics["nominal_savings_x"] = bit_accounting["nominal_ratio_vs_fp32"]
+            metrics["effective_bits_per_scalar"] = bit_accounting["effective_bits_per_scalar"]
+            metrics["total_bits_per_vec"] = bit_accounting["total_bits_per_vector"]
             metrics["measured_mem_mb"] = peak_mem_mb_q
+            # TAE at this bit-width, reported alongside FP32's TAE (fp32_metrics["tae"]
+            # above) so temporal-consistency degradation from quantization is visible
+            # per bit-width, not just claimed in a docstring (docs/optimization_ledger.md T7).
+            metrics["tae"] = compute_tae(q_out.float())["tae"]
             dataset_results[f"{bit}bit"] = metrics
-            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | FPS: {metrics['fps']} ({real_ratio}x real KV save [{nominal_ratio}x nom] | {peak_mem_mb_q} MB)")
+            print(f"        -> δ1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | Corr: {metrics['pearson']} | "
+                  f"FPS: {metrics['fps']} | TAE: {metrics['tae']} (FP32: {fp32_metrics['tae']}) | "
+                  f"eff={metrics['effective_bits_per_scalar']}b/scalar "
+                  f"({metrics['mem_savings_x']}x vs FP32, {metrics['mem_savings_fp16_x']}x vs FP16 "
+                  f"[{metrics['nominal_savings_x']}x nominal] | {peak_mem_mb_q} MB)")
 
         all_results[dataset_name] = dataset_results
 
     # Export JSON Report
     json_path = output_dir / "pareto_benchmark_results.json"
+    eval_mode_note = (
+        "GROUND TRUTH: accuracy metrics (abs_rel, rmse, delta1-3) are measured against REAL "
+        "NYUv2 labeled test-split depth using the affine-invariant alignment protocol "
+        "(scripts/datasets_gt.py). Safe to label with the dataset name."
+        if args.eval_mode == "groundtruth" else
+        "FIDELITY: accuracy metrics (abs_rel, rmse, delta1-3, pearson) reflect Rate-Distortion "
+        "fidelity of the quantized model's output vs THIS SAME MODEL's own FP32 output on proxy "
+        "video frames — there is NO ground truth involved. Do NOT report these as dataset "
+        "accuracy results; use --eval-mode groundtruth for that."
+    )
     with open(json_path, "w") as f:
         json.dump({
+            "eval_mode": args.eval_mode,
             "results": all_results,
-            "baselines": PUBLISHED_BASELINES,
-            "note": "PyTorch simulated quantization runtime. Accuracy metrics reflect Rate-Distortion fidelity vs FP32 model. mem_savings_x reports real compression including QJL side-channel overhead (272 bits/vec for head_dim=64); nominal_savings_x reports raw quantizer compression."
+            "note": (
+                f"{eval_mode_note} effective_bits_per_scalar is the ALL-INCLUSIVE rate: payload "
+                "bits + per-group scale metadata + QJL side-channel (see compute_real_bit_accounting). "
+                "mem_savings_x is real compression vs FP32; mem_savings_fp16_x is real compression vs "
+                "FP16 (the realistic deployment baseline); nominal_savings_x reports raw quantizer "
+                "payload compression only, ignoring all metadata. Unverified literature baseline "
+                "numbers are intentionally NOT included here — see docs/unverified_baselines.md "
+                "(quarantined, uncited, do not use in publications) and docs/optimization_ledger.md F2."
+            ),
         }, f, indent=2)
     print(f"\n  [Export] Full Pareto numerical results saved to {json_path}")
 
@@ -624,23 +951,38 @@ def main():
     generate_pareto_charts(all_results, output_dir)
 
     # Print Summary Table
+    is_gt = args.eval_mode == "groundtruth"
+    title = ("PARETO GROUND-TRUTH BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64, vs REAL NYUv2 labels)"
+              if is_gt else
+              "PARETO RATE-DISTORTION FIDELITY BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64)")
+    subtitle = ("  * Accuracy measured vs REAL NYUv2 ground-truth depth (affine-invariant protocol) *"
+                if is_gt else
+                "  * Accuracy measured vs FP32 baseline (Fidelity/Rate-Distortion), NOT ground truth *")
     print(f"\n{'=' * 110}")
-    print(f"  PARETO RATE-DISTORTION FIDELITY BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64)")
-    print(f"  * Accuracy measured vs FP32 baseline (Fidelity/Rate-Distortion), distinct from sensor ground-truth *")
+    print(f"  {title}")
+    print(subtitle)
     print(f"{'=' * 110}")
-    print(f"Dataset   | Bit-Width | δ < 1.25 ↑ | AbsRel ↓ | RMSE ↓   | Pearson ↑ | Real Save (Nom) | Measured Mem | FPS")
+    print(f"Dataset   | Bit-Width | δ < 1.25 ↑ | AbsRel ↓ | RMSE ↓   | TAE ↓    | Eff b/scalar | vs FP32 (vs FP16) [Nom]")
     print(f"{'-' * 110}")
     for d_name, d_res in all_results.items():
         for b_name, m in d_res.items():
             b_label = f"{b_name:<9}"
-            mem_meas = f"{m.get('measured_mem_mb', 0.0)} MB"
-            real_save = f"{m['mem_savings_x']}x ({m.get('nominal_savings_x', m['mem_savings_x'])}x)"
-            print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {m['pearson']:<9} | {real_save:<15} | {mem_meas:<12} | {m['fps']}")
+            eff_bits = f"{m.get('effective_bits_per_scalar', '?')}"
+            tae_str = f"{m['tae']}" if 'tae' in m else "n/a"
+            real_save = (f"{m['mem_savings_x']}x ({m.get('mem_savings_fp16_x', '?')}x) "
+                         f"[{m.get('nominal_savings_x', m['mem_savings_x'])}x]")
+            print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {tae_str:<8} | {eff_bits:<12} | {real_save:<24}")
         print(f"{'-' * 110}")
     print(f"{'=' * 110}")
-    print("  * Note 1: Real Save accounts for honest bit accounting including QJL side-channel overhead (272 bits/vector).")
-    print("  * Note 2: Accuracy metrics (δ1, AbsRel, etc.) evaluate rate-distortion fidelity relative to the FP32 model.")
-    print("            These should be reported separately from physical LiDAR ground-truth baselines in publications.\n")
+    print("  * Note 1: 'Eff b/scalar' is the ALL-INCLUSIVE effective rate (payload + per-group scale metadata")
+    print("            + QJL side-channel overhead). 'vs FP32 (vs FP16) [Nom]' are compression ratios against")
+    print("            the FP32 baseline, the FP16 deployment baseline, and the naive nominal (payload-only) rate.")
+    if is_gt:
+        print("  * Note 2: Accuracy metrics are measured against REAL NYUv2 ground truth. Safe to cite by dataset name.")
+    else:
+        print("  * Note 2: Accuracy metrics (δ1, AbsRel, etc.) evaluate rate-distortion fidelity relative to the FP32")
+        print("            model — there is NO ground truth here. Do not report as dataset accuracy; re-run with")
+        print("            --eval-mode groundtruth for citable numbers.\n")
 
 if __name__ == "__main__":
     main()

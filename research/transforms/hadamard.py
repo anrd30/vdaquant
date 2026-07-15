@@ -71,8 +71,10 @@ def build_hadamard_matrix(d: int, device: torch.device = None) -> torch.Tensor:
 
 def fast_hadamard_transform(x: torch.Tensor, normalize: bool = True) -> torch.Tensor:
     """
-    In-place Fast Walsh-Hadamard Transform (FWHT) using the butterfly
-    decomposition. Operates on the LAST dimension of x.
+    Fast Walsh-Hadamard Transform (FWHT) using the butterfly decomposition.
+    Operates on the LAST dimension of x. Purely functional: never mutates
+    the input tensor (all butterfly levels build new tensors via stack/reshape
+    rather than writing through a view of x).
 
     Computational complexity: O(d log d) with only additions/subtractions.
     No matrix multiplications are performed.
@@ -92,32 +94,40 @@ def fast_hadamard_transform(x: torch.Tensor, normalize: bool = True) -> torch.Te
                    (i.e., energy-preserving). Default True.
 
     Returns:
-        Transformed tensor of same shape as (possibly padded) input.
+        Transformed tensor of same shape as (possibly padded) input, same
+        dtype as the input. If the input is float16/bfloat16, the butterfly
+        is computed internally in float32 for numerical stability and cast
+        back to the original dtype before returning.
     """
     orig_d = x.shape[-1]
     d = _next_power_of_two(orig_d)
+    orig_dtype = x.dtype
 
-    # Zero-pad if needed
+    # Low-precision dtypes accumulate error over O(log d) butterfly levels;
+    # compute in float32 and cast back.
+    compute_dtype = torch.float32 if orig_dtype in (torch.float16, torch.bfloat16) else orig_dtype
+    x = x.to(compute_dtype)
+
+    # Zero-pad if needed (torch.cat always allocates a new tensor)
     if d != orig_d:
         pad = torch.zeros(*x.shape[:-1], d - orig_d, device=x.device, dtype=x.dtype)
         x = torch.cat([x, pad], dim=-1)
 
-    # Butterfly decomposition: log2(d) levels
+    # Butterfly decomposition: log2(d) levels, fully out-of-place at every
+    # level (stack + reshape build a new tensor instead of writing through
+    # a view of x, so the caller's original tensor is never touched).
     h = 1
     while h < d:
-        # Reshape to process pairs
-        x_view = x.view(*x.shape[:-1], d // (2 * h), 2, h)
-        a = x_view[..., 0, :].clone()  # even indices (clone to avoid aliasing!)
-        b = x_view[..., 1, :].clone()  # odd indices
-        # Butterfly: [a+b, a-b]
-        x_view[..., 0, :] = a + b
-        x_view[..., 1, :] = a - b
+        x_pairs = x.reshape(*x.shape[:-1], d // (2 * h), 2, h)
+        a = x_pairs[..., 0, :]
+        b = x_pairs[..., 1, :]
+        x = torch.stack((a + b, a - b), dim=-2).reshape(*x.shape[:-1], d)
         h *= 2
 
     if normalize:
         x = x / math.sqrt(d)
 
-    return x
+    return x.to(orig_dtype)
 
 
 def randomized_hadamard_transform(

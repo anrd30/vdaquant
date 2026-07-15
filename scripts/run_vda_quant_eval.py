@@ -151,6 +151,7 @@ def run_eval(args):
         bits=args.bits,
         quantizer=args.quantizer,
         use_qjl=args.use_qjl,
+        scale_bits=args.scale_bits,
         verbose=True
     )
     model_quant = model_quant.to(device).eval()
@@ -222,8 +223,15 @@ def run_eval(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate VDA-HyperQuant")
     parser.add_argument("--bits", type=int, default=4, help="Quantization bits (3 or 4)")
-    parser.add_argument("--quantizer", type=str, default="lattice_d4", choices=["scalar", "uniform_vector", "lattice_d4"])
-    parser.add_argument("--use_qjl", action="store_true", default=True, help="Use QJL bias correction")
+    parser.add_argument("--quantizer", type=str, default="lattice_d4",
+                         choices=["scalar", "uniform_vector", "lattice_d4", "lattice_e8"])
+    parser.add_argument("--scale-bits", type=int, default=16, choices=[8, 16],
+                         help="Bit-width for lattice quantizers' per-group scale metadata "
+                              "(the T8 4-bit target uses --quantizer lattice_e8 --scale-bits 8 --no-qjl)")
+    parser.add_argument(
+        "--qjl", dest="use_qjl", action=argparse.BooleanOptionalAction, default=True,
+        help="Enable QJL bias correction (use --no-qjl to run the QJL ablation)",
+    )
     parser.add_argument("--num_frames", type=int, default=5, help="Number of frames to test")
     parser.add_argument("--input_size", type=int, default=266, help="Inference resolution")
     
