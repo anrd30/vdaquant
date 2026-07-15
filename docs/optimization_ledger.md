@@ -262,6 +262,37 @@ Remaining before treating this as final for publication:
 - Only bits=3 was swept here; run `--bits 8 4 3 2` for the full Pareto curve
   the suite already produces (`generate_pareto_charts`).
 
+### Full Pareto sweep — N=500, real NYUv2 GT, E8/scale_bits=8/no-QJL
+`--bits 8 4 3 2 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 500`
+
+| Config | eff b/scalar | δ1 ↑ | δ2 | δ3 | AbsRel ↓ | RMSE ↓ | vs FP32 | vs FP16 |
+|---|---|---|---|---|---|---|---|---|
+| FP32 | 32.0 | 0.8143 | 0.9476 | 0.9750 | 0.1496 | 0.4999 | 1.0x | 0.5x |
+| 8-bit | 9.0 | 0.8143 | 0.9477 | 0.9750 | 0.1497 | 0.5002 | 3.6x | 1.8x |
+| 4-bit | 5.0 | 0.8097 | 0.9467 | 0.9745 | 0.1521 | 0.5095 | 6.4x | 3.2x |
+| 3-bit | **4.0** | 0.8142 | 0.9456 | 0.9748 | 0.1502 | 0.5032 | **8.0x** | **4.0x** |
+| 2-bit | 3.0 | 0.6632 | 0.8890 | 0.9602 | 0.2316 | 0.6678 | 10.7x | 5.3x |
+
+Reading of the curve:
+- **The knee is at 3-bit/4.0-eff**: 8/4/3-bit are all within δ1 noise of FP32
+  (max spread 0.0046), then 2-bit falls off a cliff (δ1 −0.151, AbsRel +55%).
+  The claim "essentially lossless at 4.0 all-inclusive effective bits/scalar,
+  catastrophic one notch below" is the paper's rate-distortion story.
+- **Non-monotonicity caveat (do not hide this in the paper)**: 3-bit δ1
+  (0.8142) nominally beats 4-bit (0.8097). A drop of 0.0046 followed by a
+  recovery of 0.0045 means these three configs are statistically
+  indistinguishable at N=500 under this protocol — the honest claim is
+  "≥8-bit through 3-bit are within measurement noise of FP32", NOT "3-bit is
+  better than 4-bit". Verify the ordering persists (or average out) at the
+  full N=654 before writing any per-bit ranking into the paper.
+- **FP32 baseline is below VDA's published NYU numbers** (δ1 0.814 here vs
+  ~0.94 reported for VDA-S with its official protocol). Known causes: 266×266
+  input (official uses 518), single image repeated as a 3-frame static clip,
+  and no official eval crop. This does not invalidate the *relative*
+  quantization deltas, but reviewers WILL line our FP32 row up against the
+  VDA paper — before submission, re-run at 518 input with the official
+  protocol so the baseline is defensible on its own.
+
 ---
 
 Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8.
