@@ -614,7 +614,9 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
           f"(vs REAL ground truth, N={len(gt_samples)})")
 
     for idx, bit in enumerate(args.bits):
-        print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-HyperQuant Surgery ({bit}-bit lattice_d4) [groundtruth mode]...")
+        print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-HyperQuant Surgery "
+              f"({bit}-bit {args.quantizer}, scale_bits={args.scale_bits}, "
+              f"qjl={'on' if args.use_qjl else 'off'}) [groundtruth mode]...")
         model_quant = None
         if model is not None:
             model_quant = VideoDepthAnything(**model_configs).eval()
@@ -629,9 +631,22 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 model_quant = model_quant.cuda()
             model_quant = apply_rotated_quantization_to_vda(
                 model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
-                scale_bits=args.scale_bits, verbose=False,
+                scale_bits=args.scale_bits, verbose=(idx == 0),
                 replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
             )
+
+            # Sanity check on the FIRST bit-width sweep: confirms surgery actually
+            # replaced attention layers AND that quantization measurably alters
+            # activations (rules out a silent no-op producing suspiciously-close
+            # quantized-vs-FP32 ground-truth numbers). Uses the same clip-building
+            # convention as predict_depth() above.
+            if idx == 0 and len(gt_samples) > 0:
+                img_resized = np.array(Image.fromarray(gt_samples[0]["rgb"]).resize((266, 266)))
+                tensor = (torch.from_numpy(img_resized).float().permute(2, 0, 1) / 255.0 - mean) / std
+                sanity_clip = tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)
+                if torch.cuda.is_available():
+                    sanity_clip = sanity_clip.cuda()
+                verify_quantization_surgery(model, model_quant, sanity_clip)
 
         q_gt_metrics = []
         for sample_idx, sample in enumerate(gt_samples):
