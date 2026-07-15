@@ -196,18 +196,48 @@ def load_nyuv2_gt_test_split(
     splits = scipy.io.loadmat(str(splits_path))
     test_indices = splits["testNdxs"].flatten() - 1  # MATLAB 1-indexed -> 0-indexed
 
-    data = scipy.io.loadmat(str(mat_path))
-    images = data["images"]  # (H, W, 3, N)
-    depths = data["depths"]  # (H, W, N), meters
-
     if max_samples is not None:
         test_indices = test_indices[:max_samples]
 
-    samples = []
-    for idx in test_indices:
-        rgb = images[:, :, :, idx].astype(np.uint8)
-        depth = depths[:, :, idx].astype(np.float32)
-        valid_mask = depth > 0
-        samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+    # The official nyu_depth_v2_labeled.mat (~2.8GB) is saved in MATLAB v7.3
+    # format, which is HDF5-based and NOT readable by scipy.io.loadmat
+    # (raises NotImplementedError: "Please use HDF reader for matlab v7.3
+    # files" on the real file; some file variants/scipy versions can also
+    # surface this as a ValueError during version sniffing). splits.mat is
+    # small and saves in an older format that scipy handles fine (confirmed
+    # above), but the labeled file needs h5py.
+    try:
+        data = scipy.io.loadmat(str(mat_path))
+        images = data["images"]  # (H, W, 3, N)
+        depths = data["depths"]  # (H, W, N), meters
+        samples = []
+        for idx in test_indices:
+            rgb = images[:, :, :, idx].astype(np.uint8)
+            depth = depths[:, :, idx].astype(np.float32)
+            valid_mask = depth > 0
+            samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+        return samples
+    except (NotImplementedError, ValueError):
+        try:
+            import h5py
+        except ImportError as e:
+            raise RuntimeError(
+                "nyu_depth_v2_labeled.mat is a MATLAB v7.3 (HDF5) file, which requires "
+                "the 'h5py' package (scipy.io.loadmat cannot read it). Install it with "
+                "`pip install h5py` and re-run."
+            ) from e
 
-    return samples
+        samples = []
+        with h5py.File(str(mat_path), "r") as f:
+            # HDF5-backed MATLAB arrays are stored axis-reversed relative to
+            # the original MATLAB shape: images is (N, 3, W, H), depths is
+            # (N, W, H). Transpose each sample back to (H, W, C) / (H, W).
+            images = f["images"]
+            depths = f["depths"]
+            for idx in test_indices:
+                idx = int(idx)
+                rgb = np.transpose(images[idx], (2, 1, 0)).astype(np.uint8)   # (3,W,H) -> (H,W,3)
+                depth = np.transpose(depths[idx], (1, 0)).astype(np.float32)  # (W,H) -> (H,W)
+                valid_mask = depth > 0
+                samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+        return samples
