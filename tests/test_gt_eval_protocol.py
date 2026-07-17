@@ -145,20 +145,28 @@ def test_disparity_alignment_beats_metric_on_wide_range():
 
 def test_disparity_handles_negative_aligned_values():
     """
-    If the affine fit pushes some aligned disparities <= 0, the clamp-before-invert
-    must keep depths finite/positive (no NaN/inf) rather than crashing.
+    If the affine fit pushes some aligned disparities <= 0 (or ->0, exploding to
+    huge inverted depths), the clamp-before-invert plus the gt_range depth cap
+    must keep AbsRel/RMSE finite and BOUNDED — not NaN, and not the ~1e6 m
+    blow-ups that trashed the first KITTI RMSE (426) / AbsRel (7.6). RMSE is
+    reported in metres and can never exceed the gt_range span once capped.
     """
     torch.manual_seed(6)
     gt = torch.rand(32, 32) * 20.0 + 0.5
     pred_disp = 1.0 / gt
-    # inject a few outliers that could drag the fit to produce non-positive disparity
+    # outliers that drag the fit toward non-positive / near-zero aligned disparity
     pred_disp[0, 0] = -5.0
     pred_disp[1, 1] = 100.0
 
-    metrics = compute_gt_depth_metrics(pred_disp, gt, gt_range=(0.1, 30.0))
-    print(f"  Disparity with outliers: {metrics}")
+    gt_lo, gt_hi = 0.1, 30.0
+    metrics = compute_gt_depth_metrics(pred_disp, gt, gt_range=(gt_lo, gt_hi))
+    print(f"  Disparity with outliers (capped): {metrics}")
     assert metrics["abs_rel"] == metrics["abs_rel"], "abs_rel is NaN"  # NaN != NaN
     assert metrics["rmse"] == metrics["rmse"], "rmse is NaN"
+    # With predictions capped to gt_range, no per-pixel error can exceed the span,
+    # so RMSE must stay well within it (the pre-cap bug produced RMSE >> span).
+    assert metrics["rmse"] < (gt_hi - gt_lo), metrics
+    assert metrics["abs_rel"] < 10.0, metrics
     assert 0.0 <= metrics["delta1"] <= 1.0, metrics
 
 

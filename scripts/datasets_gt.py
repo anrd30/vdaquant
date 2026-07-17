@@ -136,7 +136,12 @@ def compute_gt_depth_metrics(
     else:
         s, t, pred_depth_full = affine_align_inverse_depth(pred, gt_depth, mask)
 
-    p = torch.clamp(pred_depth_full[mask], min=eps)
+    # Cap predicted depth to the evaluation range (standard KITTI/NYU practice).
+    # After inverting disparity, far pixels whose aligned disparity approaches 0
+    # explode toward 1/eps (~1e6 m); those outliers don't affect delta1 (a ratio
+    # threshold) but would otherwise wreck the metric-space means AbsRel and RMSE.
+    # Capping to [gt_range] is the depth-eval convention (e.g. KITTI's 80 m cap).
+    p = torch.clamp(pred_depth_full[mask], min=gt_range[0], max=gt_range[1])
     g = torch.clamp(gt_depth[mask], min=eps)
 
     abs_rel = torch.mean(torch.abs(p - g) / g).item()
