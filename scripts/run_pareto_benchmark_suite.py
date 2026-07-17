@@ -669,12 +669,14 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
             # Sanity check on the FIRST bit-width sweep: confirms surgery actually
             # replaced attention layers AND that quantization measurably alters
             # activations (rules out a silent no-op producing suspiciously-close
-            # quantized-vs-FP32 ground-truth numbers). Uses the same clip-building
-            # convention as predict_depth() above.
+            # quantized-vs-FP32 ground-truth numbers). Builds its clip with the
+            # SAME aspect-preserving transform predict_depth() uses.
             if idx == 0 and len(gt_samples) > 0:
-                img_resized = np.array(Image.fromarray(gt_samples[0]["rgb"]).resize((266, 266)))
-                tensor = (torch.from_numpy(img_resized).float().permute(2, 0, 1) / 255.0 - mean) / std
-                sanity_clip = tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)
+                s_rgb = gt_samples[0]["rgb"]
+                s_resize, s_norm, s_prep = _make_transform(*s_rgb.shape[:2])
+                s_img = s_prep(s_norm(s_resize({'image': s_rgb.astype(np.float32) / 255.0})))['image']
+                s_tensor = torch.from_numpy(s_img)
+                sanity_clip = s_tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)
                 if torch.cuda.is_available():
                     sanity_clip = sanity_clip.cuda()
                 verify_quantization_surgery(model, model_quant, sanity_clip)
