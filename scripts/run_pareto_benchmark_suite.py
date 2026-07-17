@@ -566,28 +566,54 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
     print(f"  [Dataset] Loaded {len(gt_samples)} {args.dataset.upper()} images "
           f"(REAL ground truth, depth range {gt_range} m).")
 
-    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+    # Preprocessing mirrors VDA's own infer_video_depth() exactly (see
+    # Video-Depth-Anything/video_depth_anything/video_depth.py): aspect-ratio-
+    # PRESERVING resize to a 518-shorter-side (multiple of 14), with the
+    # ratio>1.78 shrink branch that KITTI's ~3.3:1 letterbox images trigger.
+    # The previous 266x266 SQUARE resize crushed that aspect ratio and was the
+    # root cause of the broken KITTI FP32 baseline (delta1 0.43 vs published
+    # ~0.96); NYU's near-4:3 images survived it, which is why NYU looked fine.
+    import cv2
+    from video_depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
+
+    def _make_transform(h, w):
+        input_size = 518
+        ratio = max(h, w) / min(h, w)
+        if ratio > 1.78:  # VDA shrinks input for very wide clips (memory); KITTI hits this
+            input_size = int(input_size * 1.777 / ratio)
+            input_size = round(input_size / 14) * 14
+        resize = Resize(width=input_size, height=input_size, resize_target=False,
+                        keep_aspect_ratio=True, ensure_multiple_of=14,
+                        resize_method='lower_bound', image_interpolation_method=cv2.INTER_CUBIC)
+        norm = NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        prep = PrepareForNet()
+        return resize, norm, prep
 
     def predict_depth(m, rgb_np):
-        img_resized = np.array(Image.fromarray(rgb_np).resize((266, 266)))
-        tensor = (torch.from_numpy(img_resized).float().permute(2, 0, 1) / 255.0 - mean) / std
+        H, W = rgb_np.shape[:2]
+        resize, norm, prep = _make_transform(H, W)
+        sample = {'image': rgb_np.astype(np.float32) / 255.0}
+        sample = prep(norm(resize(sample)))
+        tensor = torch.from_numpy(sample['image'])  # (3, h, w), aspect-preserved
         # VDA is a video model; feed a short static clip and take the last frame's
-        # prediction (single-image NYUv2 has no temporal context to give it).
-        clip = tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)  # [1, T=3, C, H, W]
+        # prediction (single images have no temporal context to give it).
+        clip = tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)  # [1, T=3, C, h, w]
         if torch.cuda.is_available():
             clip = clip.cuda()
         with torch.no_grad():
             out = m(clip)
-        pred = out[0, -1] if out.dim() == 4 else out[0]
+        pred = out[0, -1] if out.dim() == 4 else out[0]  # (h, w) at network resolution
+        # Interpolate the prediction back to the ORIGINAL image resolution so it
+        # aligns with GT at native res (GT is never downsampled -> no label loss).
+        pred = F.interpolate(pred[None, None].float(), size=(H, W),
+                             mode='bilinear', align_corners=True)[0, 0]
         return pred.cpu()
 
-    def gt_tensors(depth_np, valid_np, target_hw):
-        depth_t = torch.from_numpy(depth_np).float()
-        valid_t = torch.from_numpy(valid_np).float()
-        depth_t = F.interpolate(depth_t[None, None], size=target_hw, mode='nearest')[0, 0]
-        valid_t = F.interpolate(valid_t[None, None], size=target_hw, mode='nearest')[0, 0] > 0.5
-        return depth_t, valid_t
+    def gt_tensors(depth_np, valid_np):
+        # GT stays at native resolution; predict_depth already upsampled the
+        # prediction to match, so no GT downsampling (which would drop sparse
+        # LiDAR returns) is needed.
+        return torch.from_numpy(depth_np).float(), torch.from_numpy(valid_np.astype(bool))
 
     def avg_metrics(metrics_list):
         keys = ["abs_rel", "rmse", "delta1", "delta2", "delta3"]
@@ -595,13 +621,17 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
 
     dataset_results = {}
 
-    print("  [1/N] Running FP32 Reference Baseline against real NYUv2 ground truth...")
+    print(f"  [1/N] Running FP32 Reference Baseline against real {args.dataset.upper()} ground truth...")
     fp32_preds = []
     fp32_gt_metrics = []
     for sample in gt_samples:
-        pred = predict_depth(model, sample["rgb"]) if model is not None else torch.rand(266, 266)
+        if model is not None:
+            pred = predict_depth(model, sample["rgb"])
+        else:
+            # No-model fallback (local dry run): random pred at GT resolution.
+            pred = torch.rand(*sample["depth"].shape)
         fp32_preds.append(pred)
-        gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"], tuple(pred.shape))
+        gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"])
         fp32_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t, gt_range=gt_range))
 
     fp32_metrics = avg_metrics(fp32_gt_metrics)
@@ -656,7 +686,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
             else:
                 noise_level = 0.02 * (8.0 / bit)
                 pred = fp32_preds[sample_idx] + torch.randn_like(fp32_preds[sample_idx]) * noise_level
-            gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"], tuple(pred.shape))
+            gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"])
             q_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t, gt_range=gt_range))
 
         bit_accounting = compute_real_bit_accounting(
@@ -942,9 +972,9 @@ def main():
     # Export JSON Report
     json_path = output_dir / "pareto_benchmark_results.json"
     eval_mode_note = (
-        "GROUND TRUTH: accuracy metrics (abs_rel, rmse, delta1-3) are measured against REAL "
-        "NYUv2 labeled test-split depth using the affine-invariant alignment protocol "
-        "(scripts/datasets_gt.py). Safe to label with the dataset name."
+        f"GROUND TRUTH: accuracy metrics (abs_rel, rmse, delta1-3) are measured against REAL "
+        f"{args.dataset.upper()} ground-truth depth using the affine-invariant alignment protocol "
+        f"(scripts/datasets_gt.py). Safe to label with the dataset name."
         if args.eval_mode == "groundtruth" else
         "FIDELITY: accuracy metrics (abs_rel, rmse, delta1-3, pearson) reflect Rate-Distortion "
         "fidelity of the quantized model's output vs THIS SAME MODEL's own FP32 output on proxy "
