@@ -295,6 +295,52 @@ Reading of the curve:
 
 ---
 
-Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8.
+## F9 — GT inference harness fixes (Colab validation, post-T8)
+
+Discovered while validating the headline result on KITTI. Two harness bugs,
+neither in the quantization math:
+
+### F9a — inference resolution (FIXED, but NOT the KITTI cause)
+`predict_depth` hard-resized every image to 266×266 SQUARE. Rewrote to mirror
+VDA's own `infer_video_depth`: aspect-preserving resize to 518 shorter-side
+(multiple of 14) via VDA's `Resize` transform, incl. the ratio>1.78 shrink
+branch KITTI triggers; prediction upsampled back to native res, GT no longer
+downsampled. Verified this changed the predictions — but KITTI FP32 δ1 stayed
+~0.43, so resolution was NOT the dominant problem. Ruling it out led to F10.
+
+## F10 — alignment space mismatch (THE KITTI cause) — FIXED
+
+VDA's `vits` checkpoint (the one the suite auto-downloads) is the RELATIVE
+model, which outputs **disparity (inverse depth)**, not metric depth (metric
+is a separate checkpoint needing --metric; confirmed in VDA README). The GT
+protocol was fitting `s·pred + t ≈ gt_metric` **linearly** — a scale+shift map
+from disparity to metric depth, which cannot represent the reciprocal
+relationship. Being range-dependent, it half-worked on NYU's narrow 0.1–10 m
+range (δ1 0.81) and collapsed on KITTI's wide 1–80 m range (δ1 0.43).
+
+**Fix** (`compute_gt_depth_metrics`, `pred_is_disparity=True` default): align in
+disparity space, then invert to metric for the metrics —
+`gt_disp = 1/gt; (s,t) = lstsq(pred → gt_disp); pred_depth = 1/clamp(s·pred+t)`.
+This is the standard MiDaS/DepthAnything protocol. `--pred-space {disparity,
+metric}` exposes it (metric for a metric checkpoint). Locked in by two new
+tests: perfect disparity → δ1 1.0; disparity-alignment beats metric-alignment
+by >0.20 δ1 on a wide range (reproduces the NYU/KITTI differential).
+
+**IMPORTANT — invalidates earlier absolute numbers.** Every GT δ1/AbsRel/RMSE
+recorded above (NYU N=200/N=500, KITTI) used the WRONG (metric-space) alignment
+and must be RE-RUN before any use. In particular the NYU "δ1 drop 0.0061 / gate
+PASSED" headline needs regenerating under disparity alignment — the *relative*
+quantization deltas are likely still small (quantization noise ≪ the alignment
+error), but the absolute baselines will move and must not be cited until re-run.
+The compression/bit-accounting results (T1/T8, eff=4.0) are unaffected — those
+are exact and independent of the eval protocol.
+
+Pending re-runs (disparity alignment, 518px): NYU + KITTI full sweeps, then
+Sintel. Compare FP32 baselines against published (NYU ~0.94, KITTI Eigen ~0.96)
+to confirm the harness is finally sound.
+
+---
+
+Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8 → F9/F10.
 (T5/T6 first: nothing else is trustworthy until the test gate is real and the
 transform is pure.)

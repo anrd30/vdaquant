@@ -67,40 +67,58 @@ def affine_align_inverse_depth(
 
 
 def compute_gt_depth_metrics(
-    pred_inv_depth: torch.Tensor,
-    gt_inv_depth: torch.Tensor,
+    pred: torch.Tensor,
+    gt_depth: torch.Tensor,
     valid_mask: Optional[torch.Tensor] = None,
     gt_range: Tuple[float, float] = (0.1, 10.0),
+    pred_is_disparity: bool = True,
 ) -> Dict[str, float]:
     """
-    Affine-invariant ground-truth depth evaluation protocol.
+    Affine-invariant ground-truth depth evaluation (MiDaS/DepthAnything protocol).
 
-    1. Restrict to pixels where valid_mask is True AND gt is inside gt_range
-       (the standard NYUv2 evaluation range in meters for the inverse-depth
-       convention used here — swap to your dataset's convention/units as
-       needed).
-    2. Fit a single per-image affine alignment (s, t) via least squares on
-       those pixels (see affine_align_inverse_depth).
-    3. Compute AbsRel, RMSE, and delta1/delta2/delta3 on the ALIGNED
-       prediction, restricted to the same valid pixels.
+    CRITICAL — alignment space (see docs/optimization_ledger.md F10): VDA's
+    RELATIVE-depth model (the `vits` checkpoint this suite auto-downloads)
+    outputs DISPARITY (inverse depth, higher = closer), NOT metric depth —
+    the metric model is a separate checkpoint requiring --metric. A scale+shift
+    fit is only valid in the space the model actually predicts, so we must
+    align in DISPARITY space, then invert to metric depth for the metrics:
+
+        gt_disp        = 1 / gt_depth
+        (s, t)         = argmin || s*pred + t - gt_disp ||^2   over valid pixels
+        pred_depth     = 1 / clamp(s*pred + t, min=eps)
+        metrics(pred_depth, gt_depth)  in METRIC space
+
+    Aligning a disparity prediction LINEARLY against metric depth (the earlier
+    bug) can't reconcile the reciprocal relationship; it half-works on a narrow
+    range (NYU 0.1-10m: delta1~0.81) and collapses on a wide one (KITTI 1-80m:
+    delta1~0.43). Set pred_is_disparity=False only if the model already outputs
+    metric depth (e.g. the VDA metric checkpoint), in which case we align
+    linearly in metric space as before.
+
+    Steps:
+      1. Keep pixels where valid_mask AND gt_depth in gt_range (metres).
+      2. Fit one per-image affine (s, t) on those pixels, in the appropriate space.
+      3. Report AbsRel/RMSE/delta1-3 on the aligned prediction in METRIC space.
 
     Args:
-        pred_inv_depth: Model's predicted (inverse) depth, any shape.
-        gt_inv_depth: Ground-truth (inverse) depth, same shape.
-        valid_mask: Optional additional boolean mask (e.g. sensor dropout
-                    regions in NYUv2's raw depth maps). If None, all pixels
-                    are considered valid before the gt_range restriction.
-        gt_range: (min, max) — pixels with gt outside this range are
-                  excluded from BOTH fitting and evaluation.
+        pred: Model output, any shape. Disparity if pred_is_disparity (default).
+        gt_depth: Ground-truth METRIC depth (metres), same shape.
+        valid_mask: Optional extra boolean mask (e.g. sensor dropout / no LiDAR
+                    return). Combined with the gt_range mask.
+        gt_range: (min, max) metres; pixels with gt outside are excluded from
+                  BOTH fit and evaluation.
+        pred_is_disparity: True -> align in disparity space then invert (default,
+                  correct for the relative VDA model). False -> align in metric.
 
     Returns:
         Dict with abs_rel, rmse, delta1, delta2, delta3, affine_scale,
         affine_shift, n_valid_pixels.
     """
+    eps = 1e-6
     if valid_mask is None:
-        valid_mask = torch.ones_like(gt_inv_depth, dtype=torch.bool)
+        valid_mask = torch.ones_like(gt_depth, dtype=torch.bool)
 
-    range_mask = (gt_inv_depth > gt_range[0]) & (gt_inv_depth < gt_range[1])
+    range_mask = (gt_depth > gt_range[0]) & (gt_depth < gt_range[1])
     mask = valid_mask & range_mask
 
     if not mask.any():
@@ -108,10 +126,18 @@ def compute_gt_depth_metrics(
             f"No valid pixels after applying valid_mask and gt_range={gt_range}"
         )
 
-    s, t, pred_aligned = affine_align_inverse_depth(pred_inv_depth, gt_inv_depth, mask)
+    if pred_is_disparity:
+        # Fit pred (disparity) to GT disparity, then invert aligned disparity
+        # back to metric depth. Disparity must stay positive after the affine,
+        # so clamp before inverting.
+        gt_disp = 1.0 / torch.clamp(gt_depth, min=eps)
+        s, t, pred_disp_aligned = affine_align_inverse_depth(pred, gt_disp, mask)
+        pred_depth_full = 1.0 / torch.clamp(pred_disp_aligned, min=eps)
+    else:
+        s, t, pred_depth_full = affine_align_inverse_depth(pred, gt_depth, mask)
 
-    p = torch.clamp(pred_aligned[mask], min=1e-6)
-    g = torch.clamp(gt_inv_depth[mask], min=1e-6)
+    p = torch.clamp(pred_depth_full[mask], min=eps)
+    g = torch.clamp(gt_depth[mask], min=eps)
 
     abs_rel = torch.mean(torch.abs(p - g) / g).item()
     rmse = torch.sqrt(torch.mean((p - g) ** 2)).item()

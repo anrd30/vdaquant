@@ -632,7 +632,9 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
             pred = torch.rand(*sample["depth"].shape)
         fp32_preds.append(pred)
         gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"])
-        fp32_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t, gt_range=gt_range))
+        fp32_gt_metrics.append(compute_gt_depth_metrics(
+            pred, gt_t, valid_t, gt_range=gt_range,
+            pred_is_disparity=(args.pred_space == "disparity")))
 
     fp32_metrics = avg_metrics(fp32_gt_metrics)
     fp32_metrics["n_images"] = len(gt_samples)
@@ -689,7 +691,9 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 noise_level = 0.02 * (8.0 / bit)
                 pred = fp32_preds[sample_idx] + torch.randn_like(fp32_preds[sample_idx]) * noise_level
             gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"])
-            q_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t, gt_range=gt_range))
+            q_gt_metrics.append(compute_gt_depth_metrics(
+                pred, gt_t, valid_t, gt_range=gt_range,
+                pred_is_disparity=(args.pred_space == "disparity")))
 
         bit_accounting = compute_real_bit_accounting(
             bit, head_dim=64, use_qjl=args.use_qjl,
@@ -736,8 +740,17 @@ def main():
             "video frames — NOT a dataset accuracy result, no ground truth involved. "
             "'groundtruth': quantized model output vs REAL NYUv2 labeled depth, using the "
             "affine-invariant alignment protocol (see scripts/datasets_gt.py, "
-            "docs/optimization_ledger.md T2). Only --dataset nyuv2 is supported in this mode; "
-            "this downloads the official ~2.8GB NYUv2 labeled dataset on first use."
+            "docs/optimization_ledger.md T2). Supports --dataset nyuv2/kitti/sintel."
+        ),
+    )
+    parser.add_argument(
+        "--pred-space", type=str, default="disparity", choices=["disparity", "metric"],
+        help=(
+            "Space the model output lives in, for GT affine alignment. 'disparity' "
+            "(default) is correct for VDA's RELATIVE model (the vits checkpoint this "
+            "suite downloads) which outputs inverse depth — aligns in disparity space "
+            "then inverts to metric. Use 'metric' only with a metric-depth checkpoint. "
+            "See docs/optimization_ledger.md F10."
         ),
     )
     args = parser.parse_args()
