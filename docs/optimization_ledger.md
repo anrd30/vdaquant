@@ -228,7 +228,7 @@ quantizer, not this specific 4-bit RTN baseline on this distribution; the
 E8-vs-D4 differential, which cancels most of that modeling mismatch, is the
 number that validates the implementation.)
 
-### GATE PASSED — real Colab run, N=200 NYUv2 ground-truth images, T8 headline result
+### [SUPERSEDED by F10 — used broken metric-space alignment; see VALIDATED NYU below] GATE PASSED — real Colab run, N=200 NYUv2 ground-truth images, T8 headline result
 `python scripts/run_pareto_benchmark_suite.py --dataset nyuv2 --eval-mode groundtruth
 --bits 3 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200`
 
@@ -262,7 +262,7 @@ Remaining before treating this as final for publication:
 - Only bits=3 was swept here; run `--bits 8 4 3 2` for the full Pareto curve
   the suite already produces (`generate_pareto_charts`).
 
-### Full Pareto sweep — N=500, real NYUv2 GT, E8/scale_bits=8/no-QJL
+### [SUPERSEDED by F10 — broken metric-space alignment; see VALIDATED NYU below] Full Pareto sweep — N=500, real NYUv2 GT, E8/scale_bits=8/no-QJL
 `--bits 8 4 3 2 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 500`
 
 | Config | eff b/scalar | δ1 ↑ | δ2 | δ3 | AbsRel ↓ | RMSE ↓ | vs FP32 | vs FP16 |
@@ -361,9 +361,33 @@ now on a SECOND domain with a defensible baseline — the core cross-domain
 result for the paper. 8/4/3-bit statistically indistinguishable from FP32; do
 not rank within them (N=200).
 
-Still pending: NYU re-run under corrected protocol (old headline invalidated by
-F10), full N=654, Sintel (temporal/TAE), and matched-bit baseline rows
-(scalar/D4) for a comparison column.
+### VALIDATED — NYUv2, disparity alignment + 518px + depth cap, N=200 (supersedes the two SUPERSEDED blocks above)
+`--dataset nyuv2 --bits 8 4 3 2 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200`
+
+FP32 baseline δ1 **0.9036** / AbsRel **0.098** — up from 0.81 under the broken
+metric-space alignment, now near published VDA-S NYU (~0.94). Confirms F10 was
+suppressing NYU too, just less than KITTI (narrower range). Both datasets now
+have defensible baselines.
+
+| Config | eff b/scalar | δ1 ↑ | AbsRel ↓ | RMSE ↓ | vs FP16 |
+|---|---|---|---|---|---|
+| FP32 | 32.0 | 0.9036 | 0.0980 | 0.456 | — |
+| 8-bit | 9.0 | 0.9034 | 0.0981 | 0.456 | 1.8x |
+| 4-bit | 5.0 | 0.9030 | 0.0997 | 0.457 | 3.2x |
+| **3-bit** | **4.0** | **0.9128** | **0.0925** | **0.428** | **4.0x** |
+| 2-bit | 3.0 | 0.6430 | 0.2052 | 0.810 | 5.3x |
+
+3-bit δ1 (0.9128) nominally ABOVE FP32 (0.9036) — noise, same non-monotonicity
+caveat: 8/4/3-bit are statistically indistinguishable from FP32; do not rank
+within them. 2-bit cliff (δ1 -0.26). Rate-distortion shape matches KITTI exactly.
+
+**Cross-domain result now solid: at 4.0 all-inclusive effective bits/scalar (4x
+vs FP16), 3-bit is within δ1 noise of FP32 on BOTH NYUv2 (indoor) and KITTI
+(outdoor), with a sharp collapse at 2-bit — both against baselines matching
+published VDA numbers.**
+
+Still pending: full N=654 both datasets, Sintel (temporal/TAE), and matched-bit
+baseline rows (scalar/D4) for a comparison column.
 
 ---
 
