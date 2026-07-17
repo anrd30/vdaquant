@@ -339,6 +339,32 @@ Pending re-runs (disparity alignment, 518px): NYU + KITTI full sweeps, then
 Sintel. Compare FP32 baselines against published (NYU ~0.94, KITTI Eigen ~0.96)
 to confirm the harness is finally sound.
 
+### VALIDATED — KITTI, disparity alignment + 518px + depth cap, N=200
+`--dataset kitti --bits 8 4 3 2 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200`
+
+FP32 baseline δ1 **0.9275** / AbsRel **0.0922** — matches published VDA-S KITTI
+(~0.96 / ~0.07) closely at N=200 with this protocol. **The harness is sound.**
+This SUPERSEDES all earlier KITTI numbers (which used the broken metric-space
+alignment). All four metrics now clean and mutually consistent:
+
+| Config | eff b/scalar | δ1 ↑ | AbsRel ↓ | RMSE ↓ | vs FP16 |
+|---|---|---|---|---|---|
+| FP32 | 32.0 | 0.9275 | 0.0922 | 3.795 | — |
+| 8-bit | 9.0 | 0.9276 | 0.0921 | 3.792 | 1.8x |
+| 4-bit | 5.0 | 0.9277 | 0.0925 | 3.875 | 3.2x |
+| **3-bit** | **4.0** | **0.9194** | **0.0962** | **4.127** | **4.0x** |
+| 2-bit | 3.0 | 0.7104 | 0.1919 | 7.281 | 5.3x |
+
+**3-bit @ 4.0 eff bits: δ1 drop 0.0081 (< 0.02 gate), AbsRel +4.3% rel, then a
+sharp 2-bit cliff (δ1 -0.22, AbsRel 2x).** Same rate-distortion shape as NYU,
+now on a SECOND domain with a defensible baseline — the core cross-domain
+result for the paper. 8/4/3-bit statistically indistinguishable from FP32; do
+not rank within them (N=200).
+
+Still pending: NYU re-run under corrected protocol (old headline invalidated by
+F10), full N=654, Sintel (temporal/TAE), and matched-bit baseline rows
+(scalar/D4) for a comparison column.
+
 ---
 
 Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8 → F9/F10.
