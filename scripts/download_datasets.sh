@@ -89,7 +89,7 @@ get_kitti() {
   local d="$DATA_DIR/kitti"
   fetch "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_depth_selection.zip" "$d"
   unzip_once "$d/data_depth_selection.zip" "$d" "$d/depth_selection/val_selection_cropped/image"
-  echo "   -> loader: NOT YET WRITTEN (see note at bottom)"
+  echo "   -> loader: scripts/datasets_gt.py::load_kitti_gt (IMPLEMENTED)"
 }
 
 # --- KITTI Eigen split (ONLY if you need to match published numbers) ----------
@@ -127,16 +127,28 @@ get_davis() {
   echo "   -> use for: TAE (temporal flicker) only. No AbsRel/delta1 possible."
 }
 
-# --- MPI Sintel (depth) -------------------------------------------------------
+# --- MPI Sintel (depth + RGB) -------------------------------------------------
 # Real GT depth in metres + camera intrinsics/extrinsics, and it is genuine
 # video — so it is the one dataset that can exercise BOTH depth accuracy AND
 # the TAE temporal metric. Best value for the paper's temporal claim.
+#
+# TWO archives are required and this was verified by reading each zip's central
+# directory (see docs/optimization_ledger.md T2):
+#   * MPI-Sintel-depth-training-20150305.zip -> training/depth/<scene>/*.dpt
+#     (depth ground truth ONLY — its depth_viz/ PNGs are previews, not input,
+#      and it contains NO RGB frames).
+#   * MPI-Sintel-complete.zip                -> training/{clean,final}/<scene>/*.png
+#     (the actual RGB frames the model consumes).
+# Both extract into a shared training/ tree, which is exactly what
+# load_sintel_gt in scripts/datasets_gt.py expects.
 get_sintel() {
-  echo "== MPI-Sintel depth training (1.5 GB, GT depth + video) =="
+  echo "== MPI-Sintel depth training (1.5 GB) + complete RGB (5.2 GB) = ~6.7 GB =="
   local d="$DATA_DIR/sintel"
   fetch "https://files.is.tue.mpg.de/jwulff/sintel/MPI-Sintel-depth-training-20150305.zip" "$d"
-  unzip_once "$d/MPI-Sintel-depth-training-20150305.zip" "$d" "$d/training"
-  echo "   -> loader: NOT YET WRITTEN"
+  unzip_once "$d/MPI-Sintel-depth-training-20150305.zip" "$d" "$d/training/depth"
+  fetch "http://files.is.tue.mpg.de/sintel/MPI-Sintel-complete.zip" "$d"
+  unzip_once "$d/MPI-Sintel-complete.zip" "$d" "$d/training/clean"
+  echo "   -> loader: scripts/datasets_gt.py::load_sintel_gt (IMPLEMENTED)"
 }
 
 # --- ScanNet ------------------------------------------------------------------
@@ -177,20 +189,19 @@ done
 
 cat <<'EOF'
 =============================================================================
-DOWNLOADING IS NOT ENOUGH — loaders still need writing.
-
-scripts/datasets_gt.py currently implements ONLY load_nyuv2_gt_test_split.
-run_pareto_benchmark_suite.py deliberately raises on
-`--eval-mode groundtruth --dataset {kitti,sintel,davis,scannet}` rather than
-silently evaluating against fake/proxy data (docs/optimization_ledger.md T2).
-So having the bytes on disk does not yet give you numbers — each dataset needs
-its own loader returning {rgb, depth, valid_mask} plus a --dataset wiring.
+LOADERS: nyuv2, kitti, sintel are IMPLEMENTED (scripts/datasets_gt.py).
+Run ground-truth eval, e.g.:
+  python scripts/run_pareto_benchmark_suite.py --dataset kitti  --eval-mode groundtruth \
+    --bits 3 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200
+  python scripts/run_pareto_benchmark_suite.py --dataset sintel --eval-mode groundtruth \
+    --bits 3 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200
 
 Per-dataset notes:
-  KITTI  — depth PNGs are uint16, divide by 256.0 for metres; 0 = invalid.
-           Standard eval uses the Garg/Eigen crop and caps depth at 80m.
-  Sintel — depth is a custom .dpt float format; the zip ships an SDK with a
-           reader. Real video => can exercise TAE as well as accuracy.
-  DAVIS  — no depth GT at all. TAE only.
+  KITTI  — uses depth_selection/val_selection_cropped (RGB+GT, 1000 imgs).
+           uint16 depth /256 = metres, 0 = invalid, gt_range capped at 80m.
+  Sintel — needs BOTH zips (depth .dpt + complete RGB), merged into training/.
+           Real video => the one GT dataset that can also exercise TAE.
+  DAVIS  — no depth GT at all; run_pareto refuses it in groundtruth mode (TAE only).
+  ScanNet— ToU-gated, no loader.
 =============================================================================
 EOF

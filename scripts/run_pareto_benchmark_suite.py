@@ -545,25 +545,26 @@ def generate_pareto_charts(results: dict, output_dir: Path):
     print(f"  [Charts] Saved publication Pareto charts to {output_dir}")
 
 # ============================================================
-# GROUND-TRUTH EVALUATION (real NYUv2 labels, affine-invariant protocol)
+# GROUND-TRUTH EVALUATION (real depth labels, affine-invariant protocol)
 # ============================================================
 def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, data_dir):
     """
-    Evaluates FP32 and each swept bit-width against REAL NYUv2 ground-truth
-    depth, using the affine-invariant alignment protocol from
-    scripts/datasets_gt.py. Returns a dict keyed "FP32_Baseline", "{bit}bit"
-    matching the structure of the fidelity-mode dataset_results, so it slots
-    into the same JSON export / summary table / chart code.
+    Evaluates FP32 and each swept bit-width against REAL ground-truth depth
+    for args.dataset (nyuv2 / kitti / sintel), using the affine-invariant
+    alignment protocol from scripts/datasets_gt.py. Returns a dict keyed
+    "FP32_Baseline", "{bit}bit" matching the structure of the fidelity-mode
+    dataset_results, so it slots into the same JSON export / table / chart code.
 
     Every accuracy number this function returns is a real ground-truth
     comparison — NEVER a fidelity-vs-FP32 proxy — so it is safe to label
     with the dataset name in publications (unlike fidelity mode).
     """
     from video_depth_anything.video_depth import VideoDepthAnything
+    from datasets_gt import load_gt_dataset
 
-    gt_cache_dir = data_dir / "nyuv2_gt"
-    gt_samples = load_nyuv2_gt_test_split(gt_cache_dir, max_samples=args.max_samples, download=True)
-    print(f"  [Dataset] Loaded {len(gt_samples)} NYUv2 labeled test-split images (REAL ground truth).")
+    gt_samples, gt_range = load_gt_dataset(args.dataset, data_dir, max_samples=args.max_samples)
+    print(f"  [Dataset] Loaded {len(gt_samples)} {args.dataset.upper()} images "
+          f"(REAL ground truth, depth range {gt_range} m).")
 
     mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
     std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
@@ -601,7 +602,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
         pred = predict_depth(model, sample["rgb"]) if model is not None else torch.rand(266, 266)
         fp32_preds.append(pred)
         gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"], tuple(pred.shape))
-        fp32_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t))
+        fp32_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t, gt_range=gt_range))
 
     fp32_metrics = avg_metrics(fp32_gt_metrics)
     fp32_metrics["n_images"] = len(gt_samples)
@@ -656,7 +657,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 noise_level = 0.02 * (8.0 / bit)
                 pred = fp32_preds[sample_idx] + torch.randn_like(fp32_preds[sample_idx]) * noise_level
             gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"], tuple(pred.shape))
-            q_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t))
+            q_gt_metrics.append(compute_gt_depth_metrics(pred, gt_t, valid_t, gt_range=gt_range))
 
         bit_accounting = compute_real_bit_accounting(
             bit, head_dim=64, use_qjl=args.use_qjl,
@@ -709,13 +710,17 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.eval_mode == "groundtruth" and args.dataset != "nyuv2":
-        raise ValueError(
-            "--eval-mode groundtruth currently only supports --dataset nyuv2 "
-            "(the only dataset with a real ground-truth loader implemented; see "
-            "scripts/datasets_gt.py). KITTI/DAVIS/Sintel/ScanNet ground-truth loaders "
-            "are not yet implemented — do not fabricate results for them."
-        )
+    if args.eval_mode == "groundtruth":
+        from datasets_gt import DATASET_GT_CONFIG
+        gt_capable = set(DATASET_GT_CONFIG)  # nyuv2, kitti, sintel
+        if args.dataset not in gt_capable:
+            raise ValueError(
+                f"--eval-mode groundtruth supports {sorted(gt_capable)} (datasets with a "
+                f"real GT depth loader in scripts/datasets_gt.py). '{args.dataset}' has no "
+                f"loader: DAVIS has no depth ground truth (TAE/fidelity only), ScanNet is "
+                f"ToU-gated (see scripts/download_datasets.sh), and 'all' can't mix GT ranges. "
+                f"Do not fabricate GT results for them."
+            )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

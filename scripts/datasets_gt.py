@@ -241,3 +241,218 @@ def load_nyuv2_gt_test_split(
                 valid_mask = depth > 0
                 samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
         return samples
+
+
+def load_kitti_gt(
+    cache_dir: Path,
+    max_samples: Optional[int] = None,
+    download: bool = False,
+):
+    """
+    Loads the KITTI depth val_selection_cropped split (1000 RGB + GT-depth
+    pairs) from a pre-extracted data_depth_selection.zip.
+
+    Expects the layout produced by `scripts/download_datasets.sh kitti`:
+        <cache_dir>/depth_selection/val_selection_cropped/image/*.png
+        <cache_dir>/depth_selection/val_selection_cropped/groundtruth_depth/*.png
+    (verified against the real zip's central directory — this split is the
+    only self-contained one that ships BOTH RGB and GT depth; see
+    docs/optimization_ledger.md T2 / scripts/download_datasets.sh).
+
+    KITTI depth PNGs are uint16 where depth_metres = pixel / 256.0 and a
+    pixel value of 0 means "no LiDaR return" (invalid). Returns the SAME
+    contract as load_nyuv2_gt_test_split: a list of
+    {"rgb": (H,W,3) uint8, "depth": (H,W) float32 metres, "valid_mask": (H,W) bool}.
+
+    Args:
+        cache_dir: Directory containing the extracted depth_selection tree.
+        max_samples: If set, load only this many pairs (sorted order).
+        download: KITTI is NOT auto-downloaded here (the 1.9GB zip belongs in
+                  the explicit downloader). If the data is missing this raises
+                  rather than silently downloading or faking it.
+
+    Raises:
+        RuntimeError: if the expected directories are absent — GT-mode eval
+                      must fail loudly, never substitute proxy data.
+    """
+    from PIL import Image
+
+    cache_dir = Path(cache_dir)
+    base = cache_dir / "depth_selection" / "val_selection_cropped"
+    img_dir = base / "image"
+    depth_dir = base / "groundtruth_depth"
+
+    if not img_dir.is_dir() or not depth_dir.is_dir():
+        raise RuntimeError(
+            f"KITTI val_selection_cropped not found under {base}. Expected "
+            f"image/ and groundtruth_depth/ subdirs. Run "
+            f"`bash scripts/download_datasets.sh kitti` first (downloads and "
+            f"extracts data_depth_selection.zip). This loader never downloads "
+            f"or fabricates data (download={download})."
+        )
+
+    # Match each GT-depth file to its RGB image. In this split the two share
+    # an identical filename except for the field name token, e.g.
+    #   image:            2011_09_26_drive_0013_sync_image_0000000005_image_02.png
+    #   groundtruth_depth 2011_09_26_drive_0013_sync_groundtruth_depth_0000000005_image_02.png
+    # so we derive the RGB name from each depth name by swapping that token.
+    depth_files = sorted(depth_dir.glob("*.png"))
+    if not depth_files:
+        raise RuntimeError(f"No groundtruth_depth PNGs found in {depth_dir}")
+    if max_samples is not None:
+        depth_files = depth_files[:max_samples]
+
+    samples = []
+    for depth_path in depth_files:
+        img_name = depth_path.name.replace("groundtruth_depth", "image", 1)
+        img_path = img_dir / img_name
+        if not img_path.exists():
+            raise RuntimeError(
+                f"KITTI RGB image {img_path} missing for GT depth {depth_path.name}. "
+                f"The depth_selection zip should contain a matching image/ file for "
+                f"every groundtruth_depth/ file."
+            )
+
+        rgb = np.array(Image.open(img_path).convert("RGB"), dtype=np.uint8)
+        # uint16 PNG; divide by 256 for metres, 0 = invalid (KITTI devkit convention).
+        depth_raw = np.array(Image.open(depth_path), dtype=np.float32)
+        depth = depth_raw / 256.0
+        valid_mask = depth_raw > 0
+        samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+
+    return samples
+
+
+def _read_sintel_dpt(path: Path) -> np.ndarray:
+    """
+    Read a Sintel .dpt depth map (the format used by the MPI-Sintel depth
+    package). Layout: float32 magic tag 202021.25, int32 width, int32 height,
+    then width*height float32 depth values (metres), row-major. This mirrors
+    the official Sintel SDK's depth_read().
+    """
+    with open(path, "rb") as f:
+        magic = np.fromfile(f, dtype=np.float32, count=1)
+        if magic.size == 0 or abs(float(magic[0]) - 202021.25) > 1e-2:
+            raise RuntimeError(
+                f"{path} is not a valid Sintel .dpt file (bad magic {magic}); "
+                f"expected 202021.25."
+            )
+        width = int(np.fromfile(f, dtype=np.int32, count=1)[0])
+        height = int(np.fromfile(f, dtype=np.int32, count=1)[0])
+        depth = np.fromfile(f, dtype=np.float32, count=width * height)
+    return depth.reshape(height, width)
+
+
+def load_sintel_gt(
+    cache_dir: Path,
+    max_samples: Optional[int] = None,
+    download: bool = False,
+    pass_name: str = "clean",
+    max_depth: float = 1000.0,
+):
+    """
+    Loads MPI-Sintel depth ground truth with matching RGB frames.
+
+    Sintel splits RGB and depth across TWO archives (verified via each zip's
+    central directory — see scripts/download_datasets.sh):
+        MPI-Sintel-depth-training-20150305.zip -> training/depth/<scene>/frame_XXXX.dpt
+        MPI-Sintel-complete.zip                -> training/{clean,final}/<scene>/frame_XXXX.png
+    Extract BOTH into the same <cache_dir> so they merge under one training/
+    tree. The depth-training zip's depth_viz/ PNGs are colourised previews,
+    NOT model input — this loader ignores them and reads the real .dpt depth.
+
+    Returns the SAME contract as the other loaders: a flat list of
+    {"rgb": (H,W,3) uint8, "depth": (H,W) float32 metres, "valid_mask": (H,W) bool},
+    one entry per frame, sorted by scene then frame. (Per-frame depth accuracy;
+    temporal grouping for TAE is a separate concern.)
+
+    Args:
+        cache_dir: Directory with the merged training/ tree.
+        max_samples: If set, cap the number of frames (sorted order).
+        download: Never downloads here; raises if data is missing.
+        pass_name: 'clean' (default) or 'final' RGB render pass.
+        max_depth: Depths above this (metres) are treated as invalid — Sintel
+                   sky/background carries enormous sentinel depths that would
+                   otherwise dominate the affine fit.
+
+    Raises:
+        RuntimeError: if the depth or RGB trees are absent.
+    """
+    from PIL import Image
+
+    cache_dir = Path(cache_dir)
+    depth_root = cache_dir / "training" / "depth"
+    rgb_root = cache_dir / "training" / pass_name
+
+    if not depth_root.is_dir():
+        raise RuntimeError(
+            f"Sintel depth tree not found at {depth_root}. Run "
+            f"`bash scripts/download_datasets.sh sintel` (fetches and extracts "
+            f"BOTH the depth-training and complete zips). This loader never "
+            f"downloads or fabricates data (download={download})."
+        )
+    if not rgb_root.is_dir():
+        raise RuntimeError(
+            f"Sintel RGB tree not found at {rgb_root}. The depth-training zip "
+            f"has NO RGB frames — you also need MPI-Sintel-complete.zip extracted "
+            f"into the same directory (the '{pass_name}' pass). "
+            f"`bash scripts/download_datasets.sh sintel` fetches both."
+        )
+
+    depth_files = sorted(depth_root.glob("*/frame_*.dpt"))
+    if not depth_files:
+        raise RuntimeError(f"No .dpt depth files found under {depth_root}")
+    if max_samples is not None:
+        depth_files = depth_files[:max_samples]
+
+    samples = []
+    for depth_path in depth_files:
+        scene = depth_path.parent.name
+        frame = depth_path.stem  # frame_XXXX
+        rgb_path = rgb_root / scene / f"{frame}.png"
+        if not rgb_path.exists():
+            raise RuntimeError(
+                f"Sintel RGB {rgb_path} missing for depth {scene}/{frame}. "
+                f"Ensure MPI-Sintel-complete.zip's '{pass_name}' pass is extracted "
+                f"into the same tree as the depth package."
+            )
+
+        rgb = np.array(Image.open(rgb_path).convert("RGB"), dtype=np.uint8)
+        depth = _read_sintel_dpt(depth_path).astype(np.float32)
+        valid_mask = (depth > 0) & (depth < max_depth) & np.isfinite(depth)
+        samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+
+    return samples
+
+
+# Central registry so run_pareto_benchmark_suite.py can dispatch on --dataset
+# without hardcoding NYUv2. Each entry: the loader, the cache subdir under
+# benchmark_data/, and the gt_range (metres) passed to compute_gt_depth_metrics
+# (NYU is indoor 0.1-10m; KITTI outdoor caps at 80m; Sintel is synthetic with a
+# wide range). 'auto_download' marks whether the loader will fetch on its own
+# (only NYU does; the big multi-zip datasets go through download_datasets.sh).
+DATASET_GT_CONFIG = {
+    "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0),  "auto_download": True},
+    "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (1e-3, 80.0), "auto_download": False},
+    "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 1000.0),"auto_download": False},
+}
+
+
+def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None):
+    """
+    Dispatch to the right GT loader for `name`, returning
+    (samples, gt_range). Raises for datasets without a real loader (e.g.
+    'davis' has no depth GT; 'scannet' is ToU-gated) rather than faking data.
+    """
+    name = name.lower()
+    if name not in DATASET_GT_CONFIG:
+        raise ValueError(
+            f"No ground-truth loader for dataset '{name}'. Implemented: "
+            f"{sorted(DATASET_GT_CONFIG)}. (DAVIS has no depth GT — TAE only; "
+            f"ScanNet is ToU-gated, see scripts/download_datasets.sh.)"
+        )
+    cfg = DATASET_GT_CONFIG[name]
+    data_dir = Path(data_dir)
+    cache = data_dir / cfg["cache_subdir"]
+    samples = cfg["loader"](cache, max_samples=max_samples, download=cfg["auto_download"])
+    return samples, cfg["gt_range"]
