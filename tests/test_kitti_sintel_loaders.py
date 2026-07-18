@@ -228,6 +228,21 @@ def test_dataset_gt_config_ranges():
     assert DATASET_GT_CONFIG["nyuv2"]["gt_range"][1] < DATASET_GT_CONFIG["kitti"]["gt_range"][1]
 
 
+def test_dataset_gt_config_matches_vda_eval_protocol():
+    """
+    Pins our gt_range constants to EXACTLY the (min_depth_eval, max_depth_eval)
+    values in the cloned Video-Depth-Anything repo's own benchmark protocol
+    (Video-Depth-Anything/benchmark/eval/eval.py main(), per-dataset branches),
+    so our numbers are directly comparable to VDA's published tables rather
+    than "a cap we picked." T11 (docs/optimization_ledger.md): Sintel is 70.0,
+    NOT 80.0 -- an earlier imprecise grep false-matched KITTI's constant and
+    produced a wrong initial guess; this test guards against that regressing.
+    """
+    assert DATASET_GT_CONFIG["nyuv2"]["gt_range"] == (0.1, 10.0)
+    assert DATASET_GT_CONFIG["kitti"]["gt_range"] == (0.1, 80.0)
+    assert DATASET_GT_CONFIG["sintel"]["gt_range"] == (0.1, 70.0)
+
+
 if __name__ == "__main__":
     test_kitti_loader_matches_rgb_and_scales_depth()
     test_kitti_loader_raises_when_missing()
@@ -237,5 +252,7 @@ if __name__ == "__main__":
     test_sintel_loader_merges_depth_and_rgb_trees()
     test_sintel_loader_raises_without_rgb_tree()
     test_load_gt_dataset_rejects_unknown_and_davis()
+    test_dataset_gt_config_ranges()
+    test_dataset_gt_config_matches_vda_eval_protocol()
     test_dataset_gt_config_ranges()
     print("All KITTI/Sintel loader tests passed.")

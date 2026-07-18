@@ -458,14 +458,26 @@ def load_sintel_gt(
 
 # Central registry so run_pareto_benchmark_suite.py can dispatch on --dataset
 # without hardcoding NYUv2. Each entry: the loader, the cache subdir under
-# benchmark_data/, and the gt_range (metres) passed to compute_gt_depth_metrics
-# (NYU is indoor 0.1-10m; KITTI outdoor caps at 80m; Sintel is synthetic with a
-# wide range). 'auto_download' marks whether the loader will fetch on its own
-# (only NYU does; the big multi-zip datasets go through download_datasets.sh).
+# benchmark_data/, and the gt_range (metres) passed to compute_gt_depth_metrics.
+#
+# These EXACTLY mirror the (min_depth_eval, max_depth_eval) constants in the
+# cloned Video-Depth-Anything repo's own benchmark protocol
+# (Video-Depth-Anything/benchmark/eval/eval.py, per-dataset branches in main()):
+#   nyuv2:  min=0.1, max=10.0
+#   kitti:  min=0.1, max=80.0
+#   sintel: min=0.1, max=70.0   <- NOT 80.0; verified by reading eval.py directly
+#           (an earlier imprecise grep for "80.0" false-matched the kitti
+#           branch and produced a wrong 80.0 guess for Sintel — corrected here
+#           against the actual source, docs/optimization_ledger.md T11).
+# Mirroring these makes our numbers directly comparable to VDA's own published
+# tables, not just "a reasonable cap we picked."
+#
+# 'auto_download' marks whether the loader will fetch on its own (only NYU
+# does; the big multi-zip datasets go through download_datasets.sh).
 DATASET_GT_CONFIG = {
-    "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0),  "auto_download": True},
-    "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (1e-3, 80.0), "auto_download": False},
-    "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 1000.0),"auto_download": False},
+    "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0), "auto_download": True},
+    "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (0.1, 80.0), "auto_download": False},
+    "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 70.0), "auto_download": False},
 }
 
 
