@@ -421,6 +421,67 @@ frames (PENDING — this is what earns Sintel its place in the paper).
 
 ---
 
-Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8 → F9/F10.
-(T5/T6 first: nothing else is trustworthy until the test gate is real and the
-transform is pure.)
+# Phase 2 — Paper-grade evaluation (specs for Sonnet)
+
+KEY DISCOVERY enabling all three tasks: the cloned Video-Depth-Anything repo
+ships its own benchmark protocol in `Video-Depth-Anything/benchmark/`:
+- `eval/eval.py` — disparity-space lstsq alignment, clip aligned disparity to
+  ≥1e-3, invert, clip depth to [1e-3, max_depth_eval]. **Identical to our F10
+  fix** (independent confirmation), with per-dataset `max_depth_eval`:
+  Sintel = 80.0 / min 0.1.
+- `eval/eval_tae.py` — their TAE (`tae_torch(depth1, depth2, R_2_1, T_2_1, K,
+  mask)`) is GEOMETRIC REPROJECTION between consecutive frames using camera
+  intrinsics K and relative pose R,T — NOT optical flow. Sintel's
+  `camdata_left/` (already in our depth zip) provides exactly K + extrinsics.
+Mirroring these makes every number directly comparable to the VDA paper's own
+tables — the strongest possible protocol citation.
+
+## T9 — Real video path + VDA-protocol TAE (THE differentiating result) — OPEN
+Files: `scripts/run_pareto_benchmark_suite.py`, `scripts/datasets_gt.py`,
+new `tests/test_temporal_tae_path.py`
+- Add `"scene"` and `"frame_idx"` keys to every loader's sample dicts
+  (NYU/KITTI: scene=None; Sintel: scene dir name, frame number). Loaders stay
+  flat-list; grouping is the caller's job.
+- New `--eval-mode temporal` (Sintel first; DAVIS later optional): group
+  samples by scene, feed REAL consecutive frames through the model in windows
+  (T=16, static-pad final window; reuse the existing aspect-preserving 518px
+  transform), collect per-frame depths per scene.
+- Port `tae_torch` from `Video-Depth-Anything/benchmark/eval/eval_tae.py`
+  (geometric reprojection TAE) + a Sintel `.cam` reader (K, extrinsics; format
+  documented in the Sintel SDK inside the depth zip). Compute TAE per scene
+  after VDA-protocol disparity alignment; also report the same accuracy
+  metrics from the SAME video-path predictions (checks video path ≥ static-clip
+  accuracy as a sanity row).
+- Output: per-bit TAE table (FP32, 8, 4, 3, 2) — headline claim target:
+  "3-bit @ 4.0 eff bits preserves TAE within noise of FP32."
+- Tests (no GPU/dataset): synthetic .cam round-trip; tae_torch on constant
+  depth + identity pose → 0; scene-grouping on synthetic fixture; window
+  chunking edge cases (scene shorter than T, exact multiple, remainder 1).
+
+## T10 — Matched-rate baselines + rotation ablation — OPEN
+Files: `research/models/rotated_attention.py`, suite; runs are then CLI-only.
+- Add `--rotation/--no-rotation` (BooleanOptionalAction) threaded through
+  surgery → RotatedSelfAttention/RotatedTemporalAttention (identity in place
+  of HadamardRotation when off). This is the ablation that justifies RHT:
+  E8-without-rotation vs E8-with-rotation at 3-bit.
+- Verify ScalarRoundQuantizer's accounting: it uses a per-TENSOR scale, but
+  QUANTIZER_GROUP_SIZE maps 'scalar'→4 (overstates its overhead). Fix the
+  accounting to charge scalar its true (negligible) scale cost — never
+  overcharge a BASELINE (that flatters us; same honesty bar as T1).
+- Baseline sweeps (commands, no new code): scalar and lattice_d4 on NYU+KITTI
+  at bits 4/3/2 → comparison rows at matched effective bits.
+- Optional (+rigor, cheap): `--rht-seed` flag; 3 seeds at 3-bit on NYU → report
+  δ1 mean±std to show the random sign draw doesn't drive the result.
+
+## T11 — Protocol alignment with VDA + full splits — OPEN
+Files: `scripts/datasets_gt.py` (gt_range constants), runs otherwise CLI-only.
+- Set Sintel gt_range to (0.1, 80.0), citing VDA `benchmark/eval/eval.py`
+  (`max_depth_eval=80.0` for Sintel). Confirm NYU (10) and KITTI (80) match
+  VDA's constants too. This fixes the incomparable AbsRel=2.23 → expected
+  ~0.3-0.5 band. δ1 will barely move (ratio metric, cap-insensitive) — verify.
+- Full-split re-runs: NYU 654, KITTI 1000, Sintel all frames. These are the
+  paper's final tables; N=200 tables become dev numbers.
+
+Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8 → F9/F10 → T11 → T9 → T10.
+(T11 first: 2-line change, makes every subsequent run protocol-final. T9 is the
+headline. T10 fills the comparison column.)
