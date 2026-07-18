@@ -436,52 +436,122 @@ ships its own benchmark protocol in `Video-Depth-Anything/benchmark/`:
 Mirroring these makes every number directly comparable to the VDA paper's own
 tables — the strongest possible protocol citation.
 
-## T9 — Real video path + VDA-protocol TAE (THE differentiating result) — OPEN
+## T11 — Protocol alignment with VDA + full splits — BUILT (code); full-split runs PENDING (GPU)
+Files: `scripts/datasets_gt.py`
+- **Correction while implementing**: the spec above guessed Sintel
+  `max_depth_eval=80.0` from a grep that turned out to have false-matched
+  KITTI's constant. Reading `Video-Depth-Anything/benchmark/eval/eval.py`
+  directly gives the REAL per-dataset constants: nyuv2 (0.1, 10.0) — already
+  matched; kitti (0.1, 80.0) — ours had min=1e-3, fixed to 0.1; **sintel
+  (0.1, 70.0), NOT 80.0**. All three now pinned exactly, with a test
+  (`test_dataset_gt_config_matches_vda_eval_protocol`) citing the source
+  lines so this can't silently drift again. This is exactly the kind of
+  "spec said X, source says Y" check worth doing before hardcoding — flagging
+  it here so future ledger specs get re-verified against source, not trusted
+  at face value.
+- Pending: full-split re-runs (NYU 654, KITTI 1000, Sintel all frames) —
+  GPU/Colab work, not done locally per standing instruction.
+
+## T9 — Real video path + VDA-protocol TAE (THE differentiating result) — BUILT (code); GPU validation PENDING
 Files: `scripts/run_pareto_benchmark_suite.py`, `scripts/datasets_gt.py`,
-new `tests/test_temporal_tae_path.py`
-- Add `"scene"` and `"frame_idx"` keys to every loader's sample dicts
-  (NYU/KITTI: scene=None; Sintel: scene dir name, frame number). Loaders stay
-  flat-list; grouping is the caller's job.
-- New `--eval-mode temporal` (Sintel first; DAVIS later optional): group
-  samples by scene, feed REAL consecutive frames through the model in windows
-  (T=16, static-pad final window; reuse the existing aspect-preserving 518px
-  transform), collect per-frame depths per scene.
-- Port `tae_torch` from `Video-Depth-Anything/benchmark/eval/eval_tae.py`
-  (geometric reprojection TAE) + a Sintel `.cam` reader (K, extrinsics; format
-  documented in the Sintel SDK inside the depth zip). Compute TAE per scene
-  after VDA-protocol disparity alignment; also report the same accuracy
-  metrics from the SAME video-path predictions (checks video path ≥ static-clip
-  accuracy as a sanity row).
-- Output: per-bit TAE table (FP32, 8, 4, 3, 2) — headline claim target:
-  "3-bit @ 4.0 eff bits preserves TAE within noise of FP32."
-- Tests (no GPU/dataset): synthetic .cam round-trip; tae_torch on constant
-  depth + identity pose → 0; scene-grouping on synthetic fixture; window
-  chunking edge cases (scene shorter than T, exact multiple, remainder 1).
+`tests/test_temporal_tae_path.py`
+- `scene`/`frame_idx` added to every loader (None for NYU/KITTI — confirmed
+  non-groupable; real values for Sintel). `group_samples_by_scene` raises on
+  scene=None rather than silently fabricating a fake sequence out of
+  unrelated frames.
+- `--eval-mode temporal` (Sintel-only, raises clearly for other datasets):
+  `chunk_scene_into_windows` splits each scene into real consecutive
+  `--temporal-window` (default 16) frame windows, static-padding a short
+  trailing window by repeating its last real frame and tracking `n_real` so
+  padding is provably excluded from every downstream temporal comparison.
+  `_predict_window` feeds each window through the model in ONE forward call
+  (`video_length=window`) — this is the actual fix that makes TAE
+  measurable at all: the pre-existing static-3-frame-clip hack shares no
+  state across calls, so it could never have shown temporal (in)consistency
+  no matter what was measured.
+- **Finding while porting**: VDA's own repo does NOT actually wire up TAE
+  for Sintel — `eval_tae.py`'s CLI only has a ScanNet branch; Sintel's own
+  extraction script (`dataset_extract_sintel.py`) builds a JSON manifest via
+  the plain `gen_json` (no K/pose fields at all), unlike ScanNet's
+  `gen_json_scannet_tae`. The `tae_torch` math is real and dataset-agnostic,
+  but the Sintel camera-pose plumbing to feed it doesn't exist upstream —
+  built it here from the raw `.cam` files (verified against two independent
+  public copies of the official Sintel SDK's `cam_read`): magic 202021.25,
+  3x3 intrinsic (9×float64), 3x4 extrinsic `[R|t]` (12×float64),
+  `x = M·N·X` (world-to-camera). `_cam_to_world_pose` inverts this into the
+  camera-to-world 4x4 VDA's own pose-composition convention expects
+  (`T_2_1 = inv(pose_2) @ pose_1`) — proven algebraically exact (not just
+  numerically close) in `test_cam_to_world_pose_is_true_inverse`.
+- `_tae_geometric_single` + `_pool_align_scene_disparity` +
+  `compute_tae_geometric_for_scene` port `tae_torch`/`eval_TAE` faithfully
+  (pooled scene-wide disparity alignment, bidirectional per-pair AbsRel via
+  camera reprojection, ×100 → percent). A caught-before-running bug: the
+  summary table checked `'tae' in m` but temporal-mode metrics use
+  `'tae_percent'` — would have silently printed "n/a" for real TAE numbers.
+- **Documented limitation** (not hidden): windows run independently with no
+  shared cache across boundaries, so frame pairs straddling a window edge
+  don't get the same cross-frame context within-window pairs do. Fine for a
+  first correct measurement; a future pass could use `cached_hidden_states`
+  (already plumbed since T7) to close this gap.
+- Tests (20, all synthetic/no-GPU): `.cam` round-trip exact; pose-inverse
+  proven algebraically; window-chunking edge cases (exact multiple,
+  remainder, shorter-than-window, empty, invalid); geometric TAE math
+  (identity-motion → exactly 0; a NON-trivial lateral-translation case
+  verified analytically, not just "doesn't crash"; deliberate inconsistency
+  detected at the exact expected value; pooled alignment recovers a known
+  affine exactly); and a full-pipeline oracle test computing the expected
+  multi-frame TAE from first principles (matches to 6 decimal places) rather
+  than a guessed bound — the first version of that test asserted a wrong
+  guessed bound and failed; the fix was deriving the correct expected value
+  by hand, not loosening the assertion.
+- **Pending — the actual headline number**: this is all validated as
+  CORRECT MATH on synthetic fixtures. It has never run against a real
+  checkpoint or real Sintel frames (no GPU here). First Colab run should
+  watch for: does `m(clip)` actually accept `video_length=16` cleanly
+  end-to-end through the DPT temporal decoder (only ever exercised at T=3
+  before this); do the reported TAE percentages fall in a sane range
+  relative to VDA's own published Sintel TAE table.
 
-## T10 — Matched-rate baselines + rotation ablation — OPEN
-Files: `research/models/rotated_attention.py`, suite; runs are then CLI-only.
-- Add `--rotation/--no-rotation` (BooleanOptionalAction) threaded through
-  surgery → RotatedSelfAttention/RotatedTemporalAttention (identity in place
-  of HadamardRotation when off). This is the ablation that justifies RHT:
-  E8-without-rotation vs E8-with-rotation at 3-bit.
-- Verify ScalarRoundQuantizer's accounting: it uses a per-TENSOR scale, but
-  QUANTIZER_GROUP_SIZE maps 'scalar'→4 (overstates its overhead). Fix the
-  accounting to charge scalar its true (negligible) scale cost — never
-  overcharge a BASELINE (that flatters us; same honesty bar as T1).
-- Baseline sweeps (commands, no new code): scalar and lattice_d4 on NYU+KITTI
-  at bits 4/3/2 → comparison rows at matched effective bits.
-- Optional (+rigor, cheap): `--rht-seed` flag; 3 seeds at 3-bit on NYU → report
-  δ1 mean±std to show the random sign draw doesn't drive the result.
-
-## T11 — Protocol alignment with VDA + full splits — OPEN
-Files: `scripts/datasets_gt.py` (gt_range constants), runs otherwise CLI-only.
-- Set Sintel gt_range to (0.1, 80.0), citing VDA `benchmark/eval/eval.py`
-  (`max_depth_eval=80.0` for Sintel). Confirm NYU (10) and KITTI (80) match
-  VDA's constants too. This fixes the incomparable AbsRel=2.23 → expected
-  ~0.3-0.5 band. δ1 will barely move (ratio metric, cap-insensitive) — verify.
-- Full-split re-runs: NYU 654, KITTI 1000, Sintel all frames. These are the
-  paper's final tables; N=200 tables become dev numbers.
+## T10 — Matched-rate baselines + rotation ablation — BUILT (code); baseline sweep runs PENDING (GPU)
+Files: `research/transforms/hadamard.py`, `research/models/rotated_attention.py`,
+`scripts/run_pareto_benchmark_suite.py`, `tests/test_rotation_ablation.py`
+- `HadamardRotation` gains `identity=True` (true no-op: no signs buffer, no
+  padding, forward/inverse both return input unchanged) and `seed=N` (local
+  `torch.Generator`, does NOT touch the global RNG — proven, not assumed, via
+  `test_hadamard_seed_does_not_disturb_global_rng`). Threaded as
+  `--rotation/--no-rotation` and `--rht-seed` through both attention classes
+  and `apply_rotated_quantization_to_vda`. Each replaced layer derives its
+  OWN seed (`rht_seed + counter`) rather than sharing one literal seed across
+  every layer — reproducible across full runs, still independent per layer
+  like the original unseeded behavior.
+- **Empirical validation the ablation infrastructure actually shows the
+  expected effect** (not just "the flag doesn't crash"):
+  on synthetic activations with injected per-row outliers (the realistic ViT
+  pattern this whole method targets), RHT-then-D4-quantize gives **2.85x
+  lower MSE** than quantizing raw (0.131 vs 0.374, 3-bit). This is the
+  empirical core of the paper's justification for RHT, now a locked-in
+  regression test — if a future change silently broke the rotation's benefit,
+  this test would catch it.
+- **Real accounting bug found and fixed**: `QUANTIZER_GROUP_SIZE` charged
+  the scalar baseline as if it shared D4's per-4-element-group scale
+  (`group_size=4`), but `ScalarRoundQuantizer` is always called with
+  `per_channel=False` in this codebase (verified by reading every call
+  site) — meaning ONE scale for the entire tensor, not one per 4 elements.
+  This overcharged scalar's scale overhead by **16x** (256 vs true ~16
+  bits/vector at head_dim=64) — an error that always flattered our
+  quantizers relative to the baseline, exactly backwards from the honesty
+  bar the rest of this ledger holds itself to (F1/T1). Fixed via
+  `resolve_group_size()`, mapping `'scalar'` → `head_dim` (one scale per
+  whole vector). Effective bits/scalar for scalar @ 3-bit, head_dim=64,
+  scale_bits=16, no QJL: **3.25** (was wrongly reporting **7.0**).
+- Pending: the actual baseline sweep runs (`--quantizer scalar` /
+  `--quantizer lattice_d4` on NYU+KITTI at bits 4/3/2, and a
+  `--no-rotation` vs `--rotation` comparison at matched bits on real data)
+  — GPU/Colab work, not done locally.
 
 Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8 → F9/F10 → T11 → T9 → T10.
-(T11 first: 2-line change, makes every subsequent run protocol-final. T9 is the
-headline. T10 fills the comparison column.)
+All Phase 2 CODE is now built and unit-tested (94/94 total tests green,
+0 network/GPU/dataset access). Nothing has been pushed — committed locally,
+one commit per task, awaiting review. Every remaining item across T9/T10/T11
+is now purely "run it on Colab and report the numbers," not further
+implementation.
