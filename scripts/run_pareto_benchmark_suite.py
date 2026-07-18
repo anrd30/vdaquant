@@ -842,20 +842,36 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
     print(f"  [1/N] Running FP32 Reference Baseline against real {args.dataset.upper()} ground truth...")
     fp32_preds = []
     fp32_gt_metrics = []
+    n_skipped = 0
     for sample in gt_samples:
         if model is not None:
             pred = predict_depth(model, sample["rgb"])
         else:
             # No-model fallback (local dry run): random pred at GT resolution.
             pred = torch.rand(*sample["depth"].shape)
+        # fp32_preds MUST stay index-aligned with gt_samples (the per-bit loop
+        # indexes into it), so always append the pred; only the METRIC is skipped
+        # for frames with no in-range GT (e.g. all-far Sintel frames beyond the
+        # gt_range cap — compute_gt_depth_metrics raises rather than fabricate).
         fp32_preds.append(pred)
         gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"])
-        fp32_gt_metrics.append(compute_gt_depth_metrics(
-            pred, gt_t, valid_t, gt_range=gt_range,
-            pred_is_disparity=(args.pred_space == "disparity")))
+        try:
+            fp32_gt_metrics.append(compute_gt_depth_metrics(
+                pred, gt_t, valid_t, gt_range=gt_range,
+                pred_is_disparity=(args.pred_space == "disparity")))
+        except ValueError:
+            n_skipped += 1
 
+    if not fp32_gt_metrics:
+        raise ValueError(
+            f"Every frame skipped (no in-range GT) — check gt_range={gt_range} "
+            f"against {args.dataset}'s depth distribution."
+        )
     fp32_metrics = avg_metrics(fp32_gt_metrics)
-    fp32_metrics["n_images"] = len(gt_samples)
+    fp32_metrics["n_images"] = len(fp32_gt_metrics)
+    fp32_metrics["n_skipped_frames"] = n_skipped
+    if n_skipped:
+        print(f"        [note] skipped {n_skipped} frame(s) with no in-range GT")
     fp32_metrics["mem_savings_x"] = 1.0
     fp32_metrics["mem_savings_fp16_x"] = 0.5
     fp32_metrics["nominal_savings_x"] = 1.0
@@ -903,6 +919,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 verify_quantization_surgery(model, model_quant, sanity_clip)
 
         q_gt_metrics = []
+        q_skipped = 0
         for sample_idx, sample in enumerate(gt_samples):
             if model_quant is not None:
                 pred = predict_depth(model_quant, sample["rgb"])
@@ -910,16 +927,27 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 noise_level = 0.02 * (8.0 / bit)
                 pred = fp32_preds[sample_idx] + torch.randn_like(fp32_preds[sample_idx]) * noise_level
             gt_t, valid_t = gt_tensors(sample["depth"], sample["valid_mask"])
-            q_gt_metrics.append(compute_gt_depth_metrics(
-                pred, gt_t, valid_t, gt_range=gt_range,
-                pred_is_disparity=(args.pred_space == "disparity")))
+            # Skip (don't crash on) frames with no in-range GT — same rationale
+            # as the FP32 loop above. Must skip the SAME frames FP32 did to keep
+            # the comparison fair; since the gt_range/valid mask depends only on
+            # GT (not on the prediction), a frame with no valid GT is skipped in
+            # both passes identically.
+            try:
+                q_gt_metrics.append(compute_gt_depth_metrics(
+                    pred, gt_t, valid_t, gt_range=gt_range,
+                    pred_is_disparity=(args.pred_space == "disparity")))
+            except ValueError:
+                q_skipped += 1
 
         bit_accounting = compute_real_bit_accounting(
             bit, head_dim=64, use_qjl=args.use_qjl,
             group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
         )
+        if not q_gt_metrics:
+            raise ValueError(f"Every frame skipped at {bit}-bit (no in-range GT); check gt_range={gt_range}.")
         metrics = avg_metrics(q_gt_metrics)
-        metrics["n_images"] = len(gt_samples)
+        metrics["n_images"] = len(q_gt_metrics)
+        metrics["n_skipped_frames"] = q_skipped
         metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
         metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
         metrics["nominal_savings_x"] = bit_accounting["nominal_ratio_vs_fp32"]
@@ -1028,22 +1056,50 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
         acc_metrics_all = []
         tae_list = []
         total_pairs = 0
+        n_skipped_frames = 0
+        n_skipped_scenes = 0
         for scene, (pred_disps, gt_depths, Ks, poses) in scene_preds.items():
             for pred, gt in zip(pred_disps, gt_depths):
                 gt_t = torch.from_numpy(gt).float()
                 valid_t = torch.from_numpy((gt > 1e-3) & (gt < gt_range[1]))
-                acc_metrics_all.append(compute_gt_depth_metrics(
-                    pred, gt_t, valid_t, gt_range=gt_range,
-                    pred_is_disparity=(args.pred_space == "disparity")))
-            tae_result = compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range)
-            tae_list.append(tae_result["tae_percent"])
-            total_pairs += tae_result["n_pairs"]
+                # Some Sintel scenes (mountain/market/cave, sky-heavy frames)
+                # have frames whose entire GT depth lies beyond the VDA cap
+                # (gt_range max) — zero evaluable pixels. compute_gt_depth_metrics
+                # correctly REFUSES to fabricate a number for those (raises), so
+                # skip+count them here rather than crash the run. A frame with no
+                # in-range ground truth genuinely contributes nothing to AbsRel/
+                # delta1; this is standard depth-eval practice, not data-dropping.
+                try:
+                    acc_metrics_all.append(compute_gt_depth_metrics(
+                        pred, gt_t, valid_t, gt_range=gt_range,
+                        pred_is_disparity=(args.pred_space == "disparity")))
+                except ValueError:
+                    n_skipped_frames += 1
+            # TAE pools alignment across the whole scene; if the ENTIRE scene has
+            # no in-range GT pixels, skip the scene's TAE too (same rationale).
+            try:
+                tae_result = compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range)
+                tae_list.append(tae_result["tae_percent"])
+                total_pairs += tae_result["n_pairs"]
+            except ValueError:
+                n_skipped_scenes += 1
+
+        if not acc_metrics_all:
+            raise ValueError(
+                "Every frame was skipped for having no in-range GT pixels — check "
+                f"gt_range={gt_range} against this dataset's actual depth distribution."
+            )
 
         keys = ["abs_rel", "rmse", "delta1", "delta2", "delta3"]
         avg = {k: round(float(np.mean([m[k] for m in acc_metrics_all])), 4) for k in keys}
         avg["tae_percent"] = round(float(np.mean(tae_list)), 6) if tae_list else 0.0
         avg["temporal_n_pairs"] = total_pairs
         avg["n_images"] = len(acc_metrics_all)
+        avg["n_skipped_frames"] = n_skipped_frames
+        avg["n_skipped_scenes_tae"] = n_skipped_scenes
+        if n_skipped_frames or n_skipped_scenes:
+            print(f"        [note] skipped {n_skipped_frames} frame(s) (no in-range GT) "
+                  f"and {n_skipped_scenes} scene(s) for TAE")
         return avg
 
     dataset_results = {}
