@@ -389,6 +389,36 @@ published VDA numbers.**
 Still pending: full N=654 both datasets, Sintel (temporal/TAE), and matched-bit
 baseline rows (scalar/D4) for a comparison column.
 
+### Sintel — N=200, corrected protocol (quant replicates; weak ACCURACY baseline)
+`--dataset sintel --bits 8 4 3 2 --quantizer lattice_e8 --scale-bits 8 --no-qjl --max-samples 200`
+
+| Config | eff b/scalar | δ1 ↑ | AbsRel ↓ | RMSE ↓ |
+|---|---|---|---|---|
+| FP32 | 32.0 | 0.5739 | 2.228 | 115.8 |
+| 8-bit | 9.0 | 0.5741 | 2.232 | 115.9 |
+| 4-bit | 5.0 | 0.5692 | 2.131 | 114.3 |
+| 3-bit | 4.0 | 0.5723 | 2.193 | 120.1 |
+| 2-bit | 3.0 | 0.3717 | 3.029 | 103.0 |
+
+Quantization pattern REPLICATES a third time (8/4/3-bit within δ1 noise of FP32,
+2-bit cliff) — the compression claim now holds on indoor (NYU) + outdoor (KITTI)
++ synthetic (Sintel). BUT the FP32 *accuracy* baseline is weak (δ1 0.57, AbsRel
+2.23) and this is consistent across ALL bit-widths, so it's a model+protocol
+property, NOT a quantization failure and NOT the KITTI-style alignment bug.
+
+Cause: Sintel's depth range spans ~4 orders of magnitude (foreground ~1 m to
+near-sky), which a single global scale+shift affine (even in disparity space)
+fits poorly; AbsRel is dominated by far pixels where small disparity errors
+become huge relative depth errors. Sintel is a known-hard zero-shot benchmark;
+δ1 ~0.57 with global-affine relative depth is roughly expected. Deliberately NOT
+tightening gt_range to prettify the baseline (that would be fishing).
+
+Implication for the paper: do NOT lead with Sintel accuracy. Sintel's real value
+is TEMPORAL (it's the only GT dataset that is also real video) — but TAE is still
+`n/a` because run_groundtruth_eval evaluates each frame as an independent static
+3-frame clip. A real Sintel TAE number needs a temporal path feeding consecutive
+frames (PENDING — this is what earns Sintel its place in the paper).
+
 ---
 
 Execution order: T5 → T6 → T1 → T4 → T3 → T2 → T7 → T8 → F9/F10.
