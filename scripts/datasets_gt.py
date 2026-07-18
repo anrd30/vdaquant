@@ -242,11 +242,15 @@ def load_nyuv2_gt_test_split(
         images = data["images"]  # (H, W, 3, N)
         depths = data["depths"]  # (H, W, N), meters
         samples = []
-        for idx in test_indices:
+        for i, idx in enumerate(test_indices):
             rgb = images[:, :, :, idx].astype(np.uint8)
             depth = depths[:, :, idx].astype(np.float32)
             valid_mask = depth > 0
-            samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+            # NYU test-split images are independent single frames, not video —
+            # scene=None marks them as non-groupable for --eval-mode temporal
+            # (see group_samples_by_scene).
+            samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask,
+                             "scene": None, "frame_idx": i})
         return samples
     except (NotImplementedError, ValueError):
         try:
@@ -265,12 +269,13 @@ def load_nyuv2_gt_test_split(
             # (N, W, H). Transpose each sample back to (H, W, C) / (H, W).
             images = f["images"]
             depths = f["depths"]
-            for idx in test_indices:
+            for i, idx in enumerate(test_indices):
                 idx = int(idx)
                 rgb = np.transpose(images[idx], (2, 1, 0)).astype(np.uint8)   # (3,W,H) -> (H,W,3)
                 depth = np.transpose(depths[idx], (1, 0)).astype(np.float32)  # (W,H) -> (H,W)
                 valid_mask = depth > 0
-                samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+                samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask,
+                                 "scene": None, "frame_idx": i})
         return samples
 
 
@@ -334,7 +339,7 @@ def load_kitti_gt(
         depth_files = depth_files[:max_samples]
 
     samples = []
-    for depth_path in depth_files:
+    for i, depth_path in enumerate(depth_files):
         img_name = depth_path.name.replace("groundtruth_depth", "image", 1)
         img_path = img_dir / img_name
         if not img_path.exists():
@@ -349,7 +354,10 @@ def load_kitti_gt(
         depth_raw = np.array(Image.open(depth_path), dtype=np.float32)
         depth = depth_raw / 256.0
         valid_mask = depth_raw > 0
-        samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+        # val_selection_cropped draws from multiple independent KITTI drives,
+        # not one continuous sequence — scene=None, same as NYU (non-groupable).
+        samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask,
+                         "scene": None, "frame_idx": i})
 
     return samples
 
@@ -374,28 +382,78 @@ def _read_sintel_dpt(path: Path) -> np.ndarray:
     return depth.reshape(height, width)
 
 
+def _read_sintel_cam(path: Path):
+    """
+    Read a Sintel .cam camera file (official Sintel SDK `sintel_io.cam_read`
+    format — same TAG_FLOAT magic as .dpt/.flo). Layout: float32 magic
+    202021.25, then M (9 float64 = 3x3 intrinsic matrix), then N (12 float64
+    = 3x4 extrinsic matrix [R|t]), such that for a homogeneous world point X,
+    x = M @ N @ X gives homogeneous image pixel coordinates. N is therefore
+    the WORLD-TO-CAMERA extrinsic: X_cam = R @ X_world + t.
+
+    Returns (K, R, t): K is (3,3) intrinsic, R is (3,3) rotation, t is (3,)
+    translation, all float64.
+    """
+    with open(path, "rb") as f:
+        magic = np.fromfile(f, dtype=np.float32, count=1)
+        if magic.size == 0 or abs(float(magic[0]) - 202021.25) > 1e-2:
+            raise RuntimeError(
+                f"{path} is not a valid Sintel .cam file (bad magic {magic}); "
+                f"expected 202021.25."
+            )
+        M = np.fromfile(f, dtype=np.float64, count=9).reshape(3, 3)
+        N = np.fromfile(f, dtype=np.float64, count=12).reshape(3, 4)
+    K = M
+    R = N[:, :3]
+    t = N[:, 3]
+    return K, R, t
+
+
+def _cam_to_world_pose(R: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """
+    Converts a Sintel .cam WORLD-TO-CAMERA extrinsic (X_cam = R @ X_world + t)
+    into a 4x4 CAMERA-TO-WORLD homogeneous pose matrix T such that
+    X_world = T @ [X_cam; 1]. Since R is an orthonormal rotation, R^-1 = R.T,
+    so T = [[R.T, -R.T @ t], [0, 0, 0, 1]]. This is the "pose" convention
+    Video-Depth-Anything/benchmark/eval/eval_tae.py expects (it composes
+    relative pose as T_2_1 = inv(pose_2) @ pose_1 for camera-to-world poses).
+    """
+    T = np.eye(4, dtype=np.float64)
+    T[:3, :3] = R.T
+    T[:3, 3] = -R.T @ t
+    return T
+
+
 def load_sintel_gt(
     cache_dir: Path,
     max_samples: Optional[int] = None,
     download: bool = False,
     pass_name: str = "clean",
     max_depth: float = 1000.0,
+    require_cam: bool = False,
 ):
     """
-    Loads MPI-Sintel depth ground truth with matching RGB frames.
+    Loads MPI-Sintel depth ground truth with matching RGB frames (and, when
+    available, camera intrinsics/pose for geometric TAE — see T9).
 
     Sintel splits RGB and depth across TWO archives (verified via each zip's
     central directory — see scripts/download_datasets.sh):
         MPI-Sintel-depth-training-20150305.zip -> training/depth/<scene>/frame_XXXX.dpt
+                                                   training/camdata_left/<scene>/frame_XXXX.cam
         MPI-Sintel-complete.zip                -> training/{clean,final}/<scene>/frame_XXXX.png
     Extract BOTH into the same <cache_dir> so they merge under one training/
     tree. The depth-training zip's depth_viz/ PNGs are colourised previews,
     NOT model input — this loader ignores them and reads the real .dpt depth.
+    Camera files (camdata_left/) ship in the SAME zip as depth, so no extra
+    download is needed for the K/pose fields below.
 
-    Returns the SAME contract as the other loaders: a flat list of
-    {"rgb": (H,W,3) uint8, "depth": (H,W) float32 metres, "valid_mask": (H,W) bool},
-    one entry per frame, sorted by scene then frame. (Per-frame depth accuracy;
-    temporal grouping for TAE is a separate concern.)
+    Returns a flat list of dicts, sorted by scene then frame:
+        "rgb": (H,W,3) uint8, "depth": (H,W) float32 metres,
+        "valid_mask": (H,W) bool, "scene": str, "frame_idx": int,
+        "K": (3,3) float64 intrinsic or None if the .cam file is missing,
+        "pose": (4,4) float64 camera-to-world homogeneous pose or None.
+    (Grouping into per-scene sequences for temporal eval is the caller's job
+    — see group_samples_by_scene.)
 
     Args:
         cache_dir: Directory with the merged training/ tree.
@@ -405,15 +463,22 @@ def load_sintel_gt(
         max_depth: Depths above this (metres) are treated as invalid — Sintel
                    sky/background carries enormous sentinel depths that would
                    otherwise dominate the affine fit.
+        require_cam: If True, raise when a frame's .cam file is missing
+                     instead of leaving K/pose as None. Set True for
+                     --eval-mode temporal (which needs real camera poses for
+                     geometric TAE); leave False for plain accuracy eval
+                     (which never touches K/pose at all).
 
     Raises:
-        RuntimeError: if the depth or RGB trees are absent.
+        RuntimeError: if the depth or RGB trees are absent, or (require_cam)
+                      if any frame's camera file is missing.
     """
     from PIL import Image
 
     cache_dir = Path(cache_dir)
     depth_root = cache_dir / "training" / "depth"
     rgb_root = cache_dir / "training" / pass_name
+    cam_root = cache_dir / "training" / "camdata_left"
 
     if not depth_root.is_dir():
         raise RuntimeError(
@@ -440,6 +505,7 @@ def load_sintel_gt(
     for depth_path in depth_files:
         scene = depth_path.parent.name
         frame = depth_path.stem  # frame_XXXX
+        frame_idx = int(frame.split("_")[-1])
         rgb_path = rgb_root / scene / f"{frame}.png"
         if not rgb_path.exists():
             raise RuntimeError(
@@ -451,7 +517,25 @@ def load_sintel_gt(
         rgb = np.array(Image.open(rgb_path).convert("RGB"), dtype=np.uint8)
         depth = _read_sintel_dpt(depth_path).astype(np.float32)
         valid_mask = (depth > 0) & (depth < max_depth) & np.isfinite(depth)
-        samples.append({"rgb": rgb, "depth": depth, "valid_mask": valid_mask})
+
+        cam_path = cam_root / scene / f"{frame}.cam"
+        K, pose = None, None
+        if cam_path.exists():
+            K_raw, R_raw, t_raw = _read_sintel_cam(cam_path)
+            K = K_raw
+            pose = _cam_to_world_pose(R_raw, t_raw)
+        elif require_cam:
+            raise RuntimeError(
+                f"Sintel camera file {cam_path} missing (required: require_cam=True, "
+                f"needed for --eval-mode temporal's geometric TAE). It ships in the "
+                f"SAME MPI-Sintel-depth-training-20150305.zip as the .dpt depth files "
+                f"under training/camdata_left/ — re-extract that zip if missing."
+            )
+
+        samples.append({
+            "rgb": rgb, "depth": depth, "valid_mask": valid_mask,
+            "scene": scene, "frame_idx": frame_idx, "K": K, "pose": pose,
+        })
 
     return samples
 
@@ -481,11 +565,18 @@ DATASET_GT_CONFIG = {
 }
 
 
-def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None):
+def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None, require_cam: bool = False):
     """
     Dispatch to the right GT loader for `name`, returning
     (samples, gt_range). Raises for datasets without a real loader (e.g.
     'davis' has no depth GT; 'scannet' is ToU-gated) rather than faking data.
+
+    Args:
+        require_cam: Passed through to loaders that support camera-pose
+                     loading (currently only Sintel). Set True for
+                     --eval-mode temporal, which needs real K/pose for
+                     geometric TAE; ignored (not passed) for loaders that
+                     don't accept it, since accuracy-only eval never needs it.
     """
     name = name.lower()
     if name not in DATASET_GT_CONFIG:
@@ -497,5 +588,78 @@ def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None
     cfg = DATASET_GT_CONFIG[name]
     data_dir = Path(data_dir)
     cache = data_dir / cfg["cache_subdir"]
-    samples = cfg["loader"](cache, max_samples=max_samples, download=cfg["auto_download"])
+    kwargs = {"max_samples": max_samples, "download": cfg["auto_download"]}
+    if cfg["loader"] is load_sintel_gt:
+        kwargs["require_cam"] = require_cam
+    samples = cfg["loader"](cache, **kwargs)
     return samples, cfg["gt_range"]
+
+
+def group_samples_by_scene(samples):
+    """
+    Groups a flat sample list (each with a 'scene' key) into an ordered dict
+    {scene_name: [samples sorted by frame_idx]}, for --eval-mode temporal.
+
+    Raises if any sample has scene=None (NYUv2/KITTI are independent single
+    images with no video structure — grouping them into "sequences" would be
+    meaningless and could silently fabricate a fake temporal-consistency
+    signal from unrelated frames). Only real video datasets (currently
+    Sintel) are groupable.
+    """
+    from collections import OrderedDict
+
+    groups = OrderedDict()
+    for s in samples:
+        scene = s.get("scene")
+        if scene is None:
+            raise ValueError(
+                "Cannot group samples with scene=None into video sequences. This "
+                "dataset has no real scene/temporal structure (e.g. NYUv2/KITTI "
+                "are independent single images, not consecutive video frames). "
+                "--eval-mode temporal currently only supports Sintel."
+            )
+        groups.setdefault(scene, []).append(s)
+    for scene in groups:
+        groups[scene] = sorted(groups[scene], key=lambda s: s["frame_idx"])
+    return groups
+
+
+def chunk_scene_into_windows(frames, window: int = 16):
+    """
+    Splits a scene's ordered frame list into consecutive windows of length
+    `window`, for feeding real consecutive frames through the model's video
+    path (video_length=window) in a single forward call — unlike an isolated
+    static-clip-per-frame hack, this actually gives the model shared temporal
+    context across the window, which is required for TAE to measure anything
+    meaningful (T9).
+
+    The final window, if shorter than `window`, is static-padded by repeating
+    its last real frame (mirrors VDA's own infer_video_depth chunking
+    convention, which pads incomplete trailing chunks the same way) so every
+    window handed to the model has uniform length.
+
+    Returns a list of (window_frames, n_real) tuples: window_frames always has
+    exactly `window` entries; n_real (<= window) is how many are genuine
+    frames. Callers MUST discard the padded tail (window_frames[n_real:]) from
+    any downstream temporal-consistency comparison — comparing a frame against
+    its own padding copy would trivially and falsely read as perfect
+    consistency. Concatenating just the first n_real predictions from each
+    window (in order) reconstructs the full per-frame prediction sequence for
+    the scene; consecutive-pair TAE over that flat sequence then naturally
+    includes window-boundary pairs too (frames that were in different forward
+    calls and so did NOT share cross-window model state/cache) — a known,
+    documented limitation, not a hidden one.
+    """
+    if window <= 0:
+        raise ValueError(f"window must be positive, got {window}")
+    if not frames:
+        return []
+    result = []
+    n = len(frames)
+    for start in range(0, n, window):
+        chunk = frames[start:start + window]
+        n_real = len(chunk)
+        if n_real < window:
+            chunk = chunk + [chunk[-1]] * (window - n_real)
+        result.append((chunk, n_real))
+    return result

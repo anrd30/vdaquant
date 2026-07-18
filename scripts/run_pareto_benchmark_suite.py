@@ -368,6 +368,190 @@ def compute_tae(depth_sequence: torch.Tensor, flow_fields: torch.Tensor = None, 
     }
 
 # ============================================================
+# VDA-PROTOCOL GEOMETRIC TAE (T9) — ported from
+# Video-Depth-Anything/benchmark/eval/eval_tae.py::tae_torch / eval_TAE
+# ============================================================
+# This is DIFFERENT from compute_tae() above: that one warps D_{t+1} onto
+# D_t's pixel grid using optical flow (or a static-camera no-op). This one
+# uses KNOWN camera geometry (intrinsics K + relative pose from consecutive
+# .cam files) to back-project frame t's depth to 3D, transform it into frame
+# t+1's camera frame, and re-project — then compares against frame t+1's own
+# independently-predicted depth via AbsRel. It requires real camera poses
+# (Sintel's camdata_left/), so it's only usable where those exist, but it is
+# EXACTLY the metric VDA's own paper reports, making our numbers directly
+# comparable to their tables.
+def _tae_geometric_single(
+    depth1: torch.Tensor, depth2: torch.Tensor,
+    R_2_1: torch.Tensor, T_2_1: torch.Tensor,
+    K: torch.Tensor, mask: torch.Tensor,
+) -> float:
+    """
+    Ported from eval_tae.py::tae_torch. Back-projects depth1's pixels to 3D
+    using intrinsics K, transforms to frame2's camera frame via the relative
+    pose (X_2 = R_2_1 @ X_1 + T_2_1), re-projects into frame2's image plane
+    (nearest-pixel splat), and compares the reprojected depth against depth2's
+    own value at that location via AbsRel (normalized by depth2). A perfectly
+    temporally-consistent depth predictor gives ~0; frame-to-frame flicker
+    (or genuinely wrong reconstructed geometry) inflates it.
+
+    Args:
+        depth1, depth2: (H, W) ALIGNED predicted depth (metres), same scene,
+                        consecutive frames.
+        R_2_1: (3, 3) relative rotation, frame1's camera frame -> frame2's.
+        T_2_1: (3,) relative translation, same convention.
+        K: (3, 3) intrinsic matrix (assumed shared between the two frames,
+           matching VDA's own implementation).
+        mask: (H, W) bool, additional valid-pixel mask for frame2 (pass
+              all-ones if none).
+
+    Returns:
+        Scalar AbsRel between depth2 and the frame1-reprojected-into-frame2
+        depth, over pixels where both are valid and in-bounds. 0.0 if no
+        pixels reproject in-bounds (degenerate motion/inputs) — matches
+        eval_tae.py's own fallback for this case.
+    """
+    H, W = depth1.shape
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+
+    yy, xx = torch.meshgrid(
+        torch.arange(H, dtype=depth1.dtype, device=depth1.device),
+        torch.arange(W, dtype=depth1.dtype, device=depth1.device),
+        indexing='ij',
+    )
+
+    X = (xx - cx) * depth1 / fx
+    Y = (yy - cy) * depth1 / fy
+    Z = depth1
+    points3d = torch.stack((X.flatten(), Y.flatten(), Z.flatten()), dim=1)  # (H*W, 3)
+
+    points3d_transformed = points3d @ R_2_1.T + T_2_1
+    X_world = points3d_transformed[:, 0]
+    Y_world = points3d_transformed[:, 1]
+    Z_world = points3d_transformed[:, 2]
+
+    X_plane = torch.round((X_world * fx) / Z_world + cx).to(dtype=torch.long)
+    Y_plane = torch.round((Y_world * fy) / Z_world + cy).to(dtype=torch.long)
+
+    in_bounds = (X_plane >= 0) & (X_plane < W) & (Y_plane >= 0) & (Y_plane < H)
+    if in_bounds.sum() == 0:
+        return 0.0
+
+    depth_proj = torch.zeros((H, W), dtype=depth1.dtype, device=depth1.device)
+    depth_proj[Y_plane[in_bounds], X_plane[in_bounds]] = Z_world[in_bounds]
+
+    valid = (depth_proj > 0) & (depth2 > 0) & mask
+    if valid.sum() == 0:
+        return 0.0
+
+    abs_rel = torch.mean(torch.abs(depth2[valid] - depth_proj[valid]) / depth2[valid])
+    return float(abs_rel.item())
+
+
+def _pool_align_scene_disparity(pred_disps, gt_depths, gt_range) -> tuple:
+    """
+    ONE global scale+shift disparity-space alignment fit pooled across ALL
+    frames in a scene, matching VDA's eval_TAE (which fits a single scale/
+    shift per scene, not per-frame, so the aligned depths used for TAE sit on
+    a temporally-consistent scale). Reuses the same disparity-space fit as
+    compute_gt_depth_metrics (F10), just pooled over multiple frames.
+
+    Args:
+        pred_disps: list of (H, W) raw model disparity outputs.
+        gt_depths: list of (H, W) ground-truth metric depth, same length.
+        gt_range: (min, max) metres; VDA's eval_TAE hardcodes the lower bound
+                  at 1e-3 regardless of the dataset's min_depth_eval (verified
+                  by reading eval_tae.py directly) — mirrored here for fidelity.
+
+    Returns:
+        (scale, shift) such that aligned_disparity = scale*pred + shift.
+    """
+    all_pred, all_gt_disp = [], []
+    for pred, gt in zip(pred_disps, gt_depths):
+        mask = (gt > 1e-3) & (gt < gt_range[1])
+        if mask.any():
+            all_pred.append(pred[mask].reshape(-1))
+            all_gt_disp.append((1.0 / gt[mask].clamp(min=1e-8)).reshape(-1))
+    if not all_pred:
+        raise ValueError("No valid pixels across the scene for pooled disparity alignment")
+    p = torch.cat(all_pred).double()
+    g = torch.cat(all_gt_disp).double()
+    A = torch.stack([p, torch.ones_like(p)], dim=1)
+    solution = torch.linalg.lstsq(A, g.unsqueeze(-1)).solution
+    return float(solution[0, 0]), float(solution[1, 0])
+
+
+def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range) -> dict:
+    """
+    Full VDA-protocol geometric TAE for one scene of REAL consecutive frames.
+
+    Steps (mirrors eval_tae.py::eval_TAE): (1) one pooled disparity-space
+    alignment across the whole scene, (2) invert + clip aligned depth to
+    [1e-3, gt_range[1]], (3) for every consecutive real-frame pair, compute
+    bidirectional (t->t+1 AND t+1->t) geometric TAE via _tae_geometric_single
+    using the pair's relative camera pose, (4) average all pair x direction
+    errors and report as a PERCENTAGE (the *100 VDA itself reports).
+
+    Args:
+        pred_disps: list of (H, W) torch tensors, raw model disparity output,
+                    one per REAL frame in the scene, in frame order (already
+                    upsampled to native resolution, matching gt_depths' shape).
+        gt_depths: list of (H, W) numpy arrays, ground-truth metric depth.
+        Ks: list of (3, 3) numpy intrinsic matrices, one per frame.
+        poses: list of (4, 4) numpy camera-to-world pose matrices, one per frame.
+        gt_range: (min, max) metres for this dataset (see DATASET_GT_CONFIG).
+
+    Returns:
+        dict with 'tae_percent' (float) and 'n_pairs' (int, consecutive pairs
+        actually used).
+    """
+    n = len(pred_disps)
+    if n != len(gt_depths) or n != len(Ks) or n != len(poses):
+        raise ValueError(
+            f"pred_disps/gt_depths/Ks/poses must have matching lengths, got "
+            f"{n}/{len(gt_depths)}/{len(Ks)}/{len(poses)}"
+        )
+    if n < 2:
+        return {"tae_percent": 0.0, "n_pairs": 0}
+
+    gt_depths_t = [torch.from_numpy(g).double() if isinstance(g, np.ndarray) else g.double() for g in gt_depths]
+    s, t = _pool_align_scene_disparity(pred_disps, gt_depths_t, gt_range)
+
+    aligned_depths = []
+    for pred in pred_disps:
+        disp_aligned = (s * pred.double() + t).clamp(min=1e-3)
+        depth_aligned = (1.0 / disp_aligned).clamp(min=1e-3, max=float(gt_range[1]))
+        aligned_depths.append(depth_aligned)
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    error_sum = 0.0
+    n_pairs = 0
+    for i in range(n - 1):
+        depth1 = aligned_depths[i].to(device)
+        depth2 = aligned_depths[i + 1].to(device)
+        K = torch.as_tensor(Ks[i], dtype=torch.float64, device=device)
+        pose1 = np.asarray(poses[i], dtype=np.float64)
+        pose2 = np.asarray(poses[i + 1], dtype=np.float64)
+
+        T_2_1_full = np.linalg.inv(pose2) @ pose1  # cam1-local -> cam2-local
+        R_2_1 = torch.from_numpy(T_2_1_full[:3, :3]).to(device=device, dtype=torch.float64)
+        t_2_1 = torch.from_numpy(T_2_1_full[:3, 3]).to(device=device, dtype=torch.float64)
+        mask_ones = torch.ones_like(depth1, dtype=torch.bool)
+
+        err_fwd = _tae_geometric_single(depth1, depth2, R_2_1, t_2_1, K, mask_ones)
+
+        T_1_2_full = np.linalg.inv(T_2_1_full)
+        R_1_2 = torch.from_numpy(T_1_2_full[:3, :3]).to(device=device, dtype=torch.float64)
+        t_1_2 = torch.from_numpy(T_1_2_full[:3, 3]).to(device=device, dtype=torch.float64)
+
+        err_bwd = _tae_geometric_single(depth2, depth1, R_1_2, t_1_2, K, mask_ones)
+
+        error_sum += err_fwd + err_bwd
+        n_pairs += 1
+
+    tae_percent = (error_sum / (2 * n_pairs)) * 100.0 if n_pairs > 0 else 0.0
+    return {"tae_percent": round(tae_percent, 6), "n_pairs": n_pairs}
+
+# ============================================================
 # DYNAMIC SURGERY VERIFICATION & SANITY CHECK
 # ============================================================
 def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, sample_input: torch.Tensor):
@@ -547,6 +731,40 @@ def generate_pareto_charts(results: dict, output_dir: Path):
 # ============================================================
 # GROUND-TRUTH EVALUATION (real depth labels, affine-invariant protocol)
 # ============================================================
+# Preprocessing mirrors VDA's own infer_video_depth() exactly (see
+# Video-Depth-Anything/video_depth_anything/video_depth.py): aspect-ratio-
+# PRESERVING resize to a 518-shorter-side (multiple of 14), with the
+# ratio>1.78 shrink branch that KITTI's ~3.3:1 letterbox images trigger.
+# A hard 266x266 SQUARE resize (the original code) crushed that aspect ratio
+# and was the root cause of a broken KITTI FP32 baseline (delta1 0.43 vs
+# published ~0.96); NYU's near-4:3 images survived it, which is why NYU
+# looked fine at the time. Shared by run_groundtruth_eval (single-frame,
+# static clip) and run_temporal_eval (T9, real consecutive-frame windows).
+def _make_transform(h, w):
+    import cv2
+    from video_depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
+    input_size = 518
+    ratio = max(h, w) / min(h, w)
+    if ratio > 1.78:  # VDA shrinks input for very wide clips (memory); KITTI hits this
+        input_size = int(input_size * 1.777 / ratio)
+        input_size = round(input_size / 14) * 14
+    resize = Resize(width=input_size, height=input_size, resize_target=False,
+                    keep_aspect_ratio=True, ensure_multiple_of=14,
+                    resize_method='lower_bound', image_interpolation_method=cv2.INTER_CUBIC)
+    norm = NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    prep = PrepareForNet()
+    return resize, norm, prep
+
+
+def _preprocess_frame(rgb_np: np.ndarray) -> torch.Tensor:
+    """One (H,W,3) uint8 RGB frame -> (3,h,w) float tensor via _make_transform."""
+    H, W = rgb_np.shape[:2]
+    resize, norm, prep = _make_transform(H, W)
+    sample = {'image': rgb_np.astype(np.float32) / 255.0}
+    sample = prep(norm(resize(sample)))
+    return torch.from_numpy(sample['image'])
+
+
 def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, data_dir):
     """
     Evaluates FP32 and each swept bit-width against REAL ground-truth depth
@@ -566,37 +784,14 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
     print(f"  [Dataset] Loaded {len(gt_samples)} {args.dataset.upper()} images "
           f"(REAL ground truth, depth range {gt_range} m).")
 
-    # Preprocessing mirrors VDA's own infer_video_depth() exactly (see
-    # Video-Depth-Anything/video_depth_anything/video_depth.py): aspect-ratio-
-    # PRESERVING resize to a 518-shorter-side (multiple of 14), with the
-    # ratio>1.78 shrink branch that KITTI's ~3.3:1 letterbox images trigger.
-    # The previous 266x266 SQUARE resize crushed that aspect ratio and was the
-    # root cause of the broken KITTI FP32 baseline (delta1 0.43 vs published
-    # ~0.96); NYU's near-4:3 images survived it, which is why NYU looked fine.
-    import cv2
-    from video_depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
-
-    def _make_transform(h, w):
-        input_size = 518
-        ratio = max(h, w) / min(h, w)
-        if ratio > 1.78:  # VDA shrinks input for very wide clips (memory); KITTI hits this
-            input_size = int(input_size * 1.777 / ratio)
-            input_size = round(input_size / 14) * 14
-        resize = Resize(width=input_size, height=input_size, resize_target=False,
-                        keep_aspect_ratio=True, ensure_multiple_of=14,
-                        resize_method='lower_bound', image_interpolation_method=cv2.INTER_CUBIC)
-        norm = NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        prep = PrepareForNet()
-        return resize, norm, prep
-
     def predict_depth(m, rgb_np):
         H, W = rgb_np.shape[:2]
-        resize, norm, prep = _make_transform(H, W)
-        sample = {'image': rgb_np.astype(np.float32) / 255.0}
-        sample = prep(norm(resize(sample)))
-        tensor = torch.from_numpy(sample['image'])  # (3, h, w), aspect-preserved
+        tensor = _preprocess_frame(rgb_np)  # (3, h, w), aspect-preserved
         # VDA is a video model; feed a short static clip and take the last frame's
-        # prediction (single images have no temporal context to give it).
+        # prediction (single images have no temporal context to give it). Note:
+        # this static-clip hack is exactly why this path CANNOT measure temporal
+        # consistency (no shared state across independent predict_depth calls) —
+        # see run_temporal_eval (T9) for the real consecutive-frame path.
         clip = tensor.unsqueeze(0).repeat(3, 1, 1, 1).unsqueeze(0)  # [1, T=3, C, h, w]
         if torch.cuda.is_available():
             clip = clip.cuda()
@@ -713,6 +908,172 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
     return dataset_results
 
 
+def _predict_window(m, rgb_list):
+    """
+    Feeds a REAL consecutive window of frames through the model in ONE
+    forward call (video_length=len(rgb_list)) so predictions share genuine
+    cross-frame temporal context — unlike run_groundtruth_eval's isolated
+    static-clip-per-frame hack (T9). Returns a list of (H,W) native-resolution
+    depth predictions, one per input frame, in order.
+    """
+    H, W = rgb_list[0].shape[:2]
+    tensors = [_preprocess_frame(rgb) for rgb in rgb_list]
+    clip = torch.stack(tensors, dim=0).unsqueeze(0)  # [1, T, C, h, w]
+    if torch.cuda.is_available():
+        clip = clip.cuda()
+    with torch.no_grad():
+        out = m(clip)  # expected [1, T, h, w]
+    preds = []
+    T = out.shape[1] if out.dim() == 4 else 1
+    for t in range(T):
+        p = out[0, t] if out.dim() == 4 else out[0]
+        p = F.interpolate(p[None, None].float(), size=(H, W), mode='bilinear', align_corners=True)[0, 0]
+        preds.append(p.cpu())
+    return preds
+
+
+def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, data_dir):
+    """
+    T9: real video-window temporal evaluation with VDA-protocol geometric TAE
+    (docs/optimization_ledger.md T9). Currently Sintel-only — it's the only
+    dataset here with both real consecutive-video structure AND the camera
+    intrinsics/poses (camdata_left/*.cam) geometric TAE needs.
+
+    For each scene (capped at args.max_scenes) and each bit-width (+FP32),
+    feeds the scene's frames through the model in real consecutive windows
+    (args.temporal_window frames per forward call — NOT independent static
+    clips), then computes:
+      - accuracy metrics from those SAME windowed predictions (a sanity/
+        comparison row against run_groundtruth_eval's static-clip numbers —
+        should be at least as accurate, since the model now has real temporal
+        context instead of a repeated single frame)
+      - geometric TAE (compute_tae_geometric_for_scene) using each frame's
+        real camera K/pose, ported from VDA's own eval_tae.py.
+    Averages both across scenes. Returns a dict keyed "FP32_Baseline",
+    "{bit}bit", matching the other eval-mode result shapes (slots into the
+    same JSON export / table code), with an added "tae_percent" key.
+
+    KNOWN LIMITATION (documented, not hidden): windows are processed
+    independently with no shared state across window boundaries (no KV
+    cache/cached_hidden_states), so consecutive-frame pairs that straddle a
+    window boundary don't benefit from cross-window temporal context the way
+    within-window pairs do — see chunk_scene_into_windows' docstring.
+    """
+    from video_depth_anything.video_depth import VideoDepthAnything
+    from datasets_gt import load_gt_dataset, group_samples_by_scene, chunk_scene_into_windows
+
+    if args.dataset != "sintel":
+        raise ValueError(
+            f"--eval-mode temporal currently only supports --dataset sintel "
+            f"(the only dataset with both real video structure and camera "
+            f"pose data for geometric TAE). Got --dataset {args.dataset}."
+        )
+
+    gt_samples, gt_range = load_gt_dataset(args.dataset, data_dir, max_samples=args.max_samples, require_cam=True)
+    scenes = group_samples_by_scene(gt_samples)
+    scene_names = list(scenes.keys())[:args.max_scenes]
+    print(f"  [Dataset] {len(scene_names)} scene(s) for temporal eval "
+          f"(of {len(scenes)} loaded): {scene_names}")
+    if not scene_names:
+        raise ValueError("No scenes available for temporal eval (empty dataset or --max-scenes 0)")
+
+    window = args.temporal_window
+
+    def predict_scene(m):
+        """Returns {scene_name: (pred_disps, gt_depths, Ks, poses)} for ALL real frames in each scene."""
+        result = {}
+        for scene in scene_names:
+            frames = scenes[scene]
+            pred_disps, gt_depths, Ks, poses = [], [], [], []
+            for window_frames, n_real in chunk_scene_into_windows(frames, window):
+                rgb_list = [f["rgb"] for f in window_frames]
+                if m is not None:
+                    window_preds = _predict_window(m, rgb_list)
+                else:
+                    window_preds = [torch.rand(*f["depth"].shape) for f in window_frames]
+                # Discard the padded tail — see chunk_scene_into_windows docstring.
+                for i in range(n_real):
+                    pred_disps.append(window_preds[i])
+                    gt_depths.append(window_frames[i]["depth"])
+                    Ks.append(window_frames[i]["K"])
+                    poses.append(window_frames[i]["pose"])
+            result[scene] = (pred_disps, gt_depths, Ks, poses)
+        return result
+
+    def evaluate_predictions(scene_preds):
+        acc_metrics_all = []
+        tae_list = []
+        total_pairs = 0
+        for scene, (pred_disps, gt_depths, Ks, poses) in scene_preds.items():
+            for pred, gt in zip(pred_disps, gt_depths):
+                gt_t = torch.from_numpy(gt).float()
+                valid_t = torch.from_numpy((gt > 1e-3) & (gt < gt_range[1]))
+                acc_metrics_all.append(compute_gt_depth_metrics(
+                    pred, gt_t, valid_t, gt_range=gt_range,
+                    pred_is_disparity=(args.pred_space == "disparity")))
+            tae_result = compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range)
+            tae_list.append(tae_result["tae_percent"])
+            total_pairs += tae_result["n_pairs"]
+
+        keys = ["abs_rel", "rmse", "delta1", "delta2", "delta3"]
+        avg = {k: round(float(np.mean([m[k] for m in acc_metrics_all])), 4) for k in keys}
+        avg["tae_percent"] = round(float(np.mean(tae_list)), 6) if tae_list else 0.0
+        avg["temporal_n_pairs"] = total_pairs
+        avg["n_images"] = len(acc_metrics_all)
+        return avg
+
+    dataset_results = {}
+
+    print(f"  [1/N] Running FP32 Reference (real video windows, window={window})...")
+    fp32_metrics = evaluate_predictions(predict_scene(model))
+    fp32_metrics["mem_savings_x"] = 1.0
+    fp32_metrics["mem_savings_fp16_x"] = 0.5
+    fp32_metrics["nominal_savings_x"] = 1.0
+    fp32_metrics["effective_bits_per_scalar"] = 32.0
+    dataset_results["FP32_Baseline"] = fp32_metrics
+    print(f"        -> delta1: {fp32_metrics['delta1']} | TAE%: {fp32_metrics['tae_percent']} "
+          f"({fp32_metrics['temporal_n_pairs']} pairs)")
+
+    for idx, bit in enumerate(args.bits):
+        print(f"  [{idx+2}/{len(args.bits)+1}] Applying VDA-HyperQuant Surgery "
+              f"({bit}-bit {args.quantizer}, scale_bits={args.scale_bits}, "
+              f"qjl={'on' if args.use_qjl else 'off'}) [temporal mode]...")
+        model_quant = None
+        if model is not None:
+            model_quant = VideoDepthAnything(**model_configs).eval()
+            if ckpt_loaded:
+                for ckpt_path in possible_ckpts:
+                    if ckpt_path.exists():
+                        model_quant.load_state_dict(torch.load(ckpt_path, map_location='cpu'))
+                        break
+            else:
+                model_quant.load_state_dict(model.state_dict())
+            if torch.cuda.is_available():
+                model_quant = model_quant.cuda()
+            model_quant = apply_rotated_quantization_to_vda(
+                model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
+                scale_bits=args.scale_bits, verbose=(idx == 0), replace_temporal=True,
+            )
+
+        metrics = evaluate_predictions(predict_scene(model_quant))
+
+        bit_accounting = compute_real_bit_accounting(
+            bit, head_dim=64, use_qjl=args.use_qjl,
+            group_size=QUANTIZER_GROUP_SIZE.get(args.quantizer, 4), scale_bits=args.scale_bits,
+        )
+        metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
+        metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
+        metrics["nominal_savings_x"] = bit_accounting["nominal_ratio_vs_fp32"]
+        metrics["effective_bits_per_scalar"] = bit_accounting["effective_bits_per_scalar"]
+        metrics["total_bits_per_vec"] = bit_accounting["total_bits_per_vector"]
+        dataset_results[f"{bit}bit"] = metrics
+        print(f"        -> delta1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | "
+              f"TAE%: {metrics['tae_percent']} ({metrics['temporal_n_pairs']} pairs) | "
+              f"eff={metrics['effective_bits_per_scalar']}b/scalar")
+
+    return dataset_results
+
+
 # ============================================================
 # MAIN EVALUATION EXECUTION
 # ============================================================
@@ -734,13 +1095,16 @@ def main():
                               "(the T8 4-bit headline config: --quantizer lattice_e8 "
                               "--scale-bits 8 --no-qjl --bits 3)")
     parser.add_argument(
-        "--eval-mode", type=str, default="fidelity", choices=["fidelity", "groundtruth"],
+        "--eval-mode", type=str, default="fidelity", choices=["fidelity", "groundtruth", "temporal"],
         help=(
             "'fidelity' (default): quantized model output vs FP32 model output on proxy "
             "video frames — NOT a dataset accuracy result, no ground truth involved. "
-            "'groundtruth': quantized model output vs REAL NYUv2 labeled depth, using the "
-            "affine-invariant alignment protocol (see scripts/datasets_gt.py, "
-            "docs/optimization_ledger.md T2). Supports --dataset nyuv2/kitti/sintel."
+            "'groundtruth': quantized model output vs REAL labeled depth (per-image static "
+            "clips), affine-invariant alignment (docs/optimization_ledger.md T2/F10). "
+            "Supports --dataset nyuv2/kitti/sintel. "
+            "'temporal': REAL consecutive-frame video windows (not static clips) + "
+            "VDA-protocol geometric TAE (docs/optimization_ledger.md T9). Sintel only "
+            "(needs both real video structure and camera pose data)."
         ),
     )
     parser.add_argument(
@@ -753,6 +1117,12 @@ def main():
             "See docs/optimization_ledger.md F10."
         ),
     )
+    parser.add_argument("--max-scenes", type=int, default=2,
+                         help="[--eval-mode temporal] Max Sintel scenes to evaluate (kept small "
+                              "by default to bound Colab GPU time for a first run)")
+    parser.add_argument("--temporal-window", type=int, default=16,
+                         help="[--eval-mode temporal] Frames per real video window fed to the "
+                              "model in one forward call (video_length)")
     args = parser.parse_args()
 
     if args.eval_mode == "groundtruth":
@@ -766,6 +1136,12 @@ def main():
                 f"ToU-gated (see scripts/download_datasets.sh), and 'all' can't mix GT ranges. "
                 f"Do not fabricate GT results for them."
             )
+    elif args.eval_mode == "temporal" and args.dataset != "sintel":
+        raise ValueError(
+            "--eval-mode temporal currently only supports --dataset sintel "
+            "(docs/optimization_ledger.md T9 — the only dataset with both real "
+            "consecutive-video structure and camera pose data for geometric TAE)."
+        )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -863,6 +1239,15 @@ def main():
             # dataset can't be loaded, this raises rather than silently reporting
             # fidelity-vs-FP32 numbers under a ground-truth label.
             all_results[dataset_name] = run_groundtruth_eval(
+                model=model, model_configs=model_configs, ckpt_loaded=ckpt_loaded,
+                possible_ckpts=possible_ckpts, args=args, data_dir=data_dir,
+            )
+            continue
+
+        if args.eval_mode == "temporal":
+            # T9: real consecutive-frame video windows + VDA-protocol geometric
+            # TAE (docs/optimization_ledger.md T9). Sintel only.
+            all_results[dataset_name] = run_temporal_eval(
                 model=model, model_configs=model_configs, ckpt_loaded=ckpt_loaded,
                 possible_ckpts=possible_ckpts, args=args, data_dir=data_dir,
             )
@@ -986,16 +1371,29 @@ def main():
 
     # Export JSON Report
     json_path = output_dir / "pareto_benchmark_results.json"
-    eval_mode_note = (
-        f"GROUND TRUTH: accuracy metrics (abs_rel, rmse, delta1-3) are measured against REAL "
-        f"{args.dataset.upper()} ground-truth depth using the affine-invariant alignment protocol "
-        f"(scripts/datasets_gt.py). Safe to label with the dataset name."
-        if args.eval_mode == "groundtruth" else
-        "FIDELITY: accuracy metrics (abs_rel, rmse, delta1-3, pearson) reflect Rate-Distortion "
-        "fidelity of the quantized model's output vs THIS SAME MODEL's own FP32 output on proxy "
-        "video frames — there is NO ground truth involved. Do NOT report these as dataset "
-        "accuracy results; use --eval-mode groundtruth for that."
-    )
+    if args.eval_mode == "groundtruth":
+        eval_mode_note = (
+            f"GROUND TRUTH: accuracy metrics (abs_rel, rmse, delta1-3) are measured against REAL "
+            f"{args.dataset.upper()} ground-truth depth using the affine-invariant alignment "
+            f"protocol (scripts/datasets_gt.py), per-image static clips. Safe to label with the "
+            f"dataset name. No temporal/TAE claim here — see --eval-mode temporal for that."
+        )
+    elif args.eval_mode == "temporal":
+        eval_mode_note = (
+            f"TEMPORAL: accuracy metrics are measured on REAL consecutive-frame video windows "
+            f"(video_length={args.temporal_window}, not independent static clips). tae_percent is "
+            f"VDA-protocol geometric-reprojection temporal consistency (ported from "
+            f"Video-Depth-Anything/benchmark/eval/eval_tae.py; lower is more consistent), using "
+            f"real camera poses — directly comparable to VDA's own published TAE tables. "
+            f"docs/optimization_ledger.md T9."
+        )
+    else:
+        eval_mode_note = (
+            "FIDELITY: accuracy metrics (abs_rel, rmse, delta1-3, pearson) reflect Rate-Distortion "
+            "fidelity of the quantized model's output vs THIS SAME MODEL's own FP32 output on proxy "
+            "video frames — there is NO ground truth involved. Do NOT report these as dataset "
+            "accuracy results; use --eval-mode groundtruth for that."
+        )
     with open(json_path, "w") as f:
         json.dump({
             "eval_mode": args.eval_mode,
@@ -1017,12 +1415,16 @@ def main():
 
     # Print Summary Table
     is_gt = args.eval_mode == "groundtruth"
-    title = ("PARETO GROUND-TRUTH BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64, vs REAL NYUv2 labels)"
-              if is_gt else
-              "PARETO RATE-DISTORTION FIDELITY BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64)")
-    subtitle = ("  * Accuracy measured vs REAL NYUv2 ground-truth depth (affine-invariant protocol) *"
-                if is_gt else
-                "  * Accuracy measured vs FP32 baseline (Fidelity/Rate-Distortion), NOT ground truth *")
+    is_temporal = args.eval_mode == "temporal"
+    if is_temporal:
+        title = f"PARETO TEMPORAL BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64, real video windows, VDA-protocol TAE)"
+        subtitle = "  * Accuracy + TAE measured on REAL consecutive Sintel frames with real camera poses *"
+    elif is_gt:
+        title = f"PARETO GROUND-TRUTH BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64, vs REAL {args.dataset.upper()} labels)"
+        subtitle = f"  * Accuracy measured vs REAL {args.dataset.upper()} ground-truth depth (affine-invariant protocol) *"
+    else:
+        title = "PARETO RATE-DISTORTION FIDELITY BENCHMARK SUMMARY TABLE (ViT-Small, head_dim=64)"
+        subtitle = "  * Accuracy measured vs FP32 baseline (Fidelity/Rate-Distortion), NOT ground truth *"
     print(f"\n{'=' * 110}")
     print(f"  {title}")
     print(subtitle)
@@ -1033,7 +1435,12 @@ def main():
         for b_name, m in d_res.items():
             b_label = f"{b_name:<9}"
             eff_bits = f"{m.get('effective_bits_per_scalar', '?')}"
-            tae_str = f"{m['tae']}" if 'tae' in m else "n/a"
+            if 'tae_percent' in m:
+                tae_str = f"{m['tae_percent']}%"
+            elif 'tae' in m:
+                tae_str = f"{m['tae']}"
+            else:
+                tae_str = "n/a"
             real_save = (f"{m['mem_savings_x']}x ({m.get('mem_savings_fp16_x', '?')}x) "
                          f"[{m.get('nominal_savings_x', m['mem_savings_x'])}x]")
             print(f"{d_name.upper():<9} | {b_label} | {m['delta1']:<10} | {m['abs_rel']:<8} | {m['rmse']:<8} | {tae_str:<8} | {eff_bits:<12} | {real_save:<24}")
@@ -1042,8 +1449,12 @@ def main():
     print("  * Note 1: 'Eff b/scalar' is the ALL-INCLUSIVE effective rate (payload + per-group scale metadata")
     print("            + QJL side-channel overhead). 'vs FP32 (vs FP16) [Nom]' are compression ratios against")
     print("            the FP32 baseline, the FP16 deployment baseline, and the naive nominal (payload-only) rate.")
-    if is_gt:
-        print("  * Note 2: Accuracy metrics are measured against REAL NYUv2 ground truth. Safe to cite by dataset name.")
+    if is_temporal:
+        print("  * Note 2: TAE is VDA-protocol geometric-reprojection temporal consistency (lower = more consistent),")
+        print("            ported from Video-Depth-Anything/benchmark/eval/eval_tae.py — directly comparable to")
+        print("            VDA's own published TAE tables. Accuracy here uses REAL video windows, not static clips.")
+    elif is_gt:
+        print(f"  * Note 2: Accuracy metrics are measured against REAL {args.dataset.upper()} ground truth. Safe to cite by dataset name.")
     else:
         print("  * Note 2: Accuracy metrics (δ1, AbsRel, etc.) evaluate rate-distortion fidelity relative to the FP32")
         print("            model — there is NO ground truth here. Do not report as dataset accuracy; re-run with")
