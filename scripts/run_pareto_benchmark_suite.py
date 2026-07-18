@@ -590,15 +590,38 @@ def verify_quantization_surgery(model_fp32: nn.Module, model_quant: nn.Module, s
 # HONEST BIT ACCOUNTING & QJL OVERHEAD CALCULATOR
 # ============================================================
 # Per-group scale sharing for each quantizer: D4 groups 4 scalars per scale,
-# E8 groups 8 (halving the scale overhead — the key T8 lever). 'scalar' and
-# 'uniform_vector' default to 4 for historical consistency with earlier
-# accounting; this doesn't affect the T8 gate, which uses lattice_e8.
+# E8 groups 8 (halving the scale overhead — the key T8 lever). 'uniform_vector'
+# defaults to 4, matching UniformVectorQuantizer's actual group_size default.
+#
+# 'scalar' is INTENTIONALLY absent here (T10 fix, docs/optimization_ledger.md):
+# ScalarRoundQuantizer's forward() is always called with per_channel=False in
+# this codebase (RotatedSelfAttention/RotatedTemporalAttention never pass
+# per_channel=True — verified by reading lattice_vq.py), which computes ONE
+# GLOBAL scale for the entire input tensor via x.abs().amax() — not a
+# per-4-element-group scale. Charging it via group_size=4 (as an earlier
+# version of this dict did) OVERCHARGES the scalar baseline's scale overhead
+# by 16x at head_dim=64 (256 bits/vector claimed vs its true ~16 bits/vector,
+# amortized over far more than one vector in practice) — an error that always
+# flatters our quantizers relative to the baseline, exactly backwards from the
+# honesty bar the rest of this accounting holds itself to (see F1/T1). Use
+# resolve_group_size() below, which maps 'scalar' to head_dim itself (one
+# scale per whole vector — already a conservative, non-overcharging estimate,
+# not an attempt to make the baseline look better than it is either).
 QUANTIZER_GROUP_SIZE = {
-    'scalar': 4,
     'uniform_vector': 4,
     'lattice_d4': 4,
     'lattice_e8': 8,
 }
+
+
+def resolve_group_size(quantizer_name: str, head_dim: int) -> int:
+    """Returns the correct group_size for compute_real_bit_accounting given
+    which quantizer is actually running. 'scalar' -> head_dim (one global
+    scale per vector); everything else -> its native grouping from
+    QUANTIZER_GROUP_SIZE (default 4 if somehow not listed)."""
+    if quantizer_name == 'scalar':
+        return head_dim
+    return QUANTIZER_GROUP_SIZE.get(quantizer_name, 4)
 
 
 def compute_real_bit_accounting(
@@ -860,6 +883,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
             model_quant = apply_rotated_quantization_to_vda(
                 model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
                 scale_bits=args.scale_bits, verbose=(idx == 0),
+                use_rotation=args.use_rotation, rht_seed=args.rht_seed,
                 replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
             )
 
@@ -892,7 +916,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
 
         bit_accounting = compute_real_bit_accounting(
             bit, head_dim=64, use_qjl=args.use_qjl,
-            group_size=QUANTIZER_GROUP_SIZE.get(args.quantizer, 4), scale_bits=args.scale_bits,
+            group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
         )
         metrics = avg_metrics(q_gt_metrics)
         metrics["n_images"] = len(gt_samples)
@@ -1053,13 +1077,14 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
             model_quant = apply_rotated_quantization_to_vda(
                 model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
                 scale_bits=args.scale_bits, verbose=(idx == 0), replace_temporal=True,
+                use_rotation=args.use_rotation, rht_seed=args.rht_seed,
             )
 
         metrics = evaluate_predictions(predict_scene(model_quant))
 
         bit_accounting = compute_real_bit_accounting(
             bit, head_dim=64, use_qjl=args.use_qjl,
-            group_size=QUANTIZER_GROUP_SIZE.get(args.quantizer, 4), scale_bits=args.scale_bits,
+            group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
         )
         metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
         metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
@@ -1094,6 +1119,19 @@ def main():
                          help="Bit-width for lattice quantizers' per-group scale metadata "
                               "(the T8 4-bit headline config: --quantizer lattice_e8 "
                               "--scale-bits 8 --no-qjl --bits 3)")
+    parser.add_argument(
+        "--rotation", dest="use_rotation", action=argparse.BooleanOptionalAction, default=True,
+        help="Apply the Hadamard rotation before quantizing (default: on). Use --no-rotation "
+             "to quantize RAW activations instead — the T10 ablation showing what RHT actually "
+             "buys at matched bit-width (docs/optimization_ledger.md T10).",
+    )
+    parser.add_argument(
+        "--rht-seed", type=int, default=None,
+        help="Seed the Hadamard rotation's random sign draw reproducibly across all replaced "
+             "layers (each layer still gets its own draw, derived from this seed). Ignored if "
+             "--no-rotation. Run with a few different seeds to check the result isn't an "
+             "artifact of one lucky sign draw (T10).",
+    )
     parser.add_argument(
         "--eval-mode", type=str, default="fidelity", choices=["fidelity", "groundtruth", "temporal"],
         help=(
@@ -1321,6 +1359,7 @@ def main():
                 model_quant = apply_rotated_quantization_to_vda(
                     model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
                     scale_bits=args.scale_bits, verbose=False,
+                    use_rotation=args.use_rotation, rht_seed=args.rht_seed,
                     replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
                 )
                 
@@ -1346,7 +1385,7 @@ def main():
             peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
             bit_accounting = compute_real_bit_accounting(
                 bit, head_dim=64, use_qjl=args.use_qjl,
-                group_size=QUANTIZER_GROUP_SIZE.get(args.quantizer, 4), scale_bits=args.scale_bits,
+                group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
             )
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)

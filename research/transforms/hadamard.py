@@ -214,17 +214,41 @@ class HadamardRotation(nn.Module):
         Then: x @ W == rot(x) @ W_absorbed  (mathematically equivalent)
     """
 
-    def __init__(self, dim: int):
+    def __init__(self, dim: int, seed: Optional[int] = None, identity: bool = False):
         """
         Args:
             dim: Feature dimension to rotate. Will be padded to next power of 2.
+            seed: If set, draws the random sign vector from a LOCAL generator
+                  seeded with this value, rather than the global torch RNG —
+                  so different seeds are reproducible without disturbing any
+                  other randomness in the process (e.g. quantizer init order).
+                  Used by T10's --rht-seed ablation: does the RESULT depend on
+                  which random sign draw you got, or is it robust across seeds?
+                  If None (default), draws from the global RNG as before.
+            identity: If True, this rotation is a no-op passthrough — forward
+                      and inverse both return the input unchanged, no sign
+                      flip, no Hadamard transform, no padding. This is T10's
+                      RHT ablation: quantize the RAW (unrotated) activations,
+                      to show what RHT actually buys you. See
+                      docs/optimization_ledger.md T10.
         """
         super().__init__()
         self.dim = dim
+        self.identity = identity
+
+        if identity:
+            # No FHT runs, so no power-of-2 padding is needed either.
+            self.padded_dim = dim
+            return
+
         self.padded_dim = _next_power_of_two(dim)
 
         # Draw random signs once and freeze them (size = dim, NOT padded_dim)
-        signs = torch.randint(0, 2, (self.dim,)) * 2 - 1
+        if seed is not None:
+            gen = torch.Generator().manual_seed(seed)
+            signs = torch.randint(0, 2, (self.dim,), generator=gen) * 2 - 1
+        else:
+            signs = torch.randint(0, 2, (self.dim,)) * 2 - 1
         self.register_buffer('signs', signs.float())
 
     def _pad(self, x: torch.Tensor) -> torch.Tensor:
@@ -243,12 +267,16 @@ class HadamardRotation(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply RHT to the last dimension of x (handles non-power-of-2 dims).
-        
+
         IMPORTANT: If dim is not a power of 2, output has padded_dim as last
         dimension. Use self.inverse() to recover the original dimension.
         For ViT-Small (head_dim=64) and ViT-Base (head_dim=64), dim IS a
         power of 2, so no padding occurs.
+
+        If constructed with identity=True (T10 ablation), returns x unchanged.
         """
+        if self.identity:
+            return x
         # Sign flip on original dim, then pad, then FHT
         x_flipped = x * self.signs.to(x.device, x.dtype)
         x_padded = self._pad(x_flipped)
@@ -256,7 +284,11 @@ class HadamardRotation(nn.Module):
         return x_transformed
 
     def inverse(self, x_rot: torch.Tensor) -> torch.Tensor:
-        """Apply inverse RHT and return to original dimension."""
+        """Apply inverse RHT and return to original dimension.
+        If constructed with identity=True (T10 ablation), returns x_rot unchanged.
+        """
+        if self.identity:
+            return x_rot
         x_transformed = fast_hadamard_transform(x_rot, normalize=True)
         x_unpadded = self._unpad(x_transformed)
         return x_unpadded * self.signs.to(x_unpadded.device, x_unpadded.dtype)
@@ -296,4 +328,6 @@ class HadamardRotation(nn.Module):
         return R @ W
 
     def extra_repr(self) -> str:
+        if self.identity:
+            return f"dim={self.dim}, IDENTITY (no-op, T10 rotation ablation)"
         return f"dim={self.dim}, padded_dim={self.padded_dim}"

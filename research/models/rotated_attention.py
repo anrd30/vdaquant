@@ -109,6 +109,8 @@ class RotatedSelfAttention(nn.Module):
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
         scale_bits: int = 16,
+        use_rotation: bool = True,
+        rht_seed: Optional[int] = None,
     ):
         """
         Args:
@@ -122,6 +124,12 @@ class RotatedSelfAttention(nn.Module):
             use_qjl: Whether to apply QJL bias correction.
             scale_bits: Bit-width for lattice quantizers' per-group scale
                         metadata (16 or 8). See docs/optimization_ledger.md T1/T8.
+            use_rotation: If False, the Hadamard rotation is a no-op passthrough
+                          (quantize the RAW activations) — T10's ablation showing
+                          what RHT actually buys over quantizing without it.
+            rht_seed: If set, seeds the RHT's random sign draw reproducibly
+                      (T10's --rht-seed ablation: is the result robust to which
+                      sign draw you got?). Ignored if use_rotation=False.
         """
         super().__init__()
         self.dim = dim
@@ -138,7 +146,7 @@ class RotatedSelfAttention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
         # Our additions: Hadamard rotation + quantizer + QJL
-        self.rotation = HadamardRotation(self.head_dim)
+        self.rotation = HadamardRotation(self.head_dim, seed=rht_seed, identity=not use_rotation)
         self.k_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
         self.v_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
         if use_qjl:
@@ -254,6 +262,8 @@ class RotatedTemporalAttention(nn.Module):
         quantizer: str = 'lattice_d4',
         use_qjl: bool = True,
         scale_bits: int = 16,
+        use_rotation: bool = True,
+        rht_seed: Optional[int] = None,
     ):
         """
         Args:
@@ -265,6 +275,10 @@ class RotatedTemporalAttention(nn.Module):
             use_qjl: Enable QJL bias correction.
             scale_bits: Bit-width for lattice quantizers' per-group scale
                         metadata (16 or 8). See docs/optimization_ledger.md T1/T8.
+            use_rotation: If False, the Hadamard rotation is a no-op passthrough
+                          (quantize the RAW activations) — T10's ablation.
+            rht_seed: If set, seeds the RHT's random sign draw reproducibly
+                      (T10's --rht-seed ablation). Ignored if use_rotation=False.
         """
         super().__init__()
         self.dim = dim
@@ -286,7 +300,7 @@ class RotatedTemporalAttention(nn.Module):
         self.to_out = nn.ModuleList([self.out_proj, nn.Dropout(0.0)])
 
         # Shared rotation for temporal consistency
-        self.rotation = HadamardRotation(self.head_dim)
+        self.rotation = HadamardRotation(self.head_dim, seed=rht_seed, identity=not use_rotation)
         self.k_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
         self.v_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
         if use_qjl:
@@ -410,6 +424,8 @@ def apply_rotated_quantization_to_vda(
     replace_temporal: bool = True,
     verbose: bool = True,
     scale_bits: int = 16,
+    use_rotation: bool = True,
+    rht_seed: Optional[int] = None,
 ) -> nn.Module:
     """
     Apply Hadamard-rotated quantization to a Video-Depth-Anything model.
@@ -432,12 +448,31 @@ def apply_rotated_quantization_to_vda(
         scale_bits: Bit-width for lattice quantizers' per-group scale metadata
                     (16 or 8). The T8 ≤4.0-effective-bits/scalar configuration
                     uses quantizer='lattice_e8', scale_bits=8, use_qjl=False.
+        use_rotation: If False, quantize RAW (unrotated) activations — T10's
+                      ablation showing what the Hadamard rotation actually buys
+                      over quantizing without it, at matched bit-width.
+        rht_seed: If set, seeds the RHT's random sign draw reproducibly across
+                  all replaced layers — T10's --rht-seed ablation (is the
+                  result robust to which random sign draw you got?).
 
     Returns:
         Modified model with rotated quantized attention layers.
     """
     n_backbone = 0
     n_temporal = 0
+    # Each replaced layer gets its OWN seed derived from rht_seed (rht_seed + a
+    # counter), not the literal same seed repeated — this matches the ORIGINAL
+    # unseeded behavior (every layer independently draws its own random sign
+    # vector) while still making the WHOLE model's rotation state reproducible
+    # for a given --rht-seed (T10). None stays None (unseeded/global-RNG, as before).
+    _seed_counter = [0]
+
+    def _next_seed():
+        if rht_seed is None:
+            return None
+        s = rht_seed + _seed_counter[0]
+        _seed_counter[0] += 1
+        return s
 
     if replace_backbone:
         # Replace DinoV2 backbone MemEffAttention layers
@@ -461,6 +496,8 @@ def apply_rotated_quantization_to_vda(
                     quantizer=quantizer,
                     use_qjl=use_qjl,
                     scale_bits=scale_bits,
+                    use_rotation=use_rotation,
+                    rht_seed=_next_seed(),
                 ).to(device=device, dtype=dtype)
 
                 # Copy pretrained weights
@@ -520,6 +557,8 @@ def apply_rotated_quantization_to_vda(
                         quantizer=quantizer,
                         use_qjl=use_qjl,
                         scale_bits=scale_bits,
+                        use_rotation=use_rotation,
+                        rht_seed=_next_seed(),
                     ).to(device=device, dtype=dtype)
                     # Copy weights (and bias, if present) where possible
                     if hasattr(old_cross, 'to_q'):
@@ -557,6 +596,8 @@ def apply_rotated_quantization_to_vda(
         print(f"  Backbone (DinoV2) attention layers replaced: {n_backbone}")
         print(f"  Temporal (DPT) cross-attention layers replaced: {n_temporal}")
         print(f"  Quantizer: {quantizer} @ {bits}-bit, scale_bits={scale_bits}")
+        print(f"  Hadamard rotation: {'Enabled' if use_rotation else 'DISABLED (T10 ablation, raw activations)'}"
+              f"{f', rht_seed={rht_seed}' if use_rotation and rht_seed is not None else ''}")
         print(f"  QJL bias correction: {'Enabled' if use_qjl else 'Disabled'}")
         print(f"  Compression: ~{32 / bits:.1f}x nominal over FP32 KV cache (NOMINAL ONLY — "
               f"see compute_real_bit_accounting in scripts/ for the all-inclusive effective rate)")
