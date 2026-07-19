@@ -452,7 +452,64 @@ Files: `scripts/datasets_gt.py`
 - Pending: full-split re-runs (NYU 654, KITTI 1000, Sintel all frames) —
   GPU/Colab work, not done locally per standing instruction.
 
-## T9 — Real video path + VDA-protocol TAE (THE differentiating result) — BUILT (code); GPU validation PENDING
+## T9 — VALIDATED on real data (Sintel, 20 scenes, 894 pairs, seeded)
+
+`--dataset sintel --eval-mode temporal --bits 8 4 3 2 --quantizer lattice_e8
+--scale-bits 8 --no-qjl --max-samples 2000 --max-scenes 20 --rht-seed 0`
+
+| Config | eff b/scalar | δ1 ↑ | AbsRel ↓ | RMSE ↓ | **TAE median ↓** | TAE mean |
+|---|---|---|---|---|---|---|
+| FP32 | 32.0 | 0.7074 | 0.2330 | 5.077 | **6.892** | 57.89 |
+| 8-bit | 9.0 | 0.7073 | 0.2334 | 5.088 | **6.886** | 57.92 |
+| 4-bit | 5.0 | 0.7044 | 0.2384 | 5.190 | **6.817** | 57.90 |
+| **3-bit** | **4.0** | **0.6852** | **0.2555** | **5.551** | **6.870** | 58.09 |
+| 2-bit† | 3.0 | 0.4990 | 0.3754 | 5.528 | 4.700† | 7.27† |
+
+**HEADLINE: at 4.0 all-inclusive effective bits/scalar (8x vs FP32, 4x vs FP16),
+3-bit costs δ1 −0.022 / AbsRel +0.023 and leaves temporal consistency
+UNCHANGED (TAE median 6.892 → 6.870).** Across FP32/8/4/3-bit — the configs
+with comparable accuracy — TAE median is flat within ±0.08 while accuracy
+degrades monotonically. The claim is robust to the summary statistic: the
+mean is equally flat (57.89 → 58.09), so it does not depend on choosing the
+median. FP32 baseline δ1 0.7074 also beats DepthCrafter's published Sintel
+0.697, so the baseline is defensible.
+
+### † CRITICAL CAVEAT — TAE is gameable by degenerate predictions
+2-bit has the WORST accuracy by far (δ1 0.499, a −0.21 collapse) yet posts the
+BEST TAE (median 4.70 vs FP32's 6.89; mean 7.27 vs 57.89). Its `ambush_2` TAE
+is **13.7 vs 906.4** for every accurate config — a 66x "improvement" from the
+model that is comprehensively worse. This is not a result; it is the metric
+being gamed. A prediction that has collapsed toward smooth/near-constant
+reprojects onto itself almost perfectly, so reprojection-based TAE rewards it.
+
+**Therefore TAE must NEVER be reported alone.** It is only meaningful between
+configs of comparable accuracy. Any TAE comparison in the paper must exclude
+configs whose accuracy has collapsed, and must state why. This is worth
+reporting explicitly as a methodological finding — it is a real, demonstrable
+weakness of the reprojection-TAE protocol that the field uses.
+
+### Per-scene distribution is heavy-tailed (mean is the wrong default)
+FP32 per-scene TAE ranges shaman_2 1.0% … ambush_2 906.4%; median 6.89 vs mean
+57.89, with ambush_2 alone contributing ~45 of the 57.9 mean. Ordering tracks
+camera motion exactly (static scenes ~1%, violent-motion scenes 20–900%).
+
+### Z-buffer: real fix, but NOT the cause here (hypothesis was wrong)
+Upstream `eval_tae.py` resolves reprojection collisions by arbitrary
+last-write-wins (`depth_proj[Y,X] = Z`), letting a FAR pixel overwrite a NEAR
+one. Replaced with nearest-wins (`scatter_reduce` amin) — genuinely more
+correct, verified on a constructed isolated collision (z-buffer 0.0 exact vs
+last-write 0.629). **But it did NOT explain the inflation**: ambush_2 moved
+906.9 → 906.4, median 7.01 → 6.89. Recording this because the earlier
+hypothesis ("disocclusion via collisions is the cause") was falsified by the
+data. The residual cause is true DISOCCLUSION, which a z-buffer structurally
+cannot fix — frame t simply has no information about content newly visible in
+t+1. Proper fix (PENDING, refinement not blocker): a GT-derived co-visibility
+mask — use GT depth + GT poses to determine which pixels are genuinely visible
+in both frames and evaluate only those. Non-circular (mask from ground truth,
+metric on predictions). The median already sidesteps this, which is why the
+headline above stands without it.
+
+## T9 — implementation notes (code BUILT, now validated above)
 Files: `scripts/run_pareto_benchmark_suite.py`, `scripts/datasets_gt.py`,
 `tests/test_temporal_tae_path.py`
 - `scene`/`frame_idx` added to every loader (None for NYU/KITTI — confirmed
