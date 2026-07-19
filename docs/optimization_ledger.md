@@ -681,3 +681,49 @@ blocker — headline stands on the median, corroborated by the flat mean.
 
 Suggested order: E1 → E2 → E3 → E4 (locks the full story at N=200, ~3 h)
 → E5 finals (~3 h) → E6 figures. E7 if a spare hour remains.
+
+---
+
+## F11 — Scalar baseline is UNFAIRLY WEAK (scale granularity confound) — OPEN
+
+Found mid-E1 while the Phase 3 sweep was running. Verified by reading
+`research/quantizers/lattice_vq.py`: `ScalarRoundQuantizer.forward` is always
+invoked with `per_channel=False` (both call sites in
+`research/models/rotated_attention.py`, lines ~200/383, pass no flag), so it
+takes `x_max = x.abs().amax()` — **ONE global scale for the ENTIRE tensor**.
+Meanwhile `lattice_e8` uses a scale per 8-element group and `lattice_d4` one
+per 4-element group.
+
+So the headline "E8 beats scalar" comparison currently conflates TWO effects:
+  1. lattice / vector-quantization coding gain (what we claim), and
+  2. scale granularity — per-8-group vs per-WHOLE-TENSOR (a much coarser
+     baseline, where one outlier anywhere inflates the scale for everything).
+
+Measured E1 numbers (N=200, RHT on for both, GT protocol):
+| Scheme | eff bits | NYU δ1 | KITTI δ1 |
+|---|---|---|---|
+| FP32 | 32 | 0.9036 | 0.9275 |
+| E8 3-bit | 4.00 | 0.9128 | 0.9194 |
+| scalar 4-bit | 4.25 | 0.8908 | 0.9002 |
+| scalar 3-bit | 3.25 | 0.6455 | 0.6316 |
+| E8 2-bit | 3.00 | 0.6430 | 0.7104 |
+
+E8 wins at matched rate (4.00 vs 4.25 eff bits: +0.022 NYU / +0.019 KITTI,
+using FEWER bits) and wins clearly at ~3 eff bits on KITTI (0.7104 vs 0.6316).
+The result direction is right — but a reviewer WILL ask "is that the lattice,
+or just finer scales?" and right now we cannot answer.
+
+REQUIRED before this table goes in the paper (pick at least one):
+  (a) Add a fair scalar baseline with per-group scales (expose `per_channel`
+      or a group_size on ScalarRoundQuantizer) and charge its scale overhead
+      honestly in `compute_real_bit_accounting` — the T10 `resolve_group_size`
+      already handles the accounting side.
+  (b) Report `lattice_d4` (group 4) vs `lattice_e8` (group 8) as the
+      lattice-dimension comparison at MATCHED scale granularity — E1b is
+      already producing this, and it isolates lattice gain far better than
+      the scalar row does.
+  (c) At absolute minimum, disclose the granularity difference explicitly in
+      the table caption. Do not let "E8 > scalar" stand unqualified.
+
+NOTE: this does NOT invalidate the E8 vs FP32 headline (compression at
+matched accuracy) — only the E8-vs-scalar-baseline comparison.
