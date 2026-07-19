@@ -612,3 +612,72 @@ All Phase 2 CODE is now built and unit-tested (94/94 total tests green,
 one commit per task, awaiting review. Every remaining item across T9/T10/T11
 is now purely "run it on Colab and report the numbers," not further
 implementation.
+
+---
+
+# Phase 3 — GPU run-sheet: the complete list of experiments left for the paper
+
+Status of validated results going in: NYU N=200 GT sweep ✓ (δ1 0.904 FP32),
+KITTI N=200 GT sweep ✓ (δ1 0.928), Sintel 20-scene temporal sweep ✓ (TAE
+median flat 6.89→6.87 at 3-bit). Everything below is CLI-only; no code
+changes required except E7 (optional). All runs: `--rht-seed 0` unless the
+experiment is the seed study itself. Time estimates assume the same Colab GPU
+class used so far (N=200 5-config sweep ≈ 15–25 min).
+
+## E1 — Baseline comparison rows (the "vs what?" table) — HIGHEST PRIORITY
+Reviewers' first question. Same protocol as the E8 rows so the table is
+apples-to-apples. NYU + KITTI, N=200 (upgrade to full split only for finals).
+  E1a scalar RTN:   --quantizer scalar     --bits 4 3 2   (eff 4.25/3.25/2.25)
+  E1b D4 lattice:   --quantizer lattice_d4 --scale-bits 8 --bits 4 3 2 (eff 6/5/4)
+Note the matched-rate comparison for the paper: E8 3-bit (4.0 eff) vs D4 2-bit
+(4.0 eff) vs scalar ~4-bit (4.25 eff) — same budget, three schemes; the
+prediction from the coding-gain theory is E8 > D4 > scalar at equal rate.
+2 datasets × 2 quantizers ≈ 4 runs ≈ 1.5 h.
+
+## E2 — Rotation ablation on real data (justifies RHT's existence)
+  --quantizer lattice_e8 --scale-bits 8 --no-qjl --bits 4 3 --no-rotation
+KITTI N=200 (worst case for outliers) + NYU N=200. Compare to existing
+rotation-on rows. Expected: large δ1 drop without rotation at 3-bit (synthetic
+test showed 2.85x MSE gap). 2 runs ≈ 40 min.
+
+## E3 — RHT seed robustness (kills the "lucky draw" objection)
+3-bit E8 only, NYU N=200, --rht-seed 1 and 2 (seed 0 already exists).
+Report δ1/AbsRel mean±std over 3 seeds. 2 runs ≈ 20 min.
+
+## E4 — Ablation rows: metadata & QJL cost at the operating point
+  E4a scale_bits: 3-bit E8 --scale-bits 16 (eff 5.0) vs existing 8 (eff 4.0), NYU N=200.
+  E4b QJL on:     3-bit E8 --scale-bits 8 --qjl (default m=128 → eff 6.25), NYU N=200.
+      Expected ≈ no accuracy gain for +2.25 bits — this is the empirical row
+      that justifies use_qjl=False in the headline config and cites F3b.
+2 runs ≈ 30 min.
+
+## E5 — Full-split finals (the paper's actual tables; run LAST, after
+## E1–E4 lock the story at N=200)
+  E5a NYU full test split:   --dataset nyuv2 --max-samples 654
+  E5b KITTI full val split:  --dataset kitti --max-samples 1000
+  E5c Sintel temporal, all scenes/frames: --max-samples 2000 --max-scenes 23
+Headline sweep (E8 8/4/3/2) on each; plus ONE full-split baseline run each of
+E1a/E1b at the matched-rate bits if time allows. 3 runs ≈ 2–3 h.
+Paper convention note: Sintel accuracy should be quoted from the TEMPORAL
+path (video-native, δ1 0.707 ≫ static-clip 0.574); the static-clip Sintel
+GT numbers are superseded and must not be mixed into tables.
+
+## E6 — Qualitative figures for the paper
+  scripts/dump_depth_samples.py on nyuv2 / kitti / sintel, bits 8 4 3 2,
+  --make-video for Sintel. Produces the strips + MP4. ≈ 20 min total.
+
+## E7 — (Optional, small code task) GT co-visibility mask for TAE
+Use GT depth + GT poses to mask pixels not visible in both frames; makes the
+TAE *mean* trustworthy (median already is) and gives sane per-scene numbers
+for ambush_2/market_5. One code task + one 20-scene rerun. Refinement, not a
+blocker — headline stands on the median, corroborated by the flat mean.
+
+## Explicitly OUT of scope for this paper (write as future work, do not run)
+- Real INT/lattice CUDA kernels & measured latency (memory compression is
+  analytic and exact; throughput is simulated — say so plainly).
+- DAVIS (no depth GT; temporal-only story already carried by Sintel).
+- ScanNet (ToU-gated; start the email if wanted for camera-ready).
+- Metric-depth checkpoint / on-device scale recovery (deployment paper).
+
+Suggested order: E1 → E2 → E3 → E4 (locks the full story at N=200, ~3 h)
+→ E5 finals (~3 h) → E6 figures. E7 if a spare hour remains.
