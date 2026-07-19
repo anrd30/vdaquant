@@ -1055,6 +1055,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
     def evaluate_predictions(scene_preds):
         acc_metrics_all = []
         tae_list = []
+        per_scene_tae = {}
         total_pairs = 0
         n_skipped_frames = 0
         n_skipped_scenes = 0
@@ -1080,6 +1081,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
             try:
                 tae_result = compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range)
                 tae_list.append(tae_result["tae_percent"])
+                per_scene_tae[scene] = tae_result["tae_percent"]
                 total_pairs += tae_result["n_pairs"]
             except ValueError:
                 n_skipped_scenes += 1
@@ -1097,9 +1099,21 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
         avg["n_images"] = len(acc_metrics_all)
         avg["n_skipped_frames"] = n_skipped_frames
         avg["n_skipped_scenes_tae"] = n_skipped_scenes
+        # Per-scene TAE breakdown — the diagnostic for the inflated aggregate.
+        # A healthy metric gives a tight spread; a few scenes at 100%+ while the
+        # rest sit near single digits localises the bug (e.g. disocclusion in
+        # high-motion scenes) instead of leaving us to guess from the mean.
+        avg["per_scene_tae"] = {k: round(v, 3) for k, v in per_scene_tae.items()}
         if n_skipped_frames or n_skipped_scenes:
             print(f"        [note] skipped {n_skipped_frames} frame(s) (no in-range GT) "
                   f"and {n_skipped_scenes} scene(s) for TAE")
+        if per_scene_tae:
+            worst = sorted(per_scene_tae.items(), key=lambda kv: -kv[1])
+            median_tae = float(np.median(list(per_scene_tae.values())))
+            print(f"        [TAE per-scene] median={median_tae:.2f}%  "
+                  f"worst: " + ", ".join(f"{s}={v:.1f}%" for s, v in worst[:5]))
+            print(f"        [TAE per-scene] best:  "
+                  + ", ".join(f"{s}={v:.1f}%" for s, v in worst[-5:]))
         return avg
 
     dataset_results = {}
