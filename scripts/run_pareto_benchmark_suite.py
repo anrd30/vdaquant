@@ -384,6 +384,7 @@ def _tae_geometric_single(
     depth1: torch.Tensor, depth2: torch.Tensor,
     R_2_1: torch.Tensor, T_2_1: torch.Tensor,
     K: torch.Tensor, mask: torch.Tensor,
+    scatter_zbuffer: bool = True,
 ) -> float:
     """
     Ported from eval_tae.py::tae_torch. Back-projects depth1's pixels to 3D
@@ -403,6 +404,10 @@ def _tae_geometric_single(
            matching VDA's own implementation).
         mask: (H, W) bool, additional valid-pixel mask for frame2 (pass
               all-ones if none).
+        scatter_zbuffer: True (default) resolves multi-pixel collisions by
+              keeping the NEAREST reprojected depth (physically correct
+              occlusion). False reproduces upstream's arbitrary
+              last-write-wins exactly, for measuring the difference.
 
     Returns:
         Scalar AbsRel between depth2 and the frame1-reprojected-into-frame2
@@ -436,8 +441,28 @@ def _tae_geometric_single(
     if in_bounds.sum() == 0:
         return 0.0
 
-    depth_proj = torch.zeros((H, W), dtype=depth1.dtype, device=depth1.device)
-    depth_proj[Y_plane[in_bounds], X_plane[in_bounds]] = Z_world[in_bounds]
+    # Z-BUFFER (correctness fix over the upstream reference implementation).
+    # VDA's eval_tae.py does `depth_proj[Y, X] = Z`, which is arbitrary
+    # LAST-WRITE-WINS when several frame-1 pixels reproject onto the same
+    # frame-2 pixel. Under large camera motion many pixels collide, so a FAR
+    # background point can overwrite a NEAR foreground one and then get
+    # compared against foreground depth -> enormous spurious error. Physically
+    # the nearest surface occludes the others, so take the per-target MINIMUM
+    # depth. Measured impact on Sintel: the violent-motion scenes are exactly
+    # the ones that exploded (ambush_2 907%, market_5 98%) while static scenes
+    # sat at ~1%; upstream never hit this because they evaluate TAE on
+    # ScanNet's slow handheld motion. See docs/optimization_ledger.md T9.
+    if scatter_zbuffer:
+        flat = torch.full((H * W,), float('inf'), dtype=depth1.dtype, device=depth1.device)
+        idx = Y_plane[in_bounds] * W + X_plane[in_bounds]
+        flat.scatter_reduce_(0, idx, Z_world[in_bounds], reduce='amin', include_self=True)
+        flat[torch.isinf(flat)] = 0.0
+        depth_proj = flat.reshape(H, W)
+    else:
+        # Bit-exact upstream behaviour, retained so the z-buffer's effect can be
+        # measured rather than asserted.
+        depth_proj = torch.zeros((H, W), dtype=depth1.dtype, device=depth1.device)
+        depth_proj[Y_plane[in_bounds], X_plane[in_bounds]] = Z_world[in_bounds]
 
     valid = (depth_proj > 0) & (depth2 > 0) & mask
     if valid.sum() == 0:
@@ -480,7 +505,8 @@ def _pool_align_scene_disparity(pred_disps, gt_depths, gt_range) -> tuple:
     return float(solution[0, 0]), float(solution[1, 0])
 
 
-def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range) -> dict:
+def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
+                                     scatter_zbuffer: bool = True) -> dict:
     """
     Full VDA-protocol geometric TAE for one scene of REAL consecutive frames.
 
@@ -511,7 +537,7 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range) 
             f"{n}/{len(gt_depths)}/{len(Ks)}/{len(poses)}"
         )
     if n < 2:
-        return {"tae_percent": 0.0, "n_pairs": 0}
+        return {"tae_percent": 0.0, "tae_median_percent": 0.0, "n_pairs": 0}
 
     gt_depths_t = [torch.from_numpy(g).double() if isinstance(g, np.ndarray) else g.double() for g in gt_depths]
     s, t = _pool_align_scene_disparity(pred_disps, gt_depths_t, gt_range)
@@ -524,6 +550,7 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range) 
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     error_sum = 0.0
+    per_pair_errors = []
     n_pairs = 0
     for i in range(n - 1):
         depth1 = aligned_depths[i].to(device)
@@ -537,19 +564,30 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range) 
         t_2_1 = torch.from_numpy(T_2_1_full[:3, 3]).to(device=device, dtype=torch.float64)
         mask_ones = torch.ones_like(depth1, dtype=torch.bool)
 
-        err_fwd = _tae_geometric_single(depth1, depth2, R_2_1, t_2_1, K, mask_ones)
+        err_fwd = _tae_geometric_single(depth1, depth2, R_2_1, t_2_1, K, mask_ones,
+                                        scatter_zbuffer=scatter_zbuffer)
 
         T_1_2_full = np.linalg.inv(T_2_1_full)
         R_1_2 = torch.from_numpy(T_1_2_full[:3, :3]).to(device=device, dtype=torch.float64)
         t_1_2 = torch.from_numpy(T_1_2_full[:3, 3]).to(device=device, dtype=torch.float64)
 
-        err_bwd = _tae_geometric_single(depth2, depth1, R_1_2, t_1_2, K, mask_ones)
+        err_bwd = _tae_geometric_single(depth2, depth1, R_1_2, t_1_2, K, mask_ones,
+                                        scatter_zbuffer=scatter_zbuffer)
 
         error_sum += err_fwd + err_bwd
+        per_pair_errors.append((err_fwd + err_bwd) / 2.0)
         n_pairs += 1
 
     tae_percent = (error_sum / (2 * n_pairs)) * 100.0 if n_pairs > 0 else 0.0
-    return {"tae_percent": round(tae_percent, 6), "n_pairs": n_pairs}
+    # Per-pair median too: within a scene the frame-pair errors are also
+    # heavy-tailed (a few violent-motion frame pairs dominate), so the median
+    # pair is a more representative summary of that scene's typical behaviour.
+    tae_median_percent = float(np.median(per_pair_errors)) * 100.0 if per_pair_errors else 0.0
+    return {
+        "tae_percent": round(tae_percent, 6),
+        "tae_median_percent": round(tae_median_percent, 6),
+        "n_pairs": n_pairs,
+    }
 
 # ============================================================
 # DYNAMIC SURGERY VERIFICATION & SANITY CHECK
@@ -1095,6 +1133,11 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
         keys = ["abs_rel", "rmse", "delta1", "delta2", "delta3"]
         avg = {k: round(float(np.mean([m[k] for m in acc_metrics_all])), 4) for k in keys}
         avg["tae_percent"] = round(float(np.mean(tae_list)), 6) if tae_list else 0.0
+        # MEDIAN across scenes is the headline temporal number: the per-scene
+        # distribution is heavy-tailed (one violent-motion Sintel scene can sit
+        # 100x above the rest), so the mean describes that one scene rather than
+        # the model. Both are reported; neither is hidden.
+        avg["tae_median_percent"] = round(float(np.median(tae_list)), 6) if tae_list else 0.0
         avg["temporal_n_pairs"] = total_pairs
         avg["n_images"] = len(acc_metrics_all)
         avg["n_skipped_frames"] = n_skipped_frames
@@ -1125,7 +1168,8 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
     fp32_metrics["nominal_savings_x"] = 1.0
     fp32_metrics["effective_bits_per_scalar"] = 32.0
     dataset_results["FP32_Baseline"] = fp32_metrics
-    print(f"        -> delta1: {fp32_metrics['delta1']} | TAE%: {fp32_metrics['tae_percent']} "
+    print(f"        -> delta1: {fp32_metrics['delta1']} | TAE% median: {fp32_metrics['tae_median_percent']} "
+          f"(mean {fp32_metrics['tae_percent']}) "
           f"({fp32_metrics['temporal_n_pairs']} pairs)")
 
     for idx, bit in enumerate(args.bits):
@@ -1163,7 +1207,8 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
         metrics["total_bits_per_vec"] = bit_accounting["total_bits_per_vector"]
         dataset_results[f"{bit}bit"] = metrics
         print(f"        -> delta1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | "
-              f"TAE%: {metrics['tae_percent']} ({metrics['temporal_n_pairs']} pairs) | "
+              f"TAE% median: {metrics['tae_median_percent']} (mean {metrics['tae_percent']}) "
+              f"({metrics['temporal_n_pairs']} pairs) | "
               f"eff={metrics['effective_bits_per_scalar']}b/scalar")
 
     return dataset_results
@@ -1545,7 +1590,8 @@ def main():
             b_label = f"{b_name:<9}"
             eff_bits = f"{m.get('effective_bits_per_scalar', '?')}"
             if 'tae_percent' in m:
-                tae_str = f"{m['tae_percent']}%"
+                # Median is the headline (heavy-tailed per-scene distribution).
+                tae_str = f"{m.get('tae_median_percent', m['tae_percent']):.2f}%"
             elif 'tae' in m:
                 tae_str = f"{m['tae']}"
             else:

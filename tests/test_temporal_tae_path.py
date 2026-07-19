@@ -299,6 +299,70 @@ def test_tae_geometric_lateral_translation_frontoparallel_plane():
     assert err == pytest.approx(0.0, abs=1e-6)
 
 
+def test_tae_zbuffer_keeps_nearest_surface_on_collision():
+    """
+    Z-buffer correctness (fix over upstream's arbitrary last-write-wins):
+    when two frame-1 pixels reproject onto the SAME frame-2 pixel, the NEAR
+    surface must win (it occludes the far one). Construct an exact collision:
+    two pixels at different depths whose reprojections land on one target.
+
+    With last-write-wins, whichever pixel is processed later wins regardless
+    of depth -- so a FAR background point can overwrite a NEAR foreground one
+    and then be compared against foreground depth, producing huge spurious
+    error. This is what inflated Sintel's violent-motion scenes (ambush_2 at
+    907% vs a ~7% median). See docs/optimization_ledger.md T9.
+
+    Construction: LATERAL translation shifts a pixel by tx*fx/depth, which is
+    DEPTH-DEPENDENT, so two pixels at different depths can land on one target.
+    Background sits at depth 100 (shift 0.1px -> reprojects onto itself, zero
+    error), isolating the collision so it is the ONLY source of error:
+      (2,6) depth 2.5 -> x = 6 + 10/2.5 = 10   [near]
+      (2,8) depth 5.0 -> x = 8 + 10/5.0 = 10   [far, LATER in row-major order]
+    frame2 holds the true near surface (2.5) at the target. Nearest-wins is
+    therefore exactly right (error 0); last-write-wins keeps the far value and
+    is badly wrong.
+    """
+    H, W = 4, 16
+    fx = fy = 10.0
+    cx, cy = 4.0, 2.0
+    K = torch.tensor([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=torch.float64)
+    depth1 = torch.full((H, W), 100.0, dtype=torch.float64)
+    depth1[2, 6] = 2.5
+    depth1[2, 8] = 5.0
+    depth2 = torch.full((H, W), 100.0, dtype=torch.float64)
+    depth2[2, 10] = 2.5
+    R = torch.eye(3, dtype=torch.float64)
+    T = torch.tensor([1.0, 0.0, 0.0], dtype=torch.float64)
+    mask = torch.ones((H, W), dtype=torch.bool)
+
+    err_zbuf = _tae_geometric_single(depth1, depth2, R, T, K, mask, scatter_zbuffer=True)
+    err_last = _tae_geometric_single(depth1, depth2, R, T, K, mask, scatter_zbuffer=False)
+    print(f"  Collision handling: z-buffer={err_zbuf:.6f} (correct), "
+          f"last-write-wins={err_last:.6f} (spurious)")
+    # The z-buffer resolves the occlusion exactly; last-write-wins does not.
+    assert err_zbuf == pytest.approx(0.0, abs=1e-9), err_zbuf
+    assert err_last > 0.5, err_last
+    assert err_zbuf < err_last, (err_zbuf, err_last)
+
+
+def test_tae_zbuffer_identical_when_no_collisions():
+    """With identity motion every pixel maps to its own target -- no collisions --
+    so the z-buffer and upstream last-write-wins must agree EXACTLY (the fix
+    changes nothing where nothing collides)."""
+    H, W = 12, 12
+    K = torch.tensor([[20.0, 0, 6], [0, 20.0, 6], [0, 0, 1]], dtype=torch.float64)
+    torch.manual_seed(7)
+    depth1 = torch.rand(H, W, dtype=torch.float64) * 5.0 + 5.0
+    depth2 = torch.rand(H, W, dtype=torch.float64) * 5.0 + 5.0
+    R = torch.eye(3, dtype=torch.float64)
+    T = torch.zeros(3, dtype=torch.float64)
+    mask = torch.ones((H, W), dtype=torch.bool)
+
+    a = _tae_geometric_single(depth1, depth2, R, T, K, mask, scatter_zbuffer=True)
+    b = _tae_geometric_single(depth1, depth2, R, T, K, mask, scatter_zbuffer=False)
+    assert a == pytest.approx(b, abs=1e-12), (a, b)
+
+
 def test_tae_geometric_no_inbounds_returns_zero():
     """Motion that sends every point out of frame -> returns 0.0 (matches eval_tae.py's own fallback)."""
     H, W = 10, 10
@@ -422,7 +486,9 @@ def test_compute_tae_geometric_for_scene_single_frame_returns_zero():
     result = compute_tae_geometric_for_scene(
         [torch.rand(4, 4)], [np.ones((4, 4))], [np.eye(3)], [np.eye(4)], gt_range=(0.1, 10.0),
     )
-    assert result == {"tae_percent": 0.0, "n_pairs": 0}
+    assert result["n_pairs"] == 0
+    assert result["tae_percent"] == 0.0
+    assert result["tae_median_percent"] == 0.0
 
 
 if __name__ == "__main__":
@@ -439,6 +505,8 @@ if __name__ == "__main__":
     test_sintel_loader_graceful_without_cam_unless_required()
     test_tae_geometric_identity_pose_zero_motion()
     test_tae_geometric_lateral_translation_frontoparallel_plane()
+    test_tae_zbuffer_keeps_nearest_surface_on_collision()
+    test_tae_zbuffer_identical_when_no_collisions()
     test_tae_geometric_no_inbounds_returns_zero()
     test_tae_geometric_detects_real_inconsistency()
     test_pool_align_scene_disparity_recovers_known_affine()
