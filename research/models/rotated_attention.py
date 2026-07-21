@@ -47,6 +47,7 @@ from typing import Optional, Literal
 from research.transforms.hadamard import HadamardRotation
 from research.quantizers.lattice_vq import (
     ScalarRoundQuantizer,
+    ScalarGroupQuantizer,
     UniformVectorQuantizer,
     LatticeD4Quantizer,
     LatticeE8Quantizer,
@@ -56,7 +57,7 @@ from research.quantizers.qjl_bias import QJLBiasCorrection
 
 
 def _get_quantizer(
-    method: Literal['scalar', 'uniform_vector', 'lattice_d4', 'lattice_e8', 'identity'],
+    method: Literal['scalar', 'scalar_g8', 'uniform_vector', 'lattice_d4', 'lattice_e8', 'identity'],
     bits: int,
     group_size: int = 4,
     scale_bits: int = 16,
@@ -67,9 +68,15 @@ def _get_quantizer(
     contract from quantization noise during equivalence testing (T7).
     'lattice_e8' targets the T8 ≤4.0-effective-bits/scalar configuration:
     group_size=8 halves the per-group scale overhead vs D4's group_size=4.
+    'scalar_g8' is the FAIR scalar baseline (F11/S1): plain scalar rounding
+    but with the same per-8-group scale machinery E8 pays for, so a
+    scalar-vs-lattice comparison at matched effective bits isolates lattice
+    coding gain instead of conflating it with scale granularity.
     """
     if method == 'scalar':
         return ScalarRoundQuantizer(bits=bits, symmetric=True)
+    elif method == 'scalar_g8':
+        return ScalarGroupQuantizer(bits=bits, group_size=8, scale_bits=scale_bits)
     elif method == 'uniform_vector':
         return UniformVectorQuantizer(bits=bits, group_size=group_size)
     elif method == 'lattice_d4':

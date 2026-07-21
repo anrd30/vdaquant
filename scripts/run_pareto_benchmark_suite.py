@@ -649,6 +649,10 @@ QUANTIZER_GROUP_SIZE = {
     'uniform_vector': 4,
     'lattice_d4': 4,
     'lattice_e8': 8,
+    # 'scalar_g8' (F11/S1 fair baseline): ScalarGroupQuantizer pays for a
+    # per-8-group scale, identically to lattice_e8 — that IS the point of
+    # this quantizer, so it must be charged the same group_size here.
+    'scalar_g8': 8,
 }
 
 
@@ -1229,7 +1233,7 @@ def main():
         help="Enable QJL bias correction (use --no-qjl to run the QJL ablation)",
     )
     parser.add_argument("--quantizer", type=str, default="lattice_d4",
-                         choices=["scalar", "uniform_vector", "lattice_d4", "lattice_e8"])
+                         choices=["scalar", "scalar_g8", "uniform_vector", "lattice_d4", "lattice_e8"])
     parser.add_argument("--scale-bits", type=int, default=16, choices=[8, 16],
                          help="Bit-width for lattice quantizers' per-group scale metadata "
                               "(the T8 4-bit headline config: --quantizer lattice_e8 "

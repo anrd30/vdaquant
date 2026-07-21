@@ -133,6 +133,104 @@ class ScalarRoundQuantizer(nn.Module):
         return f"bits={self.bits}, symmetric={self.symmetric}"
 
 
+class ScalarGroupQuantizer(nn.Module):
+    """
+    Group-wise scalar round-to-nearest quantizer (fair KIVI-style KV-cache
+    baseline).
+
+    ScalarRoundQuantizer (above) uses ONE global scale for the ENTIRE input
+    tensor — a single distant outlier anywhere inflates the scale for every
+    other value, even ones nowhere near it. Comparing that against
+    LatticeD4Quantizer/LatticeE8Quantizer (which use a per-4/8-group scale)
+    conflates lattice coding gain with scale granularity — see
+    docs/optimization_ledger.md finding F11.
+
+    ScalarGroupQuantizer pairs plain scalar rounding with THE SAME per-group
+    scale machinery the lattice quantizers use: a scale per contiguous
+    group of `group_size` elements, with the identical optional scale_bits=8
+    uint8-simulated-storage path LatticeE8Quantizer uses. This mirrors how
+    real KV-cache quantizers are actually built (e.g. KIVI, KVQuant use
+    per-channel/per-group scalar quantization, never a single per-tensor
+    scale), so a scalar-vs-lattice comparison at matched effective bit-rate
+    isolates lattice coding gain instead of conflating it with granularity.
+
+    References:
+        [1] docs/optimization_ledger.md F11 (the confound this class resolves)
+        [2] Liu et al., "KIVI: A Tuning-Free Asymmetric 2bit Quantization for
+            KV Cache", 2024 (per-group scalar KV quantization is the field's
+            standard baseline shape)
+    """
+
+    def __init__(self, bits: int = 4, group_size: int = 8, scale_bits: int = 16):
+        """
+        Args:
+            bits: Bits per scalar coordinate.
+            group_size: Number of consecutive scalars sharing one scale.
+                        Default 8 to match LatticeE8Quantizer's grouping.
+            scale_bits: Bit-width used to store each group's scale (16 = fp16,
+                        8 = uint8 quantized against a per-tensor fp32 max,
+                        identical simulation to the lattice quantizers). Real
+                        overhead — see info['scale_overhead_bits_per_scalar'].
+        """
+        super().__init__()
+        assert scale_bits in (8, 16), "scale_bits must be 8 or 16"
+        self.bits = bits
+        self.group_size = group_size
+        self.scale_bits = scale_bits
+        self.n_levels = 2 ** bits
+        self.half_levels = self.n_levels // 2
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+        """
+        Quantize by grouping consecutive dimensions, each with its own scale.
+
+        Args:
+            x: Input tensor of shape (..., d). d must be divisible by group_size.
+
+        Returns:
+            (x_quant, info_dict)
+        """
+        orig_shape = x.shape
+        d = x.shape[-1]
+        k = self.group_size
+        assert d % k == 0, (
+            f"Feature dim {d} must be divisible by group_size {k}"
+        )
+
+        # Reshape into groups: (..., d) -> (..., d//k, k)
+        x_grouped = x.reshape(*x.shape[:-1], d // k, k)
+
+        # Per-group symmetric scale (same convention as the lattice quantizers).
+        alpha = x_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
+        scale = alpha / (self.half_levels - 1)
+
+        if self.scale_bits == 8:
+            # Simulate storing each group's scale as uint8 against a single
+            # per-tensor fp32 max — identical simulation to LatticeD4/E8Quantizer,
+            # so the comparison at scale_bits=8 is apples-to-apples.
+            scale_max = scale.abs().amax().clamp(min=1e-8)
+            scale_step = scale_max / 255.0
+            scale = (scale / scale_step).round().clamp(0, 255) * scale_step
+
+        x_int = (x_grouped / scale).round().clamp(
+            -self.half_levels, self.half_levels - 1
+        )
+        x_quant = (x_int * scale).reshape(orig_shape)
+
+        info = {
+            'scale': scale.squeeze(-1),
+            'bits': self.bits,
+            'group_size': k,
+            'method': 'scalar_group',
+            'scale_bits': self.scale_bits,
+            'scale_overhead_bits_per_scalar': self.scale_bits / k,
+        }
+        return x_quant, info
+
+    def extra_repr(self) -> str:
+        return f"bits={self.bits}, group_size={self.group_size}, scale_bits={self.scale_bits}"
+
+
 class UniformVectorQuantizer(nn.Module):
     """
     Uniform Vector Quantizer: groups consecutive scalars into small

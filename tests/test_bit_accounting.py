@@ -82,9 +82,38 @@ def test_bit_accounting_e8_target():
     assert result["effective_bits_per_scalar"] == 4.0, result
 
 
+def test_bit_accounting_scalar_g8_matched_to_e8():
+    """
+    F11/S1: scalar_g8 (group=8, same as E8) at b=3, scale_bits=8, no QJL
+    -> exactly 4.0 effective bits/scalar -- MATCHED to E8's rate above, so
+    an E8-vs-scalar_g8 comparison at this config isolates lattice coding
+    gain instead of scale-granularity. At b=4 -> 5.0 effective bits/scalar.
+    """
+    from run_pareto_benchmark_suite import resolve_group_size
+
+    assert resolve_group_size("scalar_g8", head_dim=64) == 8
+
+    result_3bit = compute_real_bit_accounting(
+        bit_val=3, head_dim=64, use_qjl=False,
+        group_size=resolve_group_size("scalar_g8", 64), scale_bits=8,
+    )
+    print(f"  scalar_g8 3-bit: {result_3bit}")
+    assert result_3bit["total_bits_per_vector"] == 256, result_3bit
+    assert result_3bit["effective_bits_per_scalar"] == 4.0, result_3bit
+
+    result_4bit = compute_real_bit_accounting(
+        bit_val=4, head_dim=64, use_qjl=False,
+        group_size=resolve_group_size("scalar_g8", 64), scale_bits=8,
+    )
+    print(f"  scalar_g8 4-bit: {result_4bit}")
+    assert result_4bit["total_bits_per_vector"] == 320, result_4bit
+    assert result_4bit["effective_bits_per_scalar"] == 5.0, result_4bit
+
+
 if __name__ == "__main__":
     test_bit_accounting_with_qjl_audited_config()
     test_bit_accounting_without_qjl()
     test_bit_accounting_matches_qjl_default()
     test_bit_accounting_e8_target()
+    test_bit_accounting_scalar_g8_matched_to_e8()
     print("All bit-accounting tests passed.")
