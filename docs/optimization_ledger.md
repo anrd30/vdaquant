@@ -727,3 +727,159 @@ REQUIRED before this table goes in the paper (pick at least one):
 
 NOTE: this does NOT invalidate the E8 vs FP32 headline (compression at
 matched accuracy) — only the E8-vs-scalar-baseline comparison.
+
+---
+
+# PHASE 3 RESULTS â€” COMPLETE (13/13 experiments, collaborator GPU box, 2026-07-21)
+
+All Phase 3 experiments finished, including E4b (which OOM-recovered on rerun)
+and the full-split finals E5a/b/c. Raw results: `phase3_results.zip`.
+Findings F12â€“F17 below are derived from those JSONs and CLOSE decision gates
+DG-1 and DG-3 (see `docs/phase4_a_star_plan.md`).
+
+## F12 â€” DG-1 RESOLVED: E8@3-bit is LOSSLESS on full splits â€” the +0.01 was small-sample noise
+
+The N=200 result "quantization beats FP32 by +0.01 delta1", which was the single
+biggest reviewer-credibility risk (attack A2), **does not survive the full split.**
+
+| Split | Config | eff bits | delta1 | AbsRel | Delta-delta1 vs FP32 |
+|---|---|---|---|---|---|
+| NYU-654 | FP32 | 32 | 0.9099 | 0.0963 | â€” |
+| NYU-654 | E8 8-bit | 9.0 | 0.9095 | 0.0965 | âˆ’0.0004 |
+| NYU-654 | E8 4-bit | 5.0 | 0.9067 | 0.0991 | âˆ’0.0032 |
+| NYU-654 | **E8 3-bit** | **4.0** | **0.9085** | **0.0961** | **âˆ’0.0014** |
+| NYU-654 | E8 2-bit | 3.0 | 0.6392 | 0.2096 | âˆ’0.2707 |
+| KITTI-1000 | FP32 | 32 | 0.9280 | 0.0909 | â€” |
+| KITTI-1000 | E8 8-bit | 9.0 | 0.9282 | 0.0908 | +0.0002 |
+| KITTI-1000 | E8 4-bit | 5.0 | 0.9319 | 0.0883 | +0.0039 |
+| KITTI-1000 | **E8 3-bit** | **4.0** | **0.9271** | **0.0912** | **âˆ’0.0009** |
+| KITTI-1000 | E8 2-bit | 3.0 | 0.6179 | 0.2241 | âˆ’0.3101 |
+
+At N=200 the gap was +0.0092 (0.9128 vs 0.9036); at N=654 it is âˆ’0.0014.
+BOTH endpoints moved (FP32 0.9036 -> 0.9099, E8@3b 0.9128 -> 0.9085), which is the
+signature of subset sampling noise, not a systematic effect.
+
+**HEADLINE CLAIM (locked):** E8 lattice at 3-bit payload / **4.0 all-inclusive
+effective bits per scalar** is statistically indistinguishable from FP32 on
+NYU-654 and KITTI-1000 â€” 8.0x compression vs FP32, 4.0x vs FP16.
+**NEVER claim quantization improves accuracy.** Report full-split numbers only;
+N=200 deltas of +/-0.01 are inside subset noise and must not be reported as findings.
+
+Caveat still open: a real scale-bits effect may exist at fixed N (E4a sb=16 gave
+0.9029 while E3 seeds 1/2 at sb=8 gave 0.9134/0.9148 on the SAME 200 images).
+Different seeds, so confounded. G2b (full split x {8,16} x 3 seeds) settles it.
+Note the zip contains NO seed-0/sb8/QJL-off/rotation-on run at N=200 â€” the
+0.9128 figure came from an older run, so G3a control is still required.
+
+## F13 â€” E8@2-bit COLLAPSES: 4.0 eff bits is the frontier, not 3.0
+
+NYU 0.6392, KITTI 0.6179, Sintel 0.5017 â€” a cliff, not a slope, on all three
+datasets. The hoped-for "3.0 effective bits" headline is **dead**.
+
+Consequence for framing: the claim is **"3-bit payload, 4.0 all-inclusive bits"**,
+and the metadata bit must be stated every single time. Writing "3-bit KV cache"
+without the qualifier is exactly the undercounting this project exists to
+criticise (see F1/T1). The Pareto figure story is the CLIFF between 4.0 and 3.0
+eff bits, and that every baseline family falls off it earlier than E8 does.
+
+## F14 â€” Rotation (RHT) is INERT at 4.0â€“5.0 eff bits (DG-2 evidence, not yet closed)
+
+E2 no-rotation, N=200: NYU 3-bit (4.0 eff) delta1 **0.9138**, KITTI **0.9244**.
+With-rotation at the same N and rate (E3 seeds 1,2): **0.9134 / 0.9148**.
+No-rotation lands INSIDE the with-rotation seed spread. Rotation buys nothing
+measurable at this rate.
+
+This is now well-enough supported that DG-2 branch (c) is the leading hypothesis:
+**contra LLM practice (QuaRot/SpinQuant), video-ViT KV activations do not need
+rotation at moderate rates.** Still required before locking:
+  - G3a: seed-0 with-rotation control at N=200, same code version (missing above).
+  - G3b: rotation on/off at 2-bit â€” the ONE regime where RHT could still earn its
+    place. E2 only ran bits 4 and 3, so this is untested. Note E8@2b collapses
+    anyway (F13), so the realistic outcomes are "rotation does not save 2-bit
+    either" (-> ablate RHT out of the contributions) or "rotation shifts the cliff"
+    (-> RHT is the extreme-rate enabler, a strong story).
+  - G3d: activation kurtosis evidence for WHY.
+
+If branch (c) holds, RHT moves from "contribution" to "ablated component", the
+method simplifies to E8-lattice-on-KV-cache, and the overlap with QuaRot/SpinQuant
+shrinks â€” which is good for novelty, not bad.
+
+## F15 â€” QJL is strictly dominated: costs 2.25 bits AND loses accuracy
+
+E4b (QJL on, sb=8, 3-bit, N=200): eff **6.25** bits, delta1 **0.9057**.
+Comparable QJL-off runs at eff **4.0**: delta1 0.9134 / 0.9148 (E3 seeds 1,2).
+QJL costs +2.25 effective bits and is no better â€” worse, on these samples.
+Combined with F3b (the m=512-works / m=128-hurts bias-variance result), the
+headline config being QJL-off is now empirically justified, not just a convention.
+Report this as a clean negative result in the ablation table.
+
+## F16 â€” TAE IS GAMEABLE BY DEGENERATE SMOOTHING (major; reshapes contribution 3)
+
+The most important finding in Phase 3. E5c Sintel, N=1045 frames / 23 scenes:
+
+| Config | eff bits | delta1 | AbsRel | TAE mean % | TAE median % |
+|---|---|---|---|---|---|
+| FP32 | 32 | 0.7122 | 0.2335 | 55.41 | 7.83 |
+| E8 8-bit | 9.0 | 0.7122 | 0.2339 | 55.44 | 7.83 |
+| E8 4-bit | 5.0 | 0.7082 | 0.2419 | 55.49 | 7.54 |
+| E8 3-bit | 4.0 | 0.6882 | 0.2601 | 54.90 | 6.89 |
+| E8 2-bit | 3.0 | **0.5017** | **0.3767** | **7.38** | **4.50** |
+
+The 2-bit config â€” which has *collapsed* on accuracy â€” posts a **7.5x better TAE
+mean** and the best median of any configuration, FP32 included. Read naively,
+TAE says 2-bit is the most temporally consistent model we have.
+
+It is not. Per-scene decomposition proves degeneracy rather than genuine improvement:
+
+| Scene | FP32 TAE | 3-bit | 2-bit | 2b/FP32 |
+|---|---|---|---|---|
+| ambush_2 | 906.30 | 907.26 | 12.67 | **0.01x** |
+| temple_2 | 54.36 | 42.59 | 2.83 | 0.05x |
+| market_5 | 92.74 | 82.93 | 17.02 | 0.18x |
+| temple_3 | 61.67 | 62.87 | 18.60 | 0.30x |
+| ... | | | | |
+| bandage_2 | 2.11 | 2.36 | 4.50 | **2.14x** |
+| alley_2 | 1.87 | 2.57 | 4.33 | **2.31x** |
+| shaman_2 | 1.00 | 1.43 | 3.90 | **3.92x** |
+
+The direction of change **flips with scene difficulty**: high-motion scenes fall
+toward a ~1â€“18% floor while easy, near-static scenes get 2â€“4x WORSE. A genuine
+temporal-consistency improvement would improve all scenes. What actually happens
+is the 2-bit output loses spatial structure â€” with little structure left, there is
+little to misalign under reprojection, so hard scenes hit a floor; on easy scenes
+the added quantization noise dominates and TAE rises.
+
+**Consequences (act on all three):**
+1. **TAE must never be reported alone.** Every TAE number in the paper appears
+   jointly with delta1/AbsRel, and the paper states explicitly that TAE is only
+   meaningful at matched accuracy.
+2. **This strengthens contribution 3 rather than weakening it.** A metrics
+   contribution that documents its own failure mode is far more credible than one
+   that does not. Elevate to a named subsection: *"Temporal consistency metrics are
+   gameable: a degenerate low-rate model wins on TAE while failing on accuracy."*
+   The 2-bit row becomes a deliberate, valuable exhibit â€” not an embarrassment.
+3. Add a **structure/degeneracy diagnostic** (new task S10) so this is quantified,
+   not merely argued: spatial-gradient energy and per-frame prediction variance of
+   the predicted disparity, per config. Expect a sharp drop at 2-bit. Pair it with
+   the E6 2-bit qualitative frames, which are already generated.
+
+Also note: the FP32 TAE mean of 55.41% is dominated by ambush_2 at 906% â€”
+disocclusion inflation, exactly as suspected. The median (7.83%) is the honest
+aggregate today, and **S6 GT co-visibility masking is now mandatory, not optional**,
+because a 906% "error" in a scene with correct geometry is indefensible in review.
+
+## F17 â€” Temporal/Sintel degrades at 4.0 eff bits where static datasets do not
+
+At 4.0 eff bits: NYU âˆ’0.0014 delta1, KITTI âˆ’0.0009 delta1, but **Sintel âˆ’0.0240**
+(0.7122 -> 0.6882), with AbsRel 0.2335 -> 0.2601. The temporal path is measurably
+harder than the static path at the same rate.
+
+Plausible mechanism (UNTESTED â€” do not assert in the paper without evidence):
+quantization error accumulating across the 32-frame temporal window, since each
+frame attends to a cache that is itself quantized. Cheap test: sweep
+`--temporal-window` in {8, 16, 32} at 4.0 eff bits and check whether the delta1 gap
+vs FP32 grows with window length. If it does, that is a genuine and interesting
+finding about temporal error accumulation and belongs in the paper; if flat, the
+gap is just Sintel being harder and should be reported plainly as such.
+Added as G10 in the Phase 4 plan.
+

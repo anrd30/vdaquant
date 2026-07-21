@@ -1,7 +1,33 @@
 # Phase 4 — Path to an A* Paper (Master Plan)
 
-**Author:** Fable (Lead Architect) · **Date:** 2026-07-20
-**Extends:** `docs/optimization_ledger.md` Phase 3 (E1–E7). Read that first for findings F1–F11.
+**Author:** Fable (Lead Architect) · **Date:** 2026-07-20 · **Revised:** 2026-07-21 (Phase 3 complete)
+**Extends:** `docs/optimization_ledger.md` Phase 3 (E1–E7). Read that first for findings F1–F17.
+
+> ## ⚠ REVISION 2026-07-21 — Phase 3 landed; read this before anything below
+>
+> All 13 Phase 3 experiments completed. Findings **F12–F17** in the ledger supersede
+> parts of this plan. Summary of what changed:
+>
+> - **DG-1 is CLOSED (F12).** The "+0.01 over FP32" was small-sample noise; it vanishes
+>   on the full splits. **Headline locked: E8 @ 3-bit payload / 4.0 all-inclusive eff
+>   bits is statistically indistinguishable from FP32** (NYU-654 −0.0014 δ1,
+>   KITTI-1000 −0.0009 δ1). G2b now *confirms with CIs*; it no longer decides the story.
+> - **E8@2-bit is DEAD (F13).** Collapses on all three datasets. The 3.0-eff-bit
+>   headline dream is over; 4.0 is the frontier. **G9 is cancelled.**
+> - **DG-2 leans hard to branch (c) (F14):** no-rotation sits *inside* the with-rotation
+>   seed spread. G3a/G3b/G3d still required to close it, and G3b (2-bit) is now the
+>   only place RHT could still earn its keep.
+> - **QJL is strictly dominated (F15):** +2.25 eff bits for *worse* accuracy. Settled;
+>   report as a negative result. No further QJL runs needed.
+> - **F16 is the paper's best finding and it was unplanned:** TAE is *gameable* — the
+>   collapsed 2-bit model posts a 7.5× better TAE than FP32. Contribution 3 is upgraded
+>   accordingly, and **S6 (co-visibility mask) is now mandatory, not P1**.
+> - **New work added:** **S10** (degeneracy diagnostic) and **G10** (temporal-window
+>   sweep for F17). Both are cheap and both are load-bearing.
+>
+> Net effect on priorities: DG-3 (fair scalar baseline, S1→G1) is now the **single
+> most important open item**, because it is the last thing standing between us and a
+> defensible main claim.
 **Execution model:** Sonnet implements each S-task below (prompts are verbatim-ready);
 the boss reviews and pushes; GPU runs happen on the collaborator's local box via
 `scripts/run_phase4_experiments.sh` (S9). All CPU tests must stay green at every commit.
@@ -103,8 +129,16 @@ on the collaborator's GPU; vitl ~3× that).
 | G5 | K-only / V-only ablation, NYU E8@3b | `--quantize-target k` / `v` | ~6 min | S5 | P1 |
 | E7 | Sintel temporal rerun with GT co-visibility mask | e5c config + `--tae-covis` | ~30 min | S6 | P1 |
 | G8 | KV memory table (analytic + one measured run) | `scripts/report_kv_memory.py --measure` | ~5 min | S7 | P1 |
-| G9 | (stretch, only if DG-3 sends us to 3.0 eff) E8@2b vs scalar_g8@2b full splits | — | ~30 min | DG-3 | P2 |
+| ~~G9~~ | ~~E8@2b vs scalar_g8@2b at 3.0 eff~~ | **CANCELLED** — F13: E8@2b collapses everywhere; there is no 3.0-eff story to chase | — | — | — |
+| G10 | **NEW (F17)**: temporal-window sweep {8,16,32} at 4.0 eff bits, Sintel, to test error accumulation | `--temporal-window 8` / `16` / `32` | ~25 min | — | **P0** |
+| G11 | **NEW (F16)**: degeneracy diagnostic across all bit-widths, Sintel + NYU | `scripts/dump_structure_stats.py` | ~10 min | S10 | **P0** |
 | F-v2 | Finals v2: whatever configs the gates lock, full splits (654/1000/all-Sintel), 3 seeds for headline | — | ~3 h | all gates | P0 (last) |
+
+**Note on G2b after F12:** its job changed. It no longer decides whether we have a
+bug — F12 already showed the +0.01 was subset noise. It now supplies the *confidence
+intervals* that let the paper say "indistinguishable from FP32" rigorously, and
+settles the residual scale-bits question (E4a sb=16 gave 0.9029 vs E3 sb=8 seeds
+giving 0.9134/0.9148 on identical images — different seeds, so confounded).
 
 **GPU total: roughly 6–7 hours across the phase, comfortably one weekend on the local box.**
 
@@ -501,6 +535,61 @@ COMMIT: "feat(S9): resumable Phase 4 experiment runner (gates + extend stages)"
 
 ---
 
+### S10 — Degeneracy / structure diagnostic (NEW, from F16) — P0
+
+```
+TASK S10: Quantify the degeneracy that makes the 2-bit model "win" on TAE, so the
+paper's central methodological claim rests on numbers rather than on an argument.
+
+CONTEXT — read ledger finding F16 first. On Sintel, E8@2-bit collapses on accuracy
+(delta1 0.7122 -> 0.5017, AbsRel 0.2335 -> 0.3767) yet posts a 7.5x BETTER TAE mean
+than FP32 (7.38% vs 55.41%) and the best median of any config. Per-scene analysis
+shows the change flips sign with scene difficulty: hard high-motion scenes fall to a
+floor (ambush_2: 906 -> 12.7) while easy near-static scenes get WORSE (shaman_2:
+1.00 -> 3.90). Hypothesis: the 2-bit prediction has lost spatial structure, so
+there is little left to misalign under reprojection. We need to measure that
+structure loss directly.
+
+FILES TO TOUCH:
+  scripts/dump_structure_stats.py   (new)
+  tests/test_structure_stats.py     (new)
+
+SPEC:
+1. CLI mirroring the benchmark suite's dataset/quantizer flags:
+     python scripts/dump_structure_stats.py --dataset sintel --quantizer lattice_e8 \
+       --scale-bits 8 --bits 8 4 3 2 --no-qjl --max-samples 200 \
+       --output-dir outputs/phase4/g11_structure
+   For FP32 and each bit-width, compute over the predicted disparity maps
+   (the model's native output space — do NOT invert to depth; inversion is
+   nonlinear and would confound the structure measurement):
+     - grad_energy: mean of sqrt(dx^2 + dy^2) via Sobel, per frame, then averaged
+     - pred_std: per-frame spatial standard deviation, then averaged
+     - laplacian_var: variance of the Laplacian (standard blur/structure measure)
+     - entropy_8bit: Shannon entropy of the 256-bin histogram of the min-max
+       normalised map, per frame, averaged
+   All four are normalised per frame (min-max) BEFORE computing, so an affine
+   collapse of the prediction range does not masquerade as structure loss —
+   we want to detect loss of STRUCTURE, not loss of scale. Document this choice
+   in the docstring; it is the subtle part and a reviewer will ask.
+2. Output: JSON {config -> {metric -> value}} plus a markdown table, and a
+   matplotlib line plot of each metric vs effective bits with FP32 as a dashed
+   reference line. Save to the output dir.
+3. INTERPRETATION KEY (write into the docstring): if grad_energy and
+   laplacian_var drop sharply at 2-bit while 3/4/8-bit track FP32 closely, the
+   degeneracy hypothesis is CONFIRMED and F16 can be stated as fact in the paper.
+   If they do NOT drop, the hypothesis is WRONG — the TAE improvement would then
+   need another explanation, and the boss must be told before any claim is written.
+   Do not tune the metrics to produce the expected answer.
+4. TESTS: pure-function unit tests on synthetic inputs — a sharp random-noise
+   image vs a heavily Gaussian-blurred copy: assert blurred has strictly lower
+   grad_energy, lower laplacian_var, and lower entropy. A constant image gives
+   grad_energy == 0 and does not produce NaN in any metric. Seeded, deterministic.
+   Test the metric functions directly; do not require a model or dataset.
+COMMIT: "feat(S10): spatial-structure diagnostic for the TAE degeneracy finding (F16)"
+```
+
+---
+
 ## 5. Literature review plan (run BEFORE writing; ~1 day; Fable executes via web search)
 
 Not written now — but the searches happen **this week**, because DG-4 can re-aim the
@@ -534,17 +623,33 @@ We introduce a geometric-reprojection temporal-consistency metric (TAE with z-bu
 and GT co-visibility masking) and show per-frame metrics alone miss temporal
 degradation. Everything is measured under all-inclusive bit accounting.
 
-### Contributions (3, crisp)
-1. First systematic study of extreme (≤4 eff-bit) KV-cache quantization for video
-   depth transformers; data-oblivious lattice (E8) + RHT, no calibration data,
-   with all-inclusive bit accounting — FP32-parity at 4.0 eff bits on NYU/KITTI/Sintel.
-2. Matched-rate, matched-granularity dissection: lattice dimension is the active
-   ingredient (E8 > D4 >> grouped scalar at fixed rate); rotation's role at each
-   rate quantified (framing per DG-2).
-3. Geometric TAE (z-buffer + co-visibility) as a quantization-quality metric for
-   video geometry models, with evidence that per-frame accuracy alone is blind to
-   temporal artifacts. (If E5c shows δ1 flat while TAE degrades at some bit level,
-   lead with that plot; if not, soften to protocol contribution.)
+### Contributions (3, crisp) — REVISED 2026-07-21 after F12/F13/F16
+
+1. **First systematic study of extreme KV-cache quantization for video depth
+   transformers.** Data-oblivious E8 lattice VQ, no calibration data, under
+   all-inclusive bit accounting: **FP32-parity at 4.0 effective bits/scalar**
+   (8.0× vs FP32, 4.0× vs FP16) on NYU-654 (−0.0014 δ1) and KITTI-1000
+   (−0.0009 δ1), with a sharp cliff at 3.0 eff bits that we characterise.
+   *(Locked by F12/F13. Always state "3-bit payload / 4.0 all-inclusive bits" —
+   never "3-bit" alone.)*
+
+2. **Matched-rate, matched-granularity dissection of what actually buys the
+   compression.** Lattice dimension is the active ingredient (E8 ≫ D4 at
+   identical 4.0 eff bits and identical scale machinery: 0.9128 vs 0.5338 NYU);
+   rotation is shown to be *inert* at these rates on video ViTs — a negative
+   result that runs against LLM practice (QuaRot/SpinQuant) and that we explain
+   with activation statistics; QJL is shown to be strictly dominated
+   (+2.25 eff bits for no gain). *(F14, F15; final framing per DG-2/DG-3.)*
+
+3. **Temporal-consistency metrics for video geometry — and their failure mode.**
+   We define a geometric-reprojection TAE (z-buffer + GT co-visibility masking)
+   and then show it is **gameable**: our own collapsed 2-bit model beats FP32 by
+   7.5× on TAE while failing catastrophically on accuracy, because degenerate,
+   structureless predictions have little left to misalign. We quantify the
+   degeneracy directly (S10) and argue temporal metrics are only interpretable
+   at matched accuracy. *(F16 — this is the paper's most novel and most
+   defensible piece; a metric contribution that documents its own failure mode
+   is far stronger than one that does not. Give it a named subsection.)*
 
 ### Tables
 | # | Content | Source |
