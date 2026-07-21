@@ -830,6 +830,20 @@ def _preprocess_frame(rgb_np: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(sample['image'])
 
 
+def _per_image_records(indices, metrics_list):
+    """
+    Per-image metric records for the paired-comparison bootstrap stats
+    (scripts/compute_stats.py, S2). 'idx' is the ORIGINAL gt_samples index
+    (i.e. after removing skipped frames, not a dense re-numbering) so the
+    same idx always refers to the same physical image across every config's
+    dump -- required for the paired-difference stats to be valid.
+    """
+    return [
+        {"idx": i, "delta1": m["delta1"], "abs_rel": m["abs_rel"], "rmse": m["rmse"]}
+        for i, m in zip(indices, metrics_list)
+    ]
+
+
 def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, data_dir):
     """
     Evaluates FP32 and each swept bit-width against REAL ground-truth depth
@@ -884,8 +898,9 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
     print(f"  [1/N] Running FP32 Reference Baseline against real {args.dataset.upper()} ground truth...")
     fp32_preds = []
     fp32_gt_metrics = []
+    fp32_valid_indices = []
     n_skipped = 0
-    for sample in gt_samples:
+    for idx, sample in enumerate(gt_samples):
         if model is not None:
             pred = predict_depth(model, sample["rgb"])
         else:
@@ -901,6 +916,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
             fp32_gt_metrics.append(compute_gt_depth_metrics(
                 pred, gt_t, valid_t, gt_range=gt_range,
                 pred_is_disparity=(args.pred_space == "disparity")))
+            fp32_valid_indices.append(idx)
         except ValueError:
             n_skipped += 1
 
@@ -912,6 +928,9 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
     fp32_metrics = avg_metrics(fp32_gt_metrics)
     fp32_metrics["n_images"] = len(fp32_gt_metrics)
     fp32_metrics["n_skipped_frames"] = n_skipped
+    # S2: per-image dump so compute_stats.py can run a paired bootstrap
+    # between FP32 and any quantized config (ledger DG-1; reviewer attack A6).
+    fp32_metrics["per_image"] = _per_image_records(fp32_valid_indices, fp32_gt_metrics)
     if n_skipped:
         print(f"        [note] skipped {n_skipped} frame(s) with no in-range GT")
     fp32_metrics["mem_savings_x"] = 1.0
@@ -962,6 +981,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
 
         q_gt_metrics = []
         q_skipped = 0
+        q_valid_indices = []
         for sample_idx, sample in enumerate(gt_samples):
             if model_quant is not None:
                 pred = predict_depth(model_quant, sample["rgb"])
@@ -978,8 +998,19 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 q_gt_metrics.append(compute_gt_depth_metrics(
                     pred, gt_t, valid_t, gt_range=gt_range,
                     pred_is_disparity=(args.pred_space == "disparity")))
+                q_valid_indices.append(sample_idx)
             except ValueError:
                 q_skipped += 1
+
+        # S2 sanity guard: the skip set is a pure function of GT (never of the
+        # prediction), so it must be IDENTICAL across every config. If this
+        # ever fires, per-image idx alignment between configs would silently
+        # break -- fail loudly instead of shipping a mismatched dump.
+        assert q_valid_indices == fp32_valid_indices, (
+            f"quantized-pass skip set diverged from FP32's at {bit}-bit "
+            f"{args.quantizer}: skip logic depends only on GT and must match "
+            f"exactly across configs (see docs/optimization_ledger.md T9)."
+        )
 
         bit_accounting = compute_real_bit_accounting(
             bit, head_dim=64, use_qjl=args.use_qjl,
@@ -995,6 +1026,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
         metrics["nominal_savings_x"] = bit_accounting["nominal_ratio_vs_fp32"]
         metrics["effective_bits_per_scalar"] = bit_accounting["effective_bits_per_scalar"]
         metrics["total_bits_per_vec"] = bit_accounting["total_bits_per_vector"]
+        metrics["per_image"] = _per_image_records(q_valid_indices, q_gt_metrics)
         dataset_results[f"{bit}bit"] = metrics
         print(f"        -> delta1: {metrics['delta1']} | AbsRel: {metrics['abs_rel']} | "
               f"eff={metrics['effective_bits_per_scalar']}b/scalar (vs REAL ground truth)")
