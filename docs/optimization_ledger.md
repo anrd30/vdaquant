@@ -883,3 +883,153 @@ finding about temporal error accumulation and belongs in the paper; if flat, the
 gap is just Sintel being harder and should be reported plainly as such.
 Added as G10 in the Phase 4 plan.
 
+
+---
+
+# PHASE 4 GATES RESULTS â€” DECISION GATES CLOSED (collaborator GPU box, 2026-07-25)
+
+Phase 4 STAGE=gates complete (G1, G2b, G3a/b/d, G10, G11). Raw: `phase4_results.zip`.
+Findings F18â€“F22 close DG-1, DG-2, DG-3 and resolve F16/F17. Bootstrap CIs via
+scripts/compute_stats.py (S2). NET: the headline survives; the "lattice is the key
+ingredient" pillar is weakened; the rotation story got much stronger.
+
+## F18 â€” DG-1 CLOSED WITH CIs: E8@3b (4.0 eff bits) is lossless; scale-bits 8 â‰¡ 16
+
+Full-654 NYU, E8@3b, paired BCa bootstrap of (E8 âˆ’ FP32) delta1, per RHT seed:
+
+| scale_bits | seed | E8@3b Î´1 | Î” vs FP32 | 95% BCa CI | excludes 0 |
+|---|---|---|---|---|---|
+| 8 | 0 | 0.9085 | âˆ’0.0014 | [âˆ’0.0047, +0.0019] | no |
+| 8 | 1 | 0.9169 | +0.0071 | [+0.0032, +0.0109] | yes (E8 higher) |
+| 8 | 2 | 0.9193 | +0.0094 | [+0.0059, +0.0131] | yes (E8 higher) |
+| 16 | 0 | 0.9093 | âˆ’0.0006 | â€” | â€” |
+| 16 | 1 | 0.9160 | +0.0061 | â€” | â€” |
+| 16 | 2 | 0.9195 | +0.0096 | â€” | â€” |
+
+Two locked conclusions:
+1. **scale_bits 8 â‰¡ scale_bits 16** (per-seed within ~0.001: 0.9085/0.9093,
+   0.9169/0.9160, 0.9193/0.9195). The F12 scale-bits caveat is CLOSED: 8-bit
+   scales cost nothing in accuracy, so **4.0 eff bits is the honest headline rate**
+   (5.0 with 16-bit scales buys nothing). Use scale_bits=8.
+2. The within-seed image bootstrap is tight, but the **RHT seed is the dominant
+   source of variance** (âˆ’0.0014 to +0.0094 across three draws). E8@3b is never
+   significantly WORSE than FP32 (worst seed âˆ’0.0014, CI spans 0) and is sometimes
+   significantly better. **Report as one-sided "lossless / no degradation," mean
+   Î”Î´1 = +0.005 across 3 seeds.** NEVER headline "improves accuracy" â€” a lattice
+   projection nudging a regression metric up by 0.005 is mild denoising, not a
+   capability, and claiming otherwise reads as a bug to reviewers. The credible
+   sentence: "matches FP32 within RHT-seed variance; never significantly worse."
+
+## F19 â€” DG-3 PARTIALLY ADVERSE: the fair scalar baseline is STRONG; lattice gain is modest and dataset-dependent
+
+The reason F11 mattered. E8@3b vs the fair scalar_g8@3b (BOTH 4.0 eff bits, BOTH
+per-8-group scales, BOTH RHT seed 0, N=200), paired BCa bootstrap of (E8 âˆ’ scalar_g8):
+
+| dataset | scalar_g8 Î´1 | E8 Î´1 | diff | 95% BCa CI | excludes 0 |
+|---|---|---|---|---|---|
+| NYU | 0.9090 | 0.9057 | âˆ’0.0033 | [âˆ’0.0070, +0.0012] | no (TIED) |
+| KITTI | 0.9123 | 0.9286 | +0.0163 | [+0.0121, +0.0209] | yes (E8 higher) |
+
+**The F11 "E8 beats scalar by 0.38" gap was ENTIRELY an artifact of the unfair
+per-tensor scalar baseline.** Against a properly-grouped scalar baseline:
+  - KITTI: E8 wins by a real, significant +0.016.
+  - NYU: statistically TIED (E8 nominally 0.003 BEHIND).
+And scalar_g8 itself is near-lossless vs FP32 at 4.0 eff bits (NYU 0.909 vs 0.904,
+KITTI 0.912 vs 0.928) â€” i.e. **the video-depth KV cache is just highly compressible;
+grouped scalar already gets most of the way, and lattice VQ adds a modest,
+dataset-dependent margin.**
+
+Caveat weakening this further: seed 0 is E8's WORST NYU draw (F18: seed0 0.9085 vs
+seed2 0.9193 at N=654), so the NYU "tie" is under E8's least favorable rotation. But
+we have no scalar_g8 at other seeds to keep it fair, so **the honest, defensible
+statement is a tie on NYU**. Do not cherry-pick a better E8 seed against a fixed
+scalar_g8 seed.
+
+CONSEQUENCE â€” contribution 2 MUST be reframed. "Lattice dimension is THE active
+ingredient" is no longer supportable as a headline. Honest replacement:
+"At matched rate and granularity, lattice VQ gives a small, dataset-dependent gain
+over grouped scalar (significant on KITTI, neutral on NYU); the dominant lesson is
+that a *fair* grouped-scalar baseline is far stronger than the per-tensor baseline
+usually shown, and both reach ~FP32 parity at 4.0 eff bits." This is less flashy but
+true, and pre-empts the reviewer who reruns our own scalar_g8.
+
+## F20 â€” DG-2 CLOSED: rotation is inert at 4 bits, ESSENTIAL at 2 bits, with a mechanism
+
+Rotation on vs off at 2-bit (E8, N=200):
+
+| dataset | rot ON Î´1 | rot OFF Î´1 | Î” (rotation benefit) |
+|---|---|---|---|
+| NYU | 0.6631 | 0.6194 | **+0.0437** |
+| KITTI | 0.6795 | 0.5826 | **+0.0969** |
+
+Contrast F14 (4.0 eff bits): rotation benefit was ~0 (no-rot 0.9138 inside the
+with-rot seed spread). So rotation's value GROWS as the bit-rate drops â€” exactly
+what RHT theory predicts (its tail-suppression only becomes load-bearing when the
+quantization grid is too coarse to absorb outliers).
+
+MECHANISM (G3d activation stats, real NYU, 8 images, 40 K/V tensors):
+  - **DinoV2 backbone spatial attention has heavy tails**: pretrained.blocks.0.attn
+    V kurtosis = 20.1, blocks.1 V = 7.06, blocks.0 K = 4.13. Rotation ~halves them
+    (20.1â†’10.1, 7.06â†’2.53, 4.13â†’2.11).
+  - **The temporal KV cache (motion_modules) is ALREADY near-Gaussian**: kurtosis
+    âˆ’0.4 to 0.66 raw, essentially unchanged by rotation (nothing to fix).
+  - Median kurtosis 0.64 raw â†’ 0.24 rotated; max 20.1 â†’ 10.1.
+
+Clean, publishable DG-2 = branch (b)+(c) hybrid: "The temporal KV cache we target is
+already near-Gaussian, so rotation is unnecessary at the 4-bit operating point;
+rotation's benefit is concentrated in the heavy-tailed backbone activations and only
+becomes load-bearing below 3 bits. This both explains our null result at 4 bits and
+predicts (confirmed) the 2-bit ablation." Rotation STAYS in the method (free at
+inference, essential if anyone pushes below 4 bits, and it's what makes seeds
+comparable) â€” reported as a rate-dependent ablation, not a headline contribution.
+
+## F21 â€” F17 FALSIFIED: no temporal error accumulation across the window
+
+G10, Sintel temporal, E8@3b vs FP32 at 4.0 eff bits, sweeping video_length:
+
+| window | FP32 Î´1 | E8@3b Î´1 | Î” vs FP32 |
+|---|---|---|---|
+| 8  | 0.6232 | 0.6154 | âˆ’0.0078 |
+| 16 | 0.6286 | 0.6281 | âˆ’0.0005 |
+| 32 | 0.6309 | 0.6313 | +0.0004 |
+
+The quantization gap SHRINKS with window length (âˆ’0.0078 â†’ +0.0004), the OPPOSITE
+of the error-accumulation hypothesis. Longer temporal context makes the quantized
+model MORE robust, not less. F17's mechanism guess is dead; report as a clean
+negative result: "no evidence of cross-window quantization-error accumulation; the
+gap is largest at the shortest window and vanishes by 32 frames." (The earlier
+F17 Sintel gap was a full-split-vs-subset artifact; at matched subset it's ~0.)
+
+## F22 â€” F16 structure diagnostic: PARTIAL corroboration (report honestly)
+
+G11, per-frame min-max-normalized predicted disparity:
+
+| Config | eff | grad_energy (NYU) | laplacian_var (NYU) | grad_energy (Sintel) |
+|---|---|---|---|---|
+| FP32 | 32 | 0.0478 | 0.00344 | 0.0350 |
+| 3bit | 4.0 | 0.0465 | 0.00323 | 0.0354 |
+| 2bit | 3.0 | **0.0346** | **0.00264** | **0.0282** |
+
+At 2-bit, edge/detail energy drops sharply (NYU grad_energy âˆ’28%, laplacian_var
+âˆ’23%; Sintel grad_energy âˆ’20%), while 8/4/3-bit track FP32 closely. This supports
+the degeneracy direction (loss of fine spatial structure). BUT it is NOT a total
+collapse: entropy_8bit and pred_std actually RISE at 2-bit (the output isn't a flat
+blob; it loses coherent detail while gaining scattered value spread).
+
+So F16's headline evidence stays the **per-scene TAE sign-flip** (hard scenes â†’
+floor, easy scenes â†’ worse â€” airtight proof of gameability). The structure
+diagnostic is SUPPORTING evidence for the "detail loss" reading, not a standalone
+proof of collapse. Present both honestly; do not oversell grad_energy as "the output
+became mush" â€” a reviewer with the numbers will see entropy went up.
+
+## Net effect on the paper (for the record)
+
+- Headline (DG-1): SOLID. 4.0 eff bits, 8Ã— vs FP32, lossless. Unchanged.
+- Contribution 2 (lattice is key): WEAKENED to "modest, dataset-dependent" (F19).
+- Rotation story (DG-2): STRENGTHENED â€” now mechanism-backed and rate-dependent (F20).
+- TAE gameability (F16/F22): still the most novel piece; primary evidence intact.
+- F17: dead (clean negative).
+Contribution ranking for the writeup should now lead with TAE-gameability and the
+"honest all-inclusive 4-bit lossless + fair-baseline" story, with lattice-vs-scalar
+demoted to an honest matched-rate ablation, and rotation as a rate-dependent ablation.
+
