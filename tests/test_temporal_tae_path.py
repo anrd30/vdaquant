@@ -39,6 +39,7 @@ from datasets_gt import (
 )
 from run_pareto_benchmark_suite import (
     _tae_geometric_single,
+    _covisibility_mask,
     _pool_align_scene_disparity,
     compute_tae_geometric_for_scene,
 )
@@ -474,6 +475,146 @@ def test_compute_tae_geometric_for_scene_detects_frame_to_frame_drift():
     assert result["tae_percent"] == pytest.approx(expected_tae_percent, rel=1e-4)
 
 
+# ============================================================
+# S6: GT co-visibility mask (docs/optimization_ledger.md E7/F16)
+# ============================================================
+
+def test_covisibility_excludes_moving_object_depth_disagreement():
+    """
+    Identity pose (zero motion) so reprojection is a pure identity map -> the
+    ONLY thing the co-visibility mask can key on is GT depth DISAGREEMENT
+    between the two frames. A foreground square (depth 5) sits over a far
+    background (depth 100) and MOVES between frames. The pixels the square
+    occupies in EITHER frame disagree between frames and must be excluded;
+    everything else agrees and must be kept. All values hand-computed before
+    asserting (the ledger warns against vacuous zero-motion tests -- here the
+    non-triviality comes from the depth disagreement, not from motion).
+    """
+    H, W = 4, 20
+    K = torch.tensor([[10.0, 0, 10.0], [0, 10.0, 2.0], [0, 0, 1]], dtype=torch.float64)
+    R = torch.eye(3, dtype=torch.float64)
+    T = torch.zeros(3, dtype=torch.float64)
+
+    gt_src = torch.full((H, W), 100.0, dtype=torch.float64)
+    gt_src[:, 4:8] = 5.0    # square position in frame 1
+    gt_dst = torch.full((H, W), 100.0, dtype=torch.float64)
+    gt_dst[:, 10:14] = 5.0  # square moved in frame 2
+
+    mask = _covisibility_mask(gt_src, gt_dst, R, T, K, tau=0.05)
+
+    excluded_cols = set(range(4, 8)) | set(range(10, 14))  # 8 columns
+    for c in range(W):
+        expected = c not in excluded_cols
+        assert bool(mask[:, c].all()) == expected and bool(mask[:, c].any()) == expected, (
+            f"column {c}: expected co-visible={expected}, got {mask[:, c].tolist()}"
+        )
+    # 8 of 20 columns excluded -> 12/20 kept. (float32 mean -> loose tol)
+    assert float(mask.float().mean()) == pytest.approx(12.0 / 20.0, abs=1e-6)
+
+
+def test_covisibility_masked_tae_drops_the_disocclusion_error():
+    """
+    THE point of S6: the masked TAE must exclude the pixels the co-visibility
+    mask drops. Mask comes from GT (moving square, above); the PREDICTION is
+    perfect (identical) on co-visible pixels but wildly wrong exactly on the
+    square columns. Unmasked TAE is therefore large; masked TAE is ~0.
+    Both values hand-computed.
+    """
+    H, W = 4, 20
+    K = torch.tensor([[10.0, 0, 10.0], [0, 10.0, 2.0], [0, 0, 1]], dtype=torch.float64)
+    R = torch.eye(3, dtype=torch.float64)
+    T = torch.zeros(3, dtype=torch.float64)
+
+    # GT (drives the mask): square moves 4:8 -> 10:14.
+    gt_src = torch.full((H, W), 100.0, dtype=torch.float64)
+    gt_src[:, 4:8] = 5.0
+    gt_dst = torch.full((H, W), 100.0, dtype=torch.float64)
+    gt_dst[:, 10:14] = 5.0
+    covis = _covisibility_mask(gt_src, gt_dst, R, T, K, tau=0.05)
+
+    # PREDICTION: agrees (100 vs 100) everywhere except the union of square
+    # columns, where frame-2 pred is 50 vs frame-1's 100 -> |100-50|/50 = 1.0.
+    pred1 = torch.full((H, W), 100.0, dtype=torch.float64)
+    pred2 = torch.full((H, W), 100.0, dtype=torch.float64)
+    for c in list(range(4, 8)) + list(range(10, 14)):
+        pred2[:, c] = 50.0
+
+    ones = torch.ones((H, W), dtype=torch.bool)
+    err_unmasked = _tae_geometric_single(pred1, pred2, R, T, K, ones)
+    err_masked = _tae_geometric_single(pred1, pred2, R, T, K, covis)
+
+    # Unmasked: 8/20 columns wrong at rel-error 1.0 -> 0.4 exactly.
+    assert err_unmasked == pytest.approx(0.4, abs=1e-6), err_unmasked
+    # Masked: those columns are exactly the excluded ones -> 0.
+    assert err_masked == pytest.approx(0.0, abs=1e-9), err_masked
+    assert err_masked < err_unmasked
+
+
+def test_covisibility_static_scene_keeps_everything():
+    """Identical GT both frames + zero motion -> every pixel co-visible
+    (covis_fraction == 1), and a masked TAE equals the unmasked TAE."""
+    H, W = 8, 8
+    K = torch.tensor([[20.0, 0, 4.0], [0, 20.0, 4.0], [0, 0, 1]], dtype=torch.float64)
+    R = torch.eye(3, dtype=torch.float64)
+    T = torch.zeros(3, dtype=torch.float64)
+    torch.manual_seed(3)
+    gt = torch.rand(H, W, dtype=torch.float64) * 5.0 + 5.0
+
+    mask = _covisibility_mask(gt, gt, R, T, K, tau=0.05)
+    assert float(mask.float().mean()) == pytest.approx(1.0, abs=1e-6)
+
+    pred1 = torch.rand(H, W, dtype=torch.float64) * 5.0 + 5.0
+    pred2 = torch.rand(H, W, dtype=torch.float64) * 5.0 + 5.0
+    ones = torch.ones((H, W), dtype=torch.bool)
+    assert _tae_geometric_single(pred1, pred2, R, T, K, mask) == pytest.approx(
+        _tae_geometric_single(pred1, pred2, R, T, K, ones), abs=1e-12)
+
+
+def test_covisibility_fraction_monotonic_in_tau():
+    """Smaller tau -> fewer pixels pass the agreement test -> covis_fraction
+    is non-increasing. Build a per-column disagreement gradient."""
+    H, W = 4, 20
+    K = torch.tensor([[10.0, 0, 10.0], [0, 10.0, 2.0], [0, 0, 1]], dtype=torch.float64)
+    R = torch.eye(3, dtype=torch.float64)
+    T = torch.zeros(3, dtype=torch.float64)
+    gt_src = torch.full((H, W), 100.0, dtype=torch.float64)
+    # frame-2 GT disagrees by a rising per-column relative amount 0..~0.3.
+    gt_dst = gt_src.clone()
+    for c in range(W):
+        gt_dst[:, c] = 100.0 * (1.0 + 0.3 * c / (W - 1))
+
+    fracs = [float(_covisibility_mask(gt_src, gt_dst, R, T, K, tau=tau).float().mean())
+             for tau in (0.02, 0.1, 0.2, 0.5)]
+    print(f"  covis_fraction by tau (0.02,0.1,0.2,0.5): {fracs}")
+    for a, b in zip(fracs, fracs[1:]):
+        assert a <= b + 1e-12, f"covis_fraction not monotonic in tau: {fracs}"
+    assert fracs[0] < fracs[-1], "gradient should make small tau strictly stricter"
+
+
+def test_covisibility_scene_pipeline_reports_covis_keys():
+    """End-to-end: compute_tae_geometric_for_scene with covis_tau set must
+    return the new keys with covis_fraction in [0, 1], and omit them when
+    covis_tau is None (back-compat)."""
+    H, W = 6, 6
+    K = np.array([[15.0, 0, 3.0], [0, 15.0, 3.0], [0, 0, 1]], dtype=np.float64)
+    torch.manual_seed(5)
+    pred_disps = [torch.rand(H, W, dtype=torch.float64) * 0.1 + 0.1 for _ in range(3)]
+    gt_depths = [np.full((H, W), 5.0, dtype=np.float64) for _ in range(3)]
+    Ks = [K, K, K]
+    poses = [np.eye(4), np.eye(4), np.eye(4)]
+
+    with_covis = compute_tae_geometric_for_scene(
+        pred_disps, gt_depths, Ks, poses, gt_range=(0.1, 10.0), covis_tau=0.05)
+    assert "tae_covis_percent" in with_covis
+    assert "covis_fraction" in with_covis
+    assert 0.0 <= with_covis["covis_fraction"] <= 1.0
+    assert with_covis["n_pairs"] == 2
+
+    without = compute_tae_geometric_for_scene(
+        pred_disps, gt_depths, Ks, poses, gt_range=(0.1, 10.0))
+    assert "tae_covis_percent" not in without
+
+
 def test_compute_tae_geometric_for_scene_length_mismatch_raises():
     with pytest.raises(ValueError, match="matching lengths"):
         compute_tae_geometric_for_scene(
@@ -507,6 +648,11 @@ if __name__ == "__main__":
     test_tae_geometric_lateral_translation_frontoparallel_plane()
     test_tae_zbuffer_keeps_nearest_surface_on_collision()
     test_tae_zbuffer_identical_when_no_collisions()
+    test_covisibility_excludes_moving_object_depth_disagreement()
+    test_covisibility_masked_tae_drops_the_disocclusion_error()
+    test_covisibility_static_scene_keeps_everything()
+    test_covisibility_fraction_monotonic_in_tau()
+    test_covisibility_scene_pipeline_reports_covis_keys()
     test_tae_geometric_no_inbounds_returns_zero()
     test_tae_geometric_detects_real_inconsistency()
     test_pool_align_scene_disparity_recovers_known_affine()

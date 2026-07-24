@@ -472,6 +472,80 @@ def _tae_geometric_single(
     return float(abs_rel.item())
 
 
+def _covisibility_mask(
+    gt_depth_src: torch.Tensor, gt_depth_dst: torch.Tensor,
+    R_dst_src: torch.Tensor, T_dst_src: torch.Tensor,
+    K: torch.Tensor, tau: float = 0.05,
+    scatter_zbuffer: bool = True,
+) -> torch.Tensor:
+    """
+    GT-derived co-visibility mask in the DESTINATION frame (S6, ledger E7/F16).
+
+    A destination-frame pixel is "co-visible" iff a source-frame GT point
+    reprojects onto it (in-bounds, z-buffer-nearest) AND the reprojected GT
+    depth agrees with the destination frame's OWN GT depth there:
+        |z_reproj - gt_dst| / gt_dst < tau.
+
+    Computed from GROUND TRUTH ONLY — never predictions — so FP32 and every
+    quantized config receive the IDENTICAL mask (same discipline as the
+    frame-skip logic; see docs/optimization_ledger.md F-series). This is what
+    lets the masked TAE exclude disocclusion / moving-object / out-of-frame
+    pixels, whose spurious reprojection error (e.g. ambush_2's 907%, F16) has
+    nothing to do with the depth predictor's temporal consistency.
+
+    Mirrors _tae_geometric_single's reprojection exactly (same back-project ->
+    transform -> round-splat -> z-buffer), so the mask lines up pixel-for-pixel
+    with the comparison it will gate.
+
+    Returns:
+        (H, W) bool tensor in destination-frame pixel space; True = co-visible.
+    """
+    H, W = gt_depth_src.shape
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+
+    yy, xx = torch.meshgrid(
+        torch.arange(H, dtype=gt_depth_src.dtype, device=gt_depth_src.device),
+        torch.arange(W, dtype=gt_depth_src.dtype, device=gt_depth_src.device),
+        indexing='ij',
+    )
+    X = (xx - cx) * gt_depth_src / fx
+    Y = (yy - cy) * gt_depth_src / fy
+    Z = gt_depth_src
+    points3d = torch.stack((X.flatten(), Y.flatten(), Z.flatten()), dim=1)
+
+    points3d_t = points3d @ R_dst_src.T + T_dst_src
+    X_w, Y_w, Z_w = points3d_t[:, 0], points3d_t[:, 1], points3d_t[:, 2]
+
+    X_plane = torch.round((X_w * fx) / Z_w + cx).to(dtype=torch.long)
+    Y_plane = torch.round((Y_w * fy) / Z_w + cy).to(dtype=torch.long)
+
+    in_bounds = (X_plane >= 0) & (X_plane < W) & (Y_plane >= 0) & (Y_plane < H) & (Z_w > 0)
+    mask = torch.zeros(H * W, dtype=torch.bool, device=gt_depth_src.device)
+    if in_bounds.sum() == 0:
+        return mask.reshape(H, W)
+
+    # Z-buffer the reprojected GT depth into destination space (nearest wins),
+    # identical to _tae_geometric_single so the co-visible set matches what the
+    # error term actually compares.
+    if scatter_zbuffer:
+        proj = torch.full((H * W,), float('inf'), dtype=gt_depth_src.dtype, device=gt_depth_src.device)
+        idx = Y_plane[in_bounds] * W + X_plane[in_bounds]
+        proj.scatter_reduce_(0, idx, Z_w[in_bounds], reduce='amin', include_self=True)
+        proj[torch.isinf(proj)] = 0.0
+        gt_depth_proj = proj.reshape(H, W)
+    else:
+        gt_depth_proj = torch.zeros((H * W,), dtype=gt_depth_src.dtype, device=gt_depth_src.device)
+        gt_depth_proj[Y_plane[in_bounds] * W + X_plane[in_bounds]] = Z_w[in_bounds]
+        gt_depth_proj = gt_depth_proj.reshape(H, W)
+
+    dst = gt_depth_dst
+    agree = torch.zeros_like(gt_depth_proj, dtype=torch.bool)
+    both_valid = (gt_depth_proj > 0) & (dst > 0)
+    rel = torch.abs(gt_depth_proj - dst) / dst.clamp(min=1e-8)
+    agree[both_valid] = rel[both_valid] < tau
+    return agree
+
+
 def _pool_align_scene_disparity(pred_disps, gt_depths, gt_range) -> tuple:
     """
     ONE global scale+shift disparity-space alignment fit pooled across ALL
@@ -506,7 +580,8 @@ def _pool_align_scene_disparity(pred_disps, gt_depths, gt_range) -> tuple:
 
 
 def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
-                                     scatter_zbuffer: bool = True) -> dict:
+                                     scatter_zbuffer: bool = True,
+                                     covis_tau: float = None) -> dict:
     """
     Full VDA-protocol geometric TAE for one scene of REAL consecutive frames.
 
@@ -526,9 +601,17 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
         poses: list of (4, 4) numpy camera-to-world pose matrices, one per frame.
         gt_range: (min, max) metres for this dataset (see DATASET_GT_CONFIG).
 
+    Args (added):
+        covis_tau: if not None, ALSO compute a GT co-visibility-masked TAE
+                   (S6, ledger E7/F16). A pixel counts only if a GT point from
+                   the other frame reprojects onto it AND the GT depths agree
+                   within this relative tolerance (default caller passes 0.05).
+                   Masks come from GT only, so every config gets the same mask.
+
     Returns:
-        dict with 'tae_percent' (float) and 'n_pairs' (int, consecutive pairs
-        actually used).
+        dict with 'tae_percent', 'tae_median_percent', 'n_pairs', and — when
+        covis_tau is set — 'tae_covis_percent', 'tae_covis_median_percent',
+        'covis_fraction' (mean fraction of otherwise-valid pixels kept).
     """
     n = len(pred_disps)
     if n != len(gt_depths) or n != len(Ks) or n != len(poses):
@@ -537,7 +620,11 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
             f"{n}/{len(gt_depths)}/{len(Ks)}/{len(poses)}"
         )
     if n < 2:
-        return {"tae_percent": 0.0, "tae_median_percent": 0.0, "n_pairs": 0}
+        out = {"tae_percent": 0.0, "tae_median_percent": 0.0, "n_pairs": 0}
+        if covis_tau is not None:
+            out.update({"tae_covis_percent": 0.0, "tae_covis_median_percent": 0.0,
+                        "covis_fraction": 0.0})
+        return out
 
     gt_depths_t = [torch.from_numpy(g).double() if isinstance(g, np.ndarray) else g.double() for g in gt_depths]
     s, t = _pool_align_scene_disparity(pred_disps, gt_depths_t, gt_range)
@@ -551,6 +638,10 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     error_sum = 0.0
     per_pair_errors = []
+    covis_error_sum = 0.0
+    covis_per_pair_errors = []
+    covis_frac_sum = 0.0
+    covis_frac_count = 0
     n_pairs = 0
     for i in range(n - 1):
         depth1 = aligned_depths[i].to(device)
@@ -576,6 +667,24 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
 
         error_sum += err_fwd + err_bwd
         per_pair_errors.append((err_fwd + err_bwd) / 2.0)
+
+        if covis_tau is not None:
+            gt1 = gt_depths_t[i].to(device)
+            gt2 = gt_depths_t[i + 1].to(device)
+            # Forward comparison lives in frame-2 space -> mask co-visible
+            # frame-2 pixels (gt1 reprojected into frame 2). Backward lives in
+            # frame-1 space -> mask via gt2 reprojected into frame 1.
+            m_fwd = _covisibility_mask(gt1, gt2, R_2_1, t_2_1, K, covis_tau, scatter_zbuffer)
+            m_bwd = _covisibility_mask(gt2, gt1, R_1_2, t_1_2, K, covis_tau, scatter_zbuffer)
+            cov_fwd = _tae_geometric_single(depth1, depth2, R_2_1, t_2_1, K, m_fwd,
+                                            scatter_zbuffer=scatter_zbuffer)
+            cov_bwd = _tae_geometric_single(depth2, depth1, R_1_2, t_1_2, K, m_bwd,
+                                            scatter_zbuffer=scatter_zbuffer)
+            covis_error_sum += cov_fwd + cov_bwd
+            covis_per_pair_errors.append((cov_fwd + cov_bwd) / 2.0)
+            covis_frac_sum += float(m_fwd.float().mean()) + float(m_bwd.float().mean())
+            covis_frac_count += 2
+
         n_pairs += 1
 
     tae_percent = (error_sum / (2 * n_pairs)) * 100.0 if n_pairs > 0 else 0.0
@@ -583,11 +692,18 @@ def compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range,
     # heavy-tailed (a few violent-motion frame pairs dominate), so the median
     # pair is a more representative summary of that scene's typical behaviour.
     tae_median_percent = float(np.median(per_pair_errors)) * 100.0 if per_pair_errors else 0.0
-    return {
+    result = {
         "tae_percent": round(tae_percent, 6),
         "tae_median_percent": round(tae_median_percent, 6),
         "n_pairs": n_pairs,
     }
+    if covis_tau is not None:
+        covis_tae = (covis_error_sum / (2 * n_pairs)) * 100.0 if n_pairs > 0 else 0.0
+        covis_median = float(np.median(covis_per_pair_errors)) * 100.0 if covis_per_pair_errors else 0.0
+        result["tae_covis_percent"] = round(covis_tae, 6)
+        result["tae_covis_median_percent"] = round(covis_median, 6)
+        result["covis_fraction"] = round(covis_frac_sum / covis_frac_count, 6) if covis_frac_count else 0.0
+    return result
 
 # ============================================================
 # DYNAMIC SURGERY VERIFICATION & SANITY CHECK
@@ -1126,9 +1242,13 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
             result[scene] = (pred_disps, gt_depths, Ks, poses)
         return result
 
+    covis_tau = getattr(args, "tae_covis_tau", None)
+
     def evaluate_predictions(scene_preds):
         acc_metrics_all = []
         tae_list = []
+        tae_covis_list = []
+        covis_frac_list = []
         per_scene_tae = {}
         total_pairs = 0
         n_skipped_frames = 0
@@ -1153,10 +1273,14 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
             # TAE pools alignment across the whole scene; if the ENTIRE scene has
             # no in-range GT pixels, skip the scene's TAE too (same rationale).
             try:
-                tae_result = compute_tae_geometric_for_scene(pred_disps, gt_depths, Ks, poses, gt_range)
+                tae_result = compute_tae_geometric_for_scene(
+                    pred_disps, gt_depths, Ks, poses, gt_range, covis_tau=covis_tau)
                 tae_list.append(tae_result["tae_percent"])
                 per_scene_tae[scene] = tae_result["tae_percent"]
                 total_pairs += tae_result["n_pairs"]
+                if covis_tau is not None:
+                    tae_covis_list.append(tae_result["tae_covis_percent"])
+                    covis_frac_list.append(tae_result["covis_fraction"])
             except ValueError:
                 n_skipped_scenes += 1
 
@@ -1174,6 +1298,15 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
         # 100x above the rest), so the mean describes that one scene rather than
         # the model. Both are reported; neither is hidden.
         avg["tae_median_percent"] = round(float(np.median(tae_list)), 6) if tae_list else 0.0
+        # GT co-visibility-masked TAE (S6/E7): excludes disocclusion / moving-
+        # object / out-of-frame pixels whose spurious reprojection error (F16,
+        # e.g. ambush_2 907%) is not the depth predictor's fault. This is the
+        # honest headline temporal number when reported alongside covis_fraction.
+        if covis_tau is not None:
+            avg["tae_covis_percent"] = round(float(np.mean(tae_covis_list)), 6) if tae_covis_list else 0.0
+            avg["tae_covis_median_percent"] = round(float(np.median(tae_covis_list)), 6) if tae_covis_list else 0.0
+            avg["covis_fraction"] = round(float(np.mean(covis_frac_list)), 6) if covis_frac_list else 0.0
+            avg["tae_covis_tau"] = covis_tau
         avg["temporal_n_pairs"] = total_pairs
         avg["n_images"] = len(acc_metrics_all)
         avg["n_skipped_frames"] = n_skipped_frames
@@ -1312,6 +1445,13 @@ def main():
     parser.add_argument("--temporal-window", type=int, default=16,
                          help="[--eval-mode temporal] Frames per real video window fed to the "
                               "model in one forward call (video_length)")
+    parser.add_argument("--tae-covis-tau", type=float, default=None,
+                         help="[--eval-mode temporal] If set (e.g. 0.05), also report a GT "
+                              "co-visibility-masked TAE (S6/E7): pixels count only where a GT "
+                              "point from the other frame reprojects onto them AND the GT depths "
+                              "agree within this relative tolerance. Masks are GT-only so every "
+                              "config gets the same mask; excludes disocclusion/out-of-frame "
+                              "inflation (docs/optimization_ledger.md F16).")
     args = parser.parse_args()
 
     if args.eval_mode == "groundtruth":
