@@ -782,6 +782,47 @@ def resolve_group_size(quantizer_name: str, head_dim: int) -> int:
     return QUANTIZER_GROUP_SIZE.get(quantizer_name, 4)
 
 
+# VDA encoder configs (S4) — VERIFIED against Video-Depth-Anything/run.py and
+# app.py (grep 'out_channels'): these are the repo's own definitions, not
+# guessed. head_dim is 64 for every variant (vits 384/6, vitb 768/12,
+# vitl 1024/16), so HadamardRotation(64) and all quantizer group sizes are
+# encoder-INDEPENDENT — surgery derives dim/num_heads from each source layer,
+# so nothing below assumes vits' 384/6 (see tests/test_encoder_configs.py).
+MODEL_CONFIGS = {
+    'vits': {'encoder': 'vits', 'features': 64,  'out_channels': [48, 96, 192, 384]},
+    'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+    'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
+}
+# HuggingFace checkpoint URLs, one per encoder (verified against
+# Video-Depth-Anything/get_weights.sh and README download links).
+CHECKPOINT_URLS = {
+    'vits': "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth",
+    'vitb': "https://huggingface.co/depth-anything/Video-Depth-Anything-Base/resolve/main/video_depth_anything_vitb.pth",
+    'vitl': "https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl.pth",
+}
+
+
+def get_model_config(encoder: str) -> dict:
+    """Returns a copy of the VDA model config for `encoder` (vits/vitb/vitl)."""
+    if encoder not in MODEL_CONFIGS:
+        raise ValueError(
+            f"Unknown encoder '{encoder}'. Valid: {sorted(MODEL_CONFIGS)} "
+            f"(from Video-Depth-Anything/run.py)."
+        )
+    return dict(MODEL_CONFIGS[encoder])
+
+
+def checkpoint_candidates(encoder: str):
+    """Local checkpoint search paths for `encoder`, in priority order."""
+    fname = f"video_depth_anything_{encoder}.pth"
+    return [
+        REPO_ROOT / "checkpoints" / fname,
+        REPO_ROOT / fname,
+        Path(f"/content/{fname}"),
+        Path(f"/content/vdaquant/checkpoints/{fname}"),
+    ]
+
+
 def compute_real_bit_accounting(
     bit_val: int,
     head_dim: int = 64,
@@ -1389,6 +1430,10 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
 def main():
     parser = argparse.ArgumentParser(description="VDA-HyperQuant Multi-Dataset Pareto Evaluation")
     parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "all"], help="Target benchmark dataset")
+    parser.add_argument("--encoder", type=str, default="vits", choices=["vits", "vitb", "vitl"],
+                         help="VDA encoder variant (S4). head_dim is 64 for all, so surgery/"
+                              "quantizers are encoder-independent; vitl tests cross-scale "
+                              "generalization (docs/optimization_ledger.md G4).")
     parser.add_argument("--bits", nargs="+", type=int, default=[8, 4, 3, 2], help="Quantization bit-widths to sweep")
     parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
     parser.add_argument("--output-dir", type=str, default="outputs/pareto_results", help="Directory to save benchmark reports and charts")
@@ -1495,16 +1540,12 @@ def main():
             motion_attn.XFORMERS_AVAILABLE = False
             
         from video_depth_anything.video_depth import VideoDepthAnything
-        model_configs = {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]}
+        model_configs = get_model_config(args.encoder)
+        print(f"  [Model] Encoder: {args.encoder} (config: {model_configs})")
         model = VideoDepthAnything(**model_configs).eval()
-        
-        # Check for official VDA checkpoint weights if available
-        possible_ckpts = [
-            REPO_ROOT / "checkpoints" / "video_depth_anything_vits.pth",
-            REPO_ROOT / "video_depth_anything_vits.pth",
-            Path("/content/video_depth_anything_vits.pth"),
-            Path("/content/vdaquant/checkpoints/video_depth_anything_vits.pth")
-        ]
+
+        # Check for official VDA checkpoint weights if available (encoder-specific)
+        possible_ckpts = checkpoint_candidates(args.encoder)
         ckpt_loaded = False
         for ckpt_path in possible_ckpts:
             if ckpt_path.exists():
@@ -1527,11 +1568,11 @@ def main():
                     except Exception:
                         pass
         if not ckpt_loaded:
-            print("  [Model] No valid checkpoint .pth found. Automatically downloading official pretrained VDA weights (~111MB)...")
+            print(f"  [Model] No valid {args.encoder} checkpoint .pth found. Automatically downloading official pretrained VDA weights...")
             try:
                 import urllib.request
-                ckpt_url = "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth"
-                save_ckpt_path = REPO_ROOT / "checkpoints" / "video_depth_anything_vits.pth"
+                ckpt_url = CHECKPOINT_URLS[args.encoder]
+                save_ckpt_path = REPO_ROOT / "checkpoints" / f"video_depth_anything_{args.encoder}.pth"
                 save_ckpt_path.parent.mkdir(parents=True, exist_ok=True)
                 req = urllib.request.Request(ckpt_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req, timeout=60) as response, open(save_ckpt_path, 'wb') as out_file:
@@ -1727,6 +1768,7 @@ def main():
     with open(json_path, "w") as f:
         json.dump({
             "eval_mode": args.eval_mode,
+            "encoder": args.encoder,
             "results": all_results,
             "note": (
                 f"{eval_mode_note} effective_bits_per_scalar is the ALL-INCLUSIVE rate: payload "
