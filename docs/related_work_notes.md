@@ -1,85 +1,162 @@
-# Related Work Notes — DG-4 kill-shot literature review (2026-07-25)
+# Related Work — FULL literature survey (DG-4 round 2, 2026-07-26)
 
-Executed per docs/phase4_a_star_plan.md §5. Purpose: decide whether the paper's
-novelty claims survive. **Verdict: the method-level novelty does NOT survive; a
-narrow domain-level slice does.** Threat levels: HIGH = directly claims something
-we wanted to claim; MED = adjacent/overlapping; LOW = background/citation.
+Supersedes the 2026-07-25 first pass. Round 1 found the *method* novelty dead.
+Round 2 went after the two SURVIVING claims — (a) "first KV-quant for a dense-
+geometry/video-depth model", (b) "temporal-consistency metrics are gameable" —
+and found **prior art against BOTH**. A narrower, still-defensible contribution
+survives. Read this before writing a single line of the paper.
 
-Two most consequential papers were fetched and confirmed directly (not just
-title/abstract): Quant VideoGen and the 33-method study. Others are from search
-snippets and should be read in full before the related-work section is written.
+Threat: HIGH = claims something we wanted to claim. MED = adjacent. LOW = cite-only.
 
-## Bucket 1 — lattice / vector quantization on KV cache  → HEAVILY CLAIMED
+---
 
+## KILL 1 — "First KV-cache quantization of a dense-geometry model" is DEAD
+
+**3DTurboQuant: Training-Free Near-Optimal Quantization for 3D Reconstruction
+Models** (arXiv 2604.05366) — **HIGH**.
+
+Per search-result summary (⚠ full PDF text extraction FAILED — details below are
+from a search snippet and MUST be verified by a manual read before submission):
+  * Training-free **KV-cache quantization** of **DUSt3R ViT-Large** (a dense-geometry
+    vision transformer).
+  * Reports a **phase transition between 2 and 3 bits** (pointmap PSNR 16.5 dB @ b=2
+    → 29.3 dB @ b=3) — i.e. **the same cliff as our F13**.
+  * At **b=4, 7.9× KV compression, "depth structure indistinguishable from the
+    unquantized baseline"** — i.e. **the same headline as our F23** (4.0 eff bits, 8×,
+    lossless).
+
+**This paper is already cited in our own `research/models/rotated_attention.py`
+docstring as reference [3].** It was in the repo from the start and neither DG-4
+round 1 nor any earlier session positioned against it. That is a process failure
+worth naming.
+
+Surviving distinction (NARROW, must be verified): DUSt3R is **multi-view / pairwise**
+3D reconstruction — its attention is spatial cross-view, not **temporal attention
+across video frames**. Our work quantizes a *video* model's temporal KV cache and
+evaluates *temporal consistency*, which 3DTurboQuant (static reconstruction) cannot.
+But **"first KV quant for dense geometry" can no longer be claimed in any form.**
+
+### Adjacent cluster — streaming-3D cache compression (all EVICTION, not quantization)
 | Paper | arXiv | Threat | Note |
 |---|---|---|---|
-| Leech Lattice VQ for Efficient LLM Compression | 2603.11021 | **HIGH** | Explicitly beats QuIP#, QTIP, PVQ. Our "push to Leech" idea is already published, and it's SOTA. |
-| Learning Grouped Lattice VQ for Low-Bit LLM | 2510.20984 | **HIGH** | Grouped lattice VQ — overlaps our grouped-scale framing. |
-| FibQuant: Universal VQ for Random-Access KV-Cache | 2605.11478 | **HIGH** | Random-access VQ KV cache — the exact deployment concern we raised as "lattice breaks random access". Solved by others. |
-| Hurwitz Quaternion Multiplicative Quant for KV | 2605.27646 | MED | Exotic algebraic-structure VQ for KV. |
-| GSRQ: Gain-Shape Residual Quant, sub-1-bit KV | 2607.01065 | MED | Residual + gain-shape VQ, sub-1-bit. |
-| VecInfer: Outlier-Suppressed VQ KV cache | 2510.06175 | MED | Outlier suppression (~ our rotation motivation) + VQ KV. |
+| STAC: Spatio-Temporal Aware Cache Compression | 2603.20284 | MED | "First systematic study of training-free spatio-temporal **KV cache compression** for causal transformer 3D recon" (VGGT). But it is **token caching/eviction + voxel consolidation**, not bit-width quantization. ~10× memory, 4× speedup. |
+| XStreamVGGT | 2601.01204 | MED | Confirmed by fetch: **token eviction/pruning, NOT quantization**. VGGT streaming 3D recon; evaluates AbsRel/δ₁. |
+| GHOST: token eviction for 3D recon | 2605.15852 | LOW | Eviction. |
+| StreamCacheVGGT | 2604.15237 | LOW | Hybrid cache compression, VGGT. |
 
-Conclusion: **E8-lattice-on-KV-cache is not novel.** Lattice/VQ KV quantization is a
-crowded, fast-moving area with SOTA already past E8 (Leech). This is the DG-4 kill
-condition for the *method* firing exactly as the plan feared.
+**Defensible axis:** eviction/pruning (which tokens to keep) and quantization (how
+many bits per value) are orthogonal compression axes. This cluster is eviction;
+3DTurboQuant is the quantization one, and it is the real threat.
 
-## Bucket 2 — video-GENERATION KV quantization (our "standardize to video gen" target) → CLAIMED, active
+---
 
-| Paper | arXiv | Threat | Note |
-|---|---|---|---|
-| **Quant VideoGen** (ICML 2026) | 2602.02958 | **HIGH (confirmed by fetch)** | Auto-regressive video gen, training-free, 2–4 bit KV, **progressive RESIDUAL quantization + semantic-aware smoothing exploiting spatiotemporal redundancy**, 7× KV reduction. This IS the temporal-residual idea, for the exact generalization target the boss named. |
-| **33-Method Empirical Study, self-forcing video gen** | 2603.27469 | **HIGH (confirmed by fetch)** | The "honest empirical KV-quant benchmark" niche — for video gen. Even states "nominal compression alone is insufficient" (our honest-accounting angle) and "methods appear stable while drifting structurally" (adjacent to our TAE-gameability). |
-| Quantized Keys Steal Attention: bias correction, video diffusion | 2605.26266 | **HIGH** | QJL-style attention-bias correction, for video diffusion. Our QJL angle, claimed for video. |
-| Attend Locally, Remember Linearly (linear attn cross-frame memory) | 2605.16579 | LOW | Different mechanism (linear attention), background. |
+## KILL 2 — "Temporal-consistency metrics are gameable" is ALREADY KNOWN (for other metrics)
 
-Conclusion: **the video-generation KV-quant space is already active at ICML 2026**,
-and it already contains (a) residual KV quant, (b) an honest empirical benchmark,
-(c) bias correction. The "generalize/standardize to video generation" ambition is
-3–6 months behind multiple groups.
+**The degenerate-metric phenomenon is documented prior art in video depth.**
 
-## Bucket 3 — video-DEPTH quantization → NARROW SLICE SURVIVES
+* **OPW** (optical-flow warping error) and **RTC** (relative temporal consistency)
+  "are optimized by the degenerate case where depth is constant for all frames
+  (dᵗ = k for any constant k)". Documented in *Temporally Consistent Online Depth
+  Estimation Using Point-Based Fusion* (arXiv 2304.07435), which proposes the
+  **TCC (temporal change consistency)** metric precisely to *prevent that degenerate
+  solution*. ⚠ Full-text fetch failed (corrupt PDF); statement is from search
+  summary and must be verified by manual read.
+* The DAVIS temporal-consistency metric was **deprecated** for exactly this class of
+  problem (limited applicability under deformation/occlusion).
+* **VMAF Paradox** (arXiv 2605.18378, verified by fetch): codec encoders "can
+  effectively **cheat** spatial metrics by sacrificing temporal efficiency" — I-frame
+  insertion produces "a sequence of high-quality still images" scoring near-perfect
+  VMAF with the worst temporal distortion. They *identify* the problem and explicitly
+  **do not propose a corrected metric**.
+* Goodhart's-law framing and "compression can improve a metric" (Occam's Hill;
+  ~40% of W8A8 runs improved calibration, arXiv 2509.21173) are both established.
 
-| Paper | Threat | Note |
-|---|---|---|
-| Depth Anything V2 INT8 via OpenVINO/NNCF (Medium/engineering) | LOW | INT8 weight quant of the *image* model, engineering not research. No KV cache, no video temporal path. |
-| Video-Depth-Anything (CVPR 2025, the base model) | — | The model we quantize; no quantization of its KV cache exists. |
+**We CANNOT claim "we discovered temporal metrics can be gamed."** A reviewer on an
+Evaluation track will cite OPW/RTC-vs-TCC immediately.
 
-Conclusion: **KV-cache quantization of a video DEPTH (discriminative dense-prediction)
-model appears genuinely unclaimed.** This is the one surviving novel slice.
+### What still survives here — and it is real
+1. **The known degeneracy is a *different metric* and a *different mechanism*.**
+   Known: *flow-warping* metrics (OPW/RTC) are optimized by **constant depth**.
+   Ours: the **geometric reprojection** metric **TAE** — adopted as the successor
+   precisely because flow-based metrics were unreliable — is *also* gameable, not by
+   constant depth but by **compression-induced loss of spatial structure** (depth still
+   varies; it loses fine detail, so there is less to misalign). Same disease, new host,
+   new vector.
+2. **VDA's TAE has NO occlusion or co-visibility handling — verified by direct fetch
+   of the VDA paper (arXiv 2501.12375v2):** "The paper does not discuss occlusion or
+   co-visibility masking in relation to TAE. The TAE formula (Eq. 5) … contains no
+   mention of occlusion handling or visibility constraints." Our **S6 co-visibility
+   mask is a genuine, unclaimed addition to the TAE protocol**, and our data shows it
+   FLIPS the ranking (F25) on two model scales.
+3. Nobody has demonstrated metric-gaming **under model quantization** for video depth
+   (the codec paper is codecs; the LLM work is perplexity/calibration).
 
-## Bucket 4 — temporal-redundancy KV compression → CLAIMED (incl. 3D/streaming)
+---
 
-| Paper | arXiv | Threat | Note |
-|---|---|---|---|
-| AttentionPredictor (NeurIPS 2025) | 2502.04077 | MED | Learns temporal attention patterns for KV compression. |
-| STAC: Spatio-Temporal Aware Cache, streaming 3D recon | 2603.20284 | **HIGH** | Spatio-temporal cache compression for streaming 3D reconstruction — closest to our geometry/depth domain. Read in full. |
-| PureKV: spatial-temporal sparse attn, VLMs | 2510.25600 | MED | Temporal-redundancy KV purification for vision-language. |
-| GUI-KV (projects old frames into present key subspace) | — | MED | Temporal-redundancy scoring across frames. |
+## Bucket A — lattice / VQ on KV cache (from round 1) — HEAVILY CLAIMED
+Leech Lattice VQ (2603.11021, beats QuIP#/QTIP/PVQ) · Grouped Lattice VQ (2510.20984) ·
+FibQuant random-access VQ KV (2605.11478) · Hurwitz quaternion VQ KV (2605.27646) ·
+GSRQ sub-1-bit gain-shape residual (2607.01065) · VecInfer outlier-suppressed VQ
+(2510.06175) · RDKV joint eviction+quantization rate-distortion bit allocation
+(2605.08317) · Spherical KV (2605.18856).
+**E8-on-KV is not novel; SOTA is past E8 (Leech).**
 
-Conclusion: temporal-redundancy KV compression is also an active, claimed area,
-now reaching into 3D/streaming-geometry (STAC).
+## Bucket B — video-generation KV quant — CLAIMED, ICML-2026-active
+Quant VideoGen (2602.02958, ICML 2026; training-free residual KV quant, 2–4 bit, 7×) ·
+33-method empirical study (2603.27469) · Quantized Keys Steal Attention (2605.26266,
+QJL-style bias correction for video diffusion) · Forcing-KV hybrid (2605.09681).
+**Note (verified by fetch):** the 33-method study does **NOT** demonstrate metric
+gaming ("does not demonstrate metric gaming in the sense you describe"), does **not**
+use geometric reprojection or depth, and explicitly lacks geometric consistency checks.
+It is therefore a *weaker* threat than round 1 feared — cite it, don't fear it.
 
-## Overall DG-4 verdict
+## Bucket C — rotation / outlier suppression — CLAIMED
+QuaRot, SpinQuant (rotation incl. KV cache, 3–4 bit for long video per 2026 survey),
+DuQuant. Our F20 (rotation inert at 4 bits on video-ViT temporal cache, essential at
+2 bits, with kurtosis mechanism) is a *negative/characterization* result against this
+line — still reportable, not a novelty claim.
 
-- **Method novelty (lattice / rotation / residual / QJL on KV cache): DEAD.** Every
-  one of these has a 2025–2026 paper, several in the last few months, some SOTA past
-  ours (Leech), some in the exact video target (Quant VideoGen).
-- **"Set a new standard for video-KV compression": not available.** The window is
-  occupied by groups publishing at ICML/NeurIPS 2026.
-- **What genuinely survives:**
-  1. KV-cache quantization *specifically for a video-DEPTH / dense-geometry model*
-     (discriminative, geometric-accuracy eval — distinct from all the generation work).
-  2. The **geometric-TAE-gameability finding** (F16): a compression method winning a
-     geometric temporal-consistency metric while collapsing on accuracy. The video-gen
-     33-method study noticed the *general* "appear stable while drifting" phenomenon
-     but did NOT formalize metric-gaming or do it for geometric reprojection TAE.
-- **Honest positioning:** this is a narrow, defensible **workshop / borderline-conference
-  paper in the efficient-video-vision niche**, framed as "the first careful, honestly-
-  accounted study of KV quantization for video depth, and a demonstration that geometric
-  temporal-consistency metrics are gameable under compression." It is NOT a standard-setter,
-  and any framing that implies method novelty will be desk-checked against the papers above.
+## Bucket D — temporal-redundancy KV compression — CLAIMED
+AttentionPredictor (NeurIPS 2025) · PureKV (2510.25600) · GUI-KV · plus the
+streaming-3D eviction cluster above.
 
-TODO before writing related-work: read in full 2603.11021 (Leech), 2602.02958
-(Quant VideoGen), 2603.27469 (33-method), 2603.20284 (STAC), 2605.26266 (bias
-correction video diffusion). Confirm none has already done video-DEPTH specifically.
+---
+
+## FINAL VERDICT (DG-4 round 2)
+
+**DEAD — do not claim any of these:**
+- Novel quantization method (lattice / rotation / QJL / residual). [round 1]
+- "First KV-cache quantization of a dense-geometry model." → **3DTurboQuant**.
+- "Temporal-consistency metrics can be gamed" as a new discovery. → **OPW/RTC + TCC**.
+- "First honest/all-inclusive KV-quant benchmark." → 33-method study says
+  "nominal compression alone is insufficient."
+
+**SURVIVES — the honest paper:**
+1. **The geometric-reprojection metric (TAE) is itself gameable under model
+   compression**, by structure collapse rather than the known constant-depth
+   degeneracy — the successor metric inherits the disease it was meant to cure.
+2. **A co-visibility-masked TAE protocol that fixes it** — VDA's TAE provably has no
+   occlusion handling (verified); our mask flips the ranking correctly and is
+   monotonic in bit-rate, on **both vits and vitl** (F25).
+3. **Video-*temporal* KV quantization** (vs 3DTurboQuant's static multi-view) with
+   full-split CIs, a fair grouped-scalar baseline, and the dataset-dependent
+   lattice crossover (F24) — as *characterization*, not as a method win.
+
+**Venue implication:** this is a **protocol/evaluation paper**, not a method paper —
+which is precisely WACV 2027's *Evaluation & Datasets* track ("analysis of benchmark
+failure modes", "new evaluation protocols", "negative results and critical analyses").
+The reframing is survivable *there* and would be fatal at a method track.
+
+**Title direction (honest):** "Co-Visibility-Masked Temporal Alignment Error:
+Auditing Temporal-Consistency Evaluation for Compressed Video Depth Models."
+
+---
+
+## MANDATORY before submission (unverified claims above)
+1. **Read 3DTurboQuant (2604.05366) in full.** PDF extraction failed. Confirm: does it
+   touch any *video* model or temporal attention? If it does, the domain claim narrows
+   further and the paper must lead purely on the metric contribution.
+2. **Read 2304.07435 in full** (OPW/RTC degeneracy + TCC). PDF extraction failed.
+   Get the exact sentence and cite it as the direct antecedent of our finding.
+3. Read Leech LVQ (2603.11021) and STAC (2603.20284) enough to cite correctly.
+4. Verify whether any TAE variant anywhere already applies occlusion masking.
