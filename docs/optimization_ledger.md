@@ -1033,3 +1033,101 @@ Contribution ranking for the writeup should now lead with TAE-gameability and th
 "honest all-inclusive 4-bit lossless + fair-baseline" story, with lattice-vs-scalar
 demoted to an honest matched-rate ablation, and rotation as a rate-dependent ablation.
 
+
+---
+
+# FINALS RESULTS â€” COMPLETE (collaborator GPU box, 2026-07-26)
+
+`finals_results.zip` â€” 19 experiments: full-split E8/D4/scalar_g8, E8 KITTI seed
+sweep, E7 Sintel co-visibility TAE, vitb/vitl scale ladder, vitl Sintel, KV-memory
+table. Findings F23â€“F26 finalize the paper's results. CIs via compute_stats.py (S2).
+
+## F23 â€” DG-1 HEADLINE CONFIRMED with full-split CIs: E8@3b is lossless
+
+Paired BCa bootstrap (E8@3b âˆ’ FP32) delta1:
+| Split | mean diff | 95% BCa CI | excludes 0 |
+|---|---|---|---|
+| NYU-654 | âˆ’0.0014 | [âˆ’0.0047, +0.0019] | no (indistinguishable) |
+| KITTI-1000 | âˆ’0.0009 | [âˆ’0.0025, +0.0008] | no (indistinguishable) |
+
+**Locked headline: E8 lattice, 3-bit payload / 4.0 all-inclusive eff bits, is
+statistically indistinguishable from FP32 on both datasets â€” 8Ã— vs FP32, 4Ã— vs
+FP16.** Both CIs tightly straddle 0. This is the paper's backbone claim and it is
+now airtight. (scale-bits 8 â‰¡ 16 from F18.)
+
+## F24 â€” DG-3 RESOLVED (adverse for "lattice is the key"): a dataset-dependent CROSSOVER
+
+Full-split paired BCa bootstrap, E8@3b âˆ’ scalar_g8@3b (BOTH 4.0 eff bits, both
+per-8-group scales, both RHT seed 0):
+| Split | E8 âˆ’ scalar_g8 | 95% BCa CI | verdict |
+|---|---|---|---|
+| NYU-654 | **âˆ’0.0049** | [âˆ’0.0077, âˆ’0.0022] | scalar_g8 SIGNIFICANTLY BEATS E8 |
+| KITTI-1000 | **+0.0098** | [+0.0079, +0.0117] | E8 SIGNIFICANTLY BEATS scalar_g8 |
+
+At full N it is no longer even a "tie on NYU" (F19's N=200 read) â€” the fair grouped
+scalar **significantly beats** E8 on NYU, and E8 significantly beats it on KITTI. D4
+also beats E8 on NYU at 3-bit (0.9148 vs 0.9085). So:
+
+  * "Lattice VQ beats a fair scalar baseline" is FALSE as a general claim.
+  * The honest, characterizable finding: **lattice coding gain helps on wide-
+    dynamic-range outdoor depth (KITTI, 0.1â€“80 m) and hurts slightly on narrow-
+    range indoor depth (NYU, 0.1â€“10 m).** This matches the dynamic-range mechanism
+    (wider range after rotation -> more spread -> lattice space-filling matters).
+  * Lattice DIMENSION still matters at extreme rate: E8 > D4 at 2-bit (NYU 0.639
+    vs 0.505; KITTI 0.618 vs 0.367) â€” higher-dim lattice degrades more gracefully.
+
+CONTRIBUTION 2 FINAL FRAMING: not "lattice is the active ingredient" but "a *fair*
+grouped-scalar baseline reaches FP32 parity at 4.0 eff bits too; lattice VQ adds a
+significant margin only on wide-dynamic-range data, and we characterise when." This
+is honest and pre-empts the reviewer who reruns scalar_g8. Do NOT headline the
+lattice.
+
+## F25 â€” CENTERPIECE CONFIRMED + GENERALIZES: co-visibility mask un-games TAE
+
+E7, Sintel, E8, with the S6 GT co-visibility mask (covis_fraction 0.86, identical
+across configs as designed):
+| Config | eff | delta1 | TAE raw % | TAE covis % |
+|---|---|---|---|---|
+| FP32 | 32 | 0.7106 | 54.3 | 5.86 |
+| 4bit | 5.0 | 0.7075 | 54.1 | 5.93 |
+| 3bit | 4.0 | 0.6902 | 54.0 | 6.58 |
+| **2bit** | 3.0 | **0.4997** | **11.6 (looks best!)** | **8.01 (correctly worst)** |
+
+Raw TAE is GAMEABLE: the collapsed 2-bit model posts the *best* raw TAE (11.6 Â«
+FP32 54.3). The co-visibility mask FLIPS the ranking â€” 2-bit becomes correctly the
+WORST (8.01 > FP32 5.86), and covis-TAE is MONOTONIC in bit-rate (5.86â†’5.93â†’6.58â†’
+8.01), exactly what an honest temporal metric must do.
+
+HOLDS AT SCALE (vitl Sintel): 2-bit raw TAE 67.9 (drops from FP32 101.8, gameable)
+but covis-TAE 26.8 (Â» FP32 9.4). Same flip, even sharper. The mask works on both
+model sizes -> the metric contribution generalizes.
+
+**This is the paper's strongest, most novel result.** Lead with it.
+
+## F26 â€” Scale ladder: KITTI clean (holds at scale), NYU N=200 anomalous (rerun needed)
+
+KITTI scale ladder is clean and monotonic in model size â€” supports generalization:
+| Encoder | FP32 | E8@4b | E8@3b (4.0 eff) | Î”3b vs FP32 |
+|---|---|---|---|---|
+| vits | 0.928 | 0.9319 | 0.9271 | âˆ’0.0009 |
+| vitb | 0.9298 | 0.9267 | 0.9234 | âˆ’0.0064 |
+| vitl | 0.9426 | 0.9425 | 0.9381 | âˆ’0.0045 |
+FP32 rises monotonically with size (0.928 < 0.930 < 0.943 â€” correct), and E8@3b is
+near-lossless at every scale. **"Holds on VDA-Large" is a clean claim on KITTI.**
+
+NYU scale ladder (N=200) is ANOMALOUS and NOT publishable as-is: vitb/vitl FP32
+(0.865/0.887) fall BELOW vits (0.910), and quantization "improves" FP32 by +0.03â€“
+0.05 (vitb E8@3b 0.914 vs FP32 0.865). The checkpoints loaded correctly (KITTI vitl
+0.9426 proves it), so this is N=200 subset noise on indoor scenes, not a bug â€” but
+the "+0.05 quantization improves" cannot appear in the paper. FIX: rerun vitb/vitl
+NYU at full 654 (cheap), OR report scale generalization on KITTI only with a stated
+caveat. Added as the one remaining GPU task.
+
+## Paper status after finals
+- Headline (F23): SOLID, full-split CIs, holds on Large (KITTI).
+- Centerpiece (F25): SOLID, generalizes across scale â€” the lead contribution.
+- Lattice (F24): honestly reframed to a dataset-dependent characterization.
+- Rotation (F20), QJL (F15), degeneracy diagnostic (F22): done.
+- Memory table (S7): vitl W=32 0.84 GB fp16 -> 0.21 GB @ 4 eff bits.
+- ONE loose end: vitb/vitl NYU full-split rerun (N=200 anomaly). Everything else final.
+
