@@ -782,6 +782,32 @@ def resolve_group_size(quantizer_name: str, head_dim: int) -> int:
     return QUANTIZER_GROUP_SIZE.get(quantizer_name, 4)
 
 
+def bit_accounting_for(quantizer_name: str, bit_val: int, use_qjl: bool,
+                       scale_bits: int, head_dim: int = 64) -> dict:
+    """
+    compute_real_bit_accounting, but reports the IdentityQuantizer control
+    HONESTLY: 'identity' performs no quantization at all, so it costs full
+    precision and achieves NO compression regardless of the --bits value passed
+    alongside it. Reporting it as e.g. "4.0 effective bits" would be a fiction —
+    the control exists precisely to separate surgery effects from bit-width
+    effects (docs/optimization_ledger.md F27), so its rate must read as FP32.
+    """
+    if quantizer_name == 'identity':
+        return {
+            "total_bits_per_vector": head_dim * 32,
+            "effective_bits_per_scalar": 32.0,
+            "ratio_vs_fp32": 1.0,
+            "ratio_vs_fp16": 0.5,
+            "nominal_ratio_vs_fp32": 1.0,
+            "scale_overhead_bits_per_vector": 0,
+            "qjl_side_bits_per_vector": 0,
+        }
+    return compute_real_bit_accounting(
+        bit_val, head_dim=head_dim, use_qjl=use_qjl,
+        group_size=resolve_group_size(quantizer_name, head_dim), scale_bits=scale_bits,
+    )
+
+
 # VDA encoder configs (S4) — VERIFIED against Video-Depth-Anything/run.py and
 # app.py (grep 'out_channels'): these are the repo's own definitions, not
 # guessed. head_dim is 64 for every variant (vits 384/6, vitb 768/12,
@@ -1169,9 +1195,8 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
             f"exactly across configs (see docs/optimization_ledger.md T9)."
         )
 
-        bit_accounting = compute_real_bit_accounting(
-            bit, head_dim=64, use_qjl=args.use_qjl,
-            group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
+        bit_accounting = bit_accounting_for(
+            args.quantizer, bit, args.use_qjl, args.scale_bits,
         )
         if not q_gt_metrics:
             raise ValueError(f"Every frame skipped at {bit}-bit (no in-range GT); check gt_range={gt_range}.")
@@ -1406,9 +1431,8 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
 
         metrics = evaluate_predictions(predict_scene(model_quant))
 
-        bit_accounting = compute_real_bit_accounting(
-            bit, head_dim=64, use_qjl=args.use_qjl,
-            group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
+        bit_accounting = bit_accounting_for(
+            args.quantizer, bit, args.use_qjl, args.scale_bits,
         )
         metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
         metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
@@ -1443,7 +1467,14 @@ def main():
         help="Enable QJL bias correction (use --no-qjl to run the QJL ablation)",
     )
     parser.add_argument("--quantizer", type=str, default="lattice_d4",
-                         choices=["scalar", "scalar_g8", "uniform_vector", "lattice_d4", "lattice_e8"])
+                         choices=["scalar", "scalar_g8", "uniform_vector", "lattice_d4",
+                                  "lattice_e8", "identity"],
+                         help="'identity' is the SURGERY-FIDELITY CONTROL (F27): it applies the "
+                              "full attention surgery but with a no-op quantizer, so the run "
+                              "differs from the FP32 baseline ONLY by the attention "
+                              "implementation, not by bit-width. Any accuracy gap it shows is "
+                              "attributable to the surgery itself, not to quantization. Required "
+                              "before any cross-encoder (vitb/vitl) claim -- see ledger F27.")
     parser.add_argument("--scale-bits", type=int, default=16, choices=[8, 16],
                          help="Bit-width for lattice quantizers' per-group scale metadata "
                               "(the T8 4-bit headline config: --quantizer lattice_e8 "
@@ -1715,9 +1746,8 @@ def main():
                 fps_q = 15.5
 
             peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
-            bit_accounting = compute_real_bit_accounting(
-                bit, head_dim=64, use_qjl=args.use_qjl,
-                group_size=resolve_group_size(args.quantizer, 64), scale_bits=args.scale_bits,
+            bit_accounting = bit_accounting_for(
+                args.quantizer, bit, args.use_qjl, args.scale_bits,
             )
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)

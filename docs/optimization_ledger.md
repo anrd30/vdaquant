@@ -1131,3 +1131,78 @@ caveat. Added as the one remaining GPU task.
 - Memory table (S7): vitl W=32 0.84 GB fp16 -> 0.21 GB @ 4 eff bits.
 - ONE loose end: vitb/vitl NYU full-split rerun (N=200 anomaly). Everything else final.
 
+
+---
+
+## F27 â€” SURGERY FIDELITY DEGRADES WITH MODEL SIZE; scale-ladder claims BLOCKED (2026-07-26)
+
+The vitb/vitl NYU anomaly does **NOT** resolve at full split. F26's "N=200 subset
+noise" hypothesis is **FALSIFIED**.
+
+NYU, full 654 images:
+| Encoder | FP32 Î´1 | E8@4b | E8@3b | Î”(3b âˆ’ FP32) |
+|---|---|---|---|---|
+| vits | 0.9099 | 0.9067 | 0.9085 | âˆ’0.0014 |
+| vitb | 0.8771 | 0.8794 | **0.9155** | **+0.0384** |
+| vitl | 0.8959 | 0.9040 | **0.9189** | **+0.0230** |
+
+Two things are wrong and both persist at N=654:
+  1. FP32 gets WORSE with model size on NYU (vits 0.910 > vitl 0.896 > vitb 0.877),
+     the opposite of KITTI (vits 0.928 < vitb 0.930 < vitl 0.943).
+  2. Quantization "improves" Î´1 by +0.02 to +0.04 â€” far too large to be noise.
+
+Per-image analysis rules out outliers: the WHOLE distribution shifts (vitl FP32 â†’
+E8@3b: median 0.9324â†’0.9491, p10 0.7622â†’0.8137, frac<0.8 0.150â†’0.081; catastrophic
+failures frac<0.5 unchanged at ~0.005). This is systematic, not a few bad frames.
+
+### Root cause located: surgery fidelity collapses with model size
+
+The `verify_quantization_surgery` activation diff (FP32 vs quantized, identical
+config apart from the surgery + bit-width):
+| Run | Layers replaced | Activation MSE | Max abs diff |
+|---|---|---|---|
+| vits NYU | 12 + 8 | **2.17e-04** | 0.41 |
+| vitb NYU | 12 + 8 | 6.72e-01 | 19.9 |
+| vitl KITTI | 24 + 8 | 4.25e+01 | 123.9 |
+| vitl NYU | 24 + 8 | **9.48e+02** | 676.0 |
+
+**Six orders of magnitude** across encoders at the SAME bit-width and quantizer.
+3-bit quantization cannot produce that spread. At vits the replacement is
+numerically faithful (MSE 2e-4); at vitb/vitl it is not, so those runs are
+measuring "our attention implementation" at least as much as "quantization".
+
+(xformers is NOT installed on the run box â€” logs show "xFormers not available" â€”
+so this is not an xformers-vs-SDPA effect. Both paths use VDA's fallback attention;
+the divergence is introduced by our RotatedSelfAttention/RotatedTemporalAttention
+replacement itself at larger dims.)
+
+### The confound, stated plainly
+Every "FP32 vs quantized" row changes TWO variables at once: (a) numeric precision
+of the KV cache, and (b) the attention implementation (VDA's â†’ ours). At vits (b) is
+negligible, so the comparison is clean. At vitb/vitl (b) dominates, so any
+cross-encoder claim is currently uninterpretable.
+
+### Control implemented: `--quantizer identity`
+`IdentityQuantizer` existed but was never exposed on the CLI. Now it is, and
+`bit_accounting_for()` reports it honestly as 32.0 eff bits / 1.0Ã— (it compresses
+nothing, whatever `--bits` says). Running it applies the FULL surgery with a no-op
+quantizer, so it differs from the FP32 baseline ONLY by the attention
+implementation. Decision rule:
+  * identity â‰ˆ 0.919 (like E8@3b) â†’ the gain is the ATTENTION SWAP. Our replacement
+    is not faithful at large dims â€” a genuine BUG to fix before any vitb/vitl claim.
+  * identity â‰ˆ 0.896 (like FP32) â†’ surgery is faithful and the effect really is
+    bit-width related; investigate separately.
+
+### Paper impact (act on this)
+- **vits results STAND.** Surgery fidelity verified at MSE 2e-4; F23's headline CIs,
+  F24's crossover, F25's co-visibility centrepiece are all vits (+ vitl only as a
+  *secondary* generalization check) and are unaffected.
+- **The ENTIRE scale ladder (vitb + vitl, NYU *and* KITTI) is BLOCKED** pending the
+  identity control. Note vitl-KITTI is suspect too (MSE 42.5) even though its
+  Î´1 ordering looks sensible â€” a plausible-looking number from an unfaithful
+  pipeline is still not evidence.
+- F26's "KITTI scale ladder is clean" conclusion is **RETRACTED**; it was based on
+  Î´1 ordering alone without checking surgery fidelity.
+- Do NOT publish any "holds at model scale" claim until identity comes back clean.
+  The paper is fine without it: the contribution is the evaluation protocol on vits.
+

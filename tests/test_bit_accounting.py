@@ -110,6 +110,30 @@ def test_bit_accounting_scalar_g8_matched_to_e8():
     assert result_4bit["effective_bits_per_scalar"] == 5.0, result_4bit
 
 
+def test_identity_control_reports_no_compression():
+    """
+    F27 surgery-fidelity control: --quantizer identity performs NO quantization,
+    so it must report FP32 rate (32.0 eff bits, 1.0x) no matter what --bits is
+    passed alongside it. Reporting "4.0 effective bits" for a run that never
+    quantized anything would be a fiction, and this control exists precisely to
+    separate surgery effects from bit-width effects.
+    """
+    from run_pareto_benchmark_suite import bit_accounting_for
+
+    for bits in (2, 3, 4, 8):
+        r = bit_accounting_for("identity", bits, use_qjl=False, scale_bits=8)
+        assert r["effective_bits_per_scalar"] == 32.0, (bits, r)
+        assert r["ratio_vs_fp32"] == 1.0, (bits, r)
+        assert r["scale_overhead_bits_per_vector"] == 0, (bits, r)
+
+    # Real quantizers must still route through the honest accounting unchanged.
+    r_e8 = bit_accounting_for("lattice_e8", 3, use_qjl=False, scale_bits=8)
+    assert r_e8["effective_bits_per_scalar"] == 4.0, r_e8
+    r_sg8 = bit_accounting_for("scalar_g8", 3, use_qjl=False, scale_bits=8)
+    assert r_sg8["effective_bits_per_scalar"] == 4.0, r_sg8
+    print("  identity control reports FP32 rate; real quantizers unchanged")
+
+
 if __name__ == "__main__":
     test_bit_accounting_with_qjl_audited_config()
     test_bit_accounting_without_qjl()
