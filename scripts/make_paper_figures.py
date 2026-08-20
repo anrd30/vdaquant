@@ -81,6 +81,16 @@ def _configs(data):
     return next(iter(data["results"].values()))
 
 
+def _first_present(idx, names):
+    """First experiment name in `names` that exists in the index, else None.
+    Lets each figure prefer the finals-run directory names while still
+    falling back to earlier phase names if the finals aren't present."""
+    for n in names:
+        if n in idx:
+            return n
+    return None
+
+
 def _skip(name, msg):
     print(f"[SKIP] {name}: {msg}")
 
@@ -98,14 +108,20 @@ def _save(fig, out_dir, stem):
 
 def fig_pareto(idx, out_dir):
     """F1: delta1 vs eff bits per dataset, one line per quantizer family."""
-    # (dataset label, {quantizer: experiment_name})
+    # (dataset label, {quantizer: [experiment names, most-preferred first]}).
+    # Finals-run names come first so the figure always reflects the numbers in
+    # the paper; older phase-3 names are kept only as a fallback.
     panels = [
-        ("NYUv2", {"lattice_e8": "e5a_nyu_full", "scalar_g8": "fv2_scalarg8_nyu",
-                   "lattice_d4": "e1b_d4_nyu"}),
-        ("KITTI", {"lattice_e8": "e5b_kitti_full", "scalar_g8": "fv2_scalarg8_kitti",
-                   "lattice_d4": "e1b_d4_kitti"}),
+        ("NYUv2", {"lattice_e8": ["e8_nyu", "e5a_nyu_full"],
+                   "scalar_g8": ["scalarg8_nyu", "fv2_scalarg8_nyu"],
+                   "lattice_d4": ["d4_nyu", "e1b_d4_nyu"]}),
+        ("KITTI", {"lattice_e8": ["e8_kitti", "e5b_kitti_full"],
+                   "scalar_g8": ["scalarg8_kitti", "fv2_scalarg8_kitti"],
+                   "lattice_d4": ["d4_kitti", "e1b_d4_kitti"]}),
     ]
-    have_any = any(exp in idx for _, m in panels for exp in m.values())
+    panels = [(label, {q: _first_present(idx, names) for q, names in m.items()})
+              for label, m in panels]
+    have_any = any(exp in idx for _, m in panels for exp in m.values() if exp)
     if not have_any:
         _skip("pareto", "no pareto result dirs found (e5a_nyu_full / e5b_kitti_full / ...)")
         return
@@ -143,9 +159,14 @@ def fig_pareto(idx, out_dir):
 
 def fig_tae(idx, out_dir):
     """F3: Sintel TAE (mean / median / covis) vs bit-width with delta1 overlaid."""
-    exp = next((e for e in ("e5c_sintel_temporal_full", "e7_sintel_covis") if e in idx), None)
+    # Prefer a run that actually carries the co-visibility column -- that line
+    # is the point of the figure. Fall back to an unmasked run only if no
+    # covis run exists (the figure then honestly shows only raw TAE).
+    exp = _first_present(idx, ["e8_sintel_covis", "e7_sintel_covis",
+                               "e5c_sintel_temporal_full"])
     if exp is None:
-        _skip("tae", "no Sintel temporal result dir (e5c_sintel_temporal_full / e7_sintel_covis)")
+        _skip("tae", "no Sintel temporal result dir "
+                     "(e8_sintel_covis / e7_sintel_covis / e5c_sintel_temporal_full)")
         return
     cfgs = _configs(idx[exp])
     rows = []
@@ -154,28 +175,62 @@ def fig_tae(idx, out_dir):
         if eff is None:
             continue
         rows.append((eff, cname, m))
-    rows.sort(key=lambda r: r[0])
-    xs = [r[0] for r in rows]
-    tae_mean = [r[2].get("tae_percent") for r in rows]
-    tae_med = [r[2].get("tae_median_percent") for r in rows]
-    tae_cov = [r[2].get("tae_covis_percent") for r in rows]
-    d1 = [r[2].get("delta1") for r in rows]
+    # Descending effective bits => FP32 first, most-compressed last. A
+    # CATEGORICAL axis avoids squashing every interesting point into the
+    # 3-5 bit corner of a linear axis that runs out to 32.
+    rows.sort(key=lambda r: -r[0])
+    labels = [("FP32" if r[1] == "FP32_Baseline" else r[1].replace("bit", "-bit"))
+              for r in rows]
+    xs = list(range(len(rows)))
 
-    fig, ax1 = plt.subplots(figsize=FIGSIZE)
-    ax1.plot(xs, tae_mean, marker="o", color=PALETTE["vermillion"], label="TAE mean %")
-    ax1.plot(xs, tae_med, marker="s", color=PALETTE["orange"], label="TAE median %")
-    if any(v is not None for v in tae_cov):
-        ax1.plot(xs, tae_cov, marker="^", color=PALETTE["blue"], label="TAE covis-mean %")
-    ax1.set_xlabel("effective bits / scalar")
-    ax1.set_ylabel("TAE % (lower = smoother)")
-    ax1.grid(True, ls="--", alpha=0.4)
-    ax2 = ax1.twinx()
-    ax2.plot(xs, d1, marker="D", color=PALETTE["green"], ls=":", label=r"$\delta_1$ (accuracy)")
-    ax2.set_ylabel(r"$\delta_1\uparrow$")
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=8, loc="center right")
-    ax1.set_title("TAE is gameable: the collapsed low-rate model 'wins' on TAE while δ1 falls")
+    def _rel(key):
+        """Value relative to the FP32 row, so raw TAE and covis TAE -- which
+        live on very different absolute scales (11-54 vs 5.9-8.0) -- are
+        directly comparable on one axis against a 1.0 reference."""
+        vals = [r[2].get(key) for r in rows]
+        if not vals or vals[0] in (None, 0):
+            return None
+        return [(v / vals[0] if v is not None else None) for v in vals]
+
+    tae_rel = _rel("tae_percent")
+    cov_rel = _rel("tae_covis_percent")
+    d1_rel = _rel("delta1")
+
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    ax.axhline(1.0, color=PALETTE["black"], lw=1, ls="--", zorder=1)
+    ax.text(0.02, 1.0, " FP32 reference", transform=ax.get_yaxis_transform(),
+            va="bottom", ha="left", fontsize=7, color=PALETTE["black"])
+    if tae_rel:
+        ax.plot(xs, tae_rel, marker="o", color=PALETTE["vermillion"], zorder=3,
+                label="TAE (unmasked), rel. FP32")
+    if cov_rel and any(v is not None for v in cov_rel):
+        ax.plot(xs, cov_rel, marker="^", color=PALETTE["blue"], zorder=3,
+                label="co-visibility-masked TAE, rel. FP32")
+    if d1_rel:
+        ax.plot(xs, d1_rel, marker="D", ls=":", color=PALETTE["green"], zorder=2,
+                label=r"$\delta_1$ accuracy, rel. FP32")
+
+    # Call out the inversion at the most-compressed configuration.
+    if tae_rel and cov_rel and tae_rel[-1] is not None and cov_rel[-1] is not None:
+        ax.annotate("unmasked TAE says\n'best of all'",
+                    xy=(xs[-1], tae_rel[-1]), xytext=(-96, 26),
+                    textcoords="offset points", fontsize=7,
+                    color=PALETTE["vermillion"],
+                    arrowprops=dict(arrowstyle="->", color=PALETTE["vermillion"], lw=0.8))
+        # Placed below-left: above-right collides with the title.
+        ax.annotate("masked TAE says\n'worst', correctly",
+                    xy=(xs[-1], cov_rel[-1]), xytext=(-104, -34),
+                    textcoords="offset points", fontsize=7,
+                    color=PALETTE["blue"],
+                    arrowprops=dict(arrowstyle="->", color=PALETTE["blue"], lw=0.8))
+
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels)
+    ax.set_xlabel("configuration (decreasing bit-rate $\\rightarrow$)")
+    ax.set_ylabel("value relative to FP32")
+    ax.grid(True, ls="--", alpha=0.4)
+    ax.legend(fontsize=8, loc="center left")
+    ax.set_title("Unmasked TAE rewards the collapsed model; masking corrects it")
     fig.tight_layout()
     _save(fig, out_dir, "F3_tae_gameability")
 
