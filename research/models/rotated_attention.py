@@ -61,6 +61,7 @@ def _get_quantizer(
     bits: int,
     group_size: int = 4,
     scale_bits: int = 16,
+    scale_group: Optional[int] = None,
 ) -> nn.Module:
     """
     Factory function to create the appropriate quantizer.
@@ -72,17 +73,26 @@ def _get_quantizer(
     but with the same per-8-group scale machinery E8 pays for, so a
     scalar-vs-lattice comparison at matched effective bits isolates lattice
     coding gain instead of conflating it with scale granularity.
+
+    `scale_group` overrides how many consecutive scalars share ONE SCALE for the
+    two group-scaled quantizers ('scalar_g8', 'lattice_e8'); None keeps the
+    default of 8. It is deliberately independent of the lattice dimension --
+    E8 always decodes 8-vectors -- because scale granularity and lattice
+    shaping are substitutes: at a group of 8 the per-group max re-fits the cell
+    size as fast as the lattice codes, cancelling the coding gain, which only
+    reappears once the scale is amortized further (ledger F28).
     """
+    g = 8 if scale_group is None else scale_group
     if method == 'scalar':
         return ScalarRoundQuantizer(bits=bits, symmetric=True)
     elif method == 'scalar_g8':
-        return ScalarGroupQuantizer(bits=bits, group_size=8, scale_bits=scale_bits)
+        return ScalarGroupQuantizer(bits=bits, group_size=g, scale_bits=scale_bits)
     elif method == 'uniform_vector':
         return UniformVectorQuantizer(bits=bits, group_size=group_size)
     elif method == 'lattice_d4':
         return LatticeD4Quantizer(bits=bits, group_size=4, scale_bits=scale_bits)
     elif method == 'lattice_e8':
-        return LatticeE8Quantizer(bits=bits, group_size=8, scale_bits=scale_bits)
+        return LatticeE8Quantizer(bits=bits, group_size=g, scale_bits=scale_bits)
     elif method == 'identity':
         return IdentityQuantizer(bits=bits)
     else:
@@ -118,6 +128,8 @@ class RotatedSelfAttention(nn.Module):
         scale_bits: int = 16,
         use_rotation: bool = True,
         rht_seed: Optional[int] = None,
+        scale_group: Optional[int] = None,
+        v_bits: Optional[int] = None,
     ):
         """
         Args:
@@ -154,8 +166,15 @@ class RotatedSelfAttention(nn.Module):
 
         # Our additions: Hadamard rotation + quantizer + QJL
         self.rotation = HadamardRotation(self.head_dim, seed=rht_seed, identity=not use_rotation)
-        self.k_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
-        self.v_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
+        # v_bits allows an ASYMMETRIC K/V budget. Keys and values enter the
+        # attention product differently -- a key error perturbs the softmax
+        # weights, a value error perturbs the output directly -- so the optimal
+        # split need not be 50/50. None keeps K and V at the same width.
+        self.k_quantizer = _get_quantizer(
+            quantizer, bits, scale_bits=scale_bits, scale_group=scale_group)
+        self.v_quantizer = _get_quantizer(
+            quantizer, bits if v_bits is None else v_bits,
+            scale_bits=scale_bits, scale_group=scale_group)
         if use_qjl:
             self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
@@ -271,6 +290,8 @@ class RotatedTemporalAttention(nn.Module):
         scale_bits: int = 16,
         use_rotation: bool = True,
         rht_seed: Optional[int] = None,
+        scale_group: Optional[int] = None,
+        v_bits: Optional[int] = None,
     ):
         """
         Args:
@@ -308,8 +329,15 @@ class RotatedTemporalAttention(nn.Module):
 
         # Shared rotation for temporal consistency
         self.rotation = HadamardRotation(self.head_dim, seed=rht_seed, identity=not use_rotation)
-        self.k_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
-        self.v_quantizer = _get_quantizer(quantizer, bits, scale_bits=scale_bits)
+        # v_bits allows an ASYMMETRIC K/V budget. Keys and values enter the
+        # attention product differently -- a key error perturbs the softmax
+        # weights, a value error perturbs the output directly -- so the optimal
+        # split need not be 50/50. None keeps K and V at the same width.
+        self.k_quantizer = _get_quantizer(
+            quantizer, bits, scale_bits=scale_bits, scale_group=scale_group)
+        self.v_quantizer = _get_quantizer(
+            quantizer, bits if v_bits is None else v_bits,
+            scale_bits=scale_bits, scale_group=scale_group)
         if use_qjl:
             self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
@@ -433,6 +461,8 @@ def apply_rotated_quantization_to_vda(
     scale_bits: int = 16,
     use_rotation: bool = True,
     rht_seed: Optional[int] = None,
+    scale_group: Optional[int] = None,
+    v_bits: Optional[int] = None,
 ) -> nn.Module:
     """
     Apply Hadamard-rotated quantization to a Video-Depth-Anything model.
@@ -505,6 +535,8 @@ def apply_rotated_quantization_to_vda(
                     scale_bits=scale_bits,
                     use_rotation=use_rotation,
                     rht_seed=_next_seed(),
+                    scale_group=scale_group,
+                    v_bits=v_bits,
                 ).to(device=device, dtype=dtype)
 
                 # Copy pretrained weights
@@ -566,6 +598,8 @@ def apply_rotated_quantization_to_vda(
                         scale_bits=scale_bits,
                         use_rotation=use_rotation,
                         rht_seed=_next_seed(),
+                        scale_group=scale_group,
+                        v_bits=v_bits,
                     ).to(device=device, dtype=dtype)
                     # Copy weights (and bias, if present) where possible
                     if hasattr(old_cross, 'to_q'):

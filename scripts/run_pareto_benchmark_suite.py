@@ -783,7 +783,9 @@ def resolve_group_size(quantizer_name: str, head_dim: int) -> int:
 
 
 def bit_accounting_for(quantizer_name: str, bit_val: int, use_qjl: bool,
-                       scale_bits: int, head_dim: int = 64) -> dict:
+                       scale_bits: int, head_dim: int = 64,
+                       group_size_override: int = None,
+                       v_bits: int = None) -> dict:
     """
     compute_real_bit_accounting, but reports the IdentityQuantizer control
     HONESTLY: 'identity' performs no quantization at all, so it costs full
@@ -791,6 +793,16 @@ def bit_accounting_for(quantizer_name: str, bit_val: int, use_qjl: bool,
     alongside it. Reporting it as e.g. "4.0 effective bits" would be a fiction —
     the control exists precisely to separate surgery effects from bit-width
     effects (docs/optimization_ledger.md F27), so its rate must read as FP32.
+
+    `group_size_override` (the --group-size sweep, ledger F28) changes how many
+    scalars share one scale, which changes the METADATA term. It must be
+    threaded through here or the entire point of that sweep — that coarser
+    groups buy effective bits back — would not appear in the reported rate.
+
+    `v_bits` (the asymmetric K/V sweep) means the two caches are stored at
+    different widths, so the payload is charged at their MEAN: both caches are
+    stored, so a 4-bit K with a 2-bit V genuinely costs 3 payload bits per
+    scalar, not 2 and not 4.
     """
     if quantizer_name == 'identity':
         return {
@@ -802,9 +814,14 @@ def bit_accounting_for(quantizer_name: str, bit_val: int, use_qjl: bool,
             "scale_overhead_bits_per_vector": 0,
             "qjl_side_bits_per_vector": 0,
         }
+    group_size = (group_size_override
+                  if (group_size_override is not None
+                      and quantizer_name in ('scalar_g8', 'lattice_e8'))
+                  else resolve_group_size(quantizer_name, head_dim))
+    payload = bit_val if v_bits is None else (bit_val + v_bits) / 2.0
     return compute_real_bit_accounting(
-        bit_val, head_dim=head_dim, use_qjl=use_qjl,
-        group_size=resolve_group_size(quantizer_name, head_dim), scale_bits=scale_bits,
+        payload, head_dim=head_dim, use_qjl=use_qjl,
+        group_size=group_size, scale_bits=scale_bits,
     )
 
 
@@ -1144,6 +1161,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
                 model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
                 scale_bits=args.scale_bits, verbose=(idx == 0),
                 use_rotation=args.use_rotation, rht_seed=args.rht_seed,
+                scale_group=args.group_size, v_bits=args.v_bits,
                 replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
             )
 
@@ -1197,6 +1215,7 @@ def run_groundtruth_eval(model, model_configs, ckpt_loaded, possible_ckpts, args
 
         bit_accounting = bit_accounting_for(
             args.quantizer, bit, args.use_qjl, args.scale_bits,
+            group_size_override=args.group_size, v_bits=args.v_bits,
         )
         if not q_gt_metrics:
             raise ValueError(f"Every frame skipped at {bit}-bit (no in-range GT); check gt_range={gt_range}.")
@@ -1426,6 +1445,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
             model_quant = apply_rotated_quantization_to_vda(
                 model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
                 scale_bits=args.scale_bits, verbose=(idx == 0), replace_temporal=True,
+                scale_group=args.group_size, v_bits=args.v_bits,
                 use_rotation=args.use_rotation, rht_seed=args.rht_seed,
             )
 
@@ -1433,6 +1453,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
 
         bit_accounting = bit_accounting_for(
             args.quantizer, bit, args.use_qjl, args.scale_bits,
+            group_size_override=args.group_size, v_bits=args.v_bits,
         )
         metrics["mem_savings_x"] = bit_accounting["ratio_vs_fp32"]
         metrics["mem_savings_fp16_x"] = bit_accounting["ratio_vs_fp16"]
@@ -1528,6 +1549,23 @@ def main():
                               "agree within this relative tolerance. Masks are GT-only so every "
                               "config gets the same mask; excludes disocclusion/out-of-frame "
                               "inflation (docs/optimization_ledger.md F16).")
+    parser.add_argument("--group-size", type=int, default=None,
+                        help="Scalars sharing ONE SCALE for scalar_g8 / lattice_e8. "
+                             "Must be a multiple of 8 and divide head_dim, which is "
+                             "64 for EVERY VDA encoder (vits/vitb/vitl) -- so the "
+                             "valid values are 8, 16, 32, 64 and 64 is the ceiling. "
+                             "Default 8. Decoupled from the E8 "
+                             "lattice dimension, which is always 8. Coarser groups "
+                             "cut scale metadata AND unlock the lattice coding gain "
+                             "that per-group max-normalization otherwise cancels "
+                             "(docs/optimization_ledger.md F28). Threaded into the "
+                             "bit accounting, so effective bits reflect it.")
+    parser.add_argument("--v-bits", type=int, default=None,
+                        help="Bit-width for the VALUE cache when it should differ "
+                             "from the KEY cache (default: same as --bits). Keys "
+                             "perturb softmax weights, values perturb the output "
+                             "directly, so the optimal split need not be even. "
+                             "Rate is charged at the MEAN of the two widths.")
     args = parser.parse_args()
 
     if args.eval_mode == "groundtruth":
@@ -1722,6 +1760,7 @@ def main():
                 model_quant = apply_rotated_quantization_to_vda(
                     model_quant, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
                     scale_bits=args.scale_bits, verbose=False,
+                    scale_group=args.group_size, v_bits=args.v_bits,
                     use_rotation=args.use_rotation, rht_seed=args.rht_seed,
                     replace_temporal=True,  # fixed: see docs/optimization_ledger.md T7 (qkv_bias surgery bug, not a reshape bug)
                 )
@@ -1748,6 +1787,7 @@ def main():
             peak_mem_mb_q = round(torch.cuda.max_memory_allocated() / (1024 ** 2), 1) if torch.cuda.is_available() else 0.0
             bit_accounting = bit_accounting_for(
                 args.quantizer, bit, args.use_qjl, args.scale_bits,
+                group_size_override=args.group_size, v_bits=args.v_bits,
             )
             metrics = compute_academic_metrics(q_out, fp32_out)
             metrics["fps"] = round(fps_q, 1)

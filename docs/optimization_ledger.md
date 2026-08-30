@@ -1206,3 +1206,113 @@ implementation. Decision rule:
 - Do NOT publish any "holds at model scale" claim until identity comes back clean.
   The paper is fine without it: the contribution is the evaluation protocol on vits.
 
+
+---
+
+## F28 — The range reservation in both lattice decoders was a 0.9–3.0 dB handicap — RESOLVED (code), BLOCKS lattice tables
+
+### What was wrong
+`LatticeE8Quantizer` and `LatticeD4Quantizer` reserved part of the representable
+range *before* decoding so that the greedy "flip the largest-residual coordinate"
+parity correction could never leave `[-half_levels, half_levels-1]` (the T4
+discipline):
+
+* E8 clamped `x_scaled` to `[-hl+1.0, hl-1.5]` — 2.5 units reserved
+* D4 clamped `x_scaled` to `[-hl+0.5, hl-1.5]` — 2.0 units reserved
+* `ScalarGroupQuantizer` clamped to the **full** `[-hl, hl-1]` — none reserved
+
+The scalar baseline therefore ran at full range while both lattices ran
+handicapped. The reservation is a fixed number of units, so it costs
+proportionally more at low rate: at 3-bit payload E8 loses 21% of its range,
+D4 at 2-bit loses far more.
+
+### Measured cost (Gaussian source, group 8, matched scale)
+| payload | E8 recovered | D4 recovered |
+|---|---|---|
+| 2 bit | +1.23 dB | +3.00 dB |
+| 3 bit (paper operating point) | **+0.87 dB** | **+2.02 dB** |
+| 4 bit | +0.81 dB | +1.53 dB |
+
+For scale: the E8 granular coding gain the reservation was protecting is
++0.65 dB. The safety margin cost more than the thing it protected, and cost D4
+roughly triple.
+
+### Fix
+`_nearest_d8_point` / `_nearest_d4_point` now take explicit `lo, hi` bounds and
+choose the cheapest *legal* parity flip instead of the cheapest flip. Flipping
+coordinate j by ±1 changes squared error by `1 ∓ 2·r_j`; both directions are
+costed, out-of-range flips are masked to `+inf`, and the global minimum is taken.
+Any single flip fixes parity, so correctness is preserved and the full range is
+kept. Verified exact (in-range + lattice membership) at 2/3/4/6/8 bits for both
+lattices; 153/153 tests pass.
+
+### Corrected conclusions at matched all-inclusive rate
+* **E8 vs grouped scalar: a TIE (−0.03 dB)**, consistently across payload bits
+  and scale widths. Not a benchmark-dependent reversal.
+* **D4 vs E8 at matched b_eff: D4 loses by 5.8–16.8 dB**, entirely because a
+  group of 4 pays double the scale metadata and is forced to a lower payload.
+  The direction survives; the paper's *attribution* to "space-filling" /
+  "graceful degradation of the higher-dimensional lattice" does not.
+* Mechanism for the tie: per-group max-normalization at group 8 re-fits the cell
+  size every 8 values, substituting for the shaping the lattice would supply.
+  The +0.65 dB appears only once scales are amortized over many more values
+  (measured: +0.32 dB at g=16 rising monotonically to +0.64 dB at g=512), and at
+  that granularity a rotation is required to survive outliers. Rotation and fine
+  grouping are substitutes — at g=8 on heavy-tailed input, rotation *hurts* by
+  2.9 dB. This interaction is established for LLM weights by GyRot
+  (arXiv:2607.27694) and DuQuant++ (arXiv:2604.17789); cite, do not re-claim.
+
+### Paper impact (act on this)
+- **`tab:fair` (E8 vs matched-granularity scalar) must be RE-RUN.** Its NYU
+  deficit of −0.0049 was measured with E8 carrying a ~0.87 dB handicap the
+  baseline did not carry. Expect the deficit to shrink toward zero.
+- **`tab:d4` must be RE-RUN.** D4's apparent cliff (δ1 0.5047 NYU / 0.3665 KITTI
+  at 4.0 eff bits) is the configuration where its handicap is largest.
+- The "dynamic range explains the NYU/KITTI crossover" mechanism is **RETRACTED**
+  independently of the re-run: measured E8/scalar ratio is flat at 1.23
+  regardless of source spread.
+- **DG-1 (8× lossless at 4.0 eff bits) STANDS and is CONSERVATIVE** — it was
+  achieved *despite* the handicap, so removing it can only help.
+- TAE / co-visibility / seed-level statistics / bit accounting are all
+  quantizer-independent and unaffected.
+
+---
+
+## F29 — Probe suite: 13 experiments enabled by the F28 fix — QUEUED
+
+The F28 fix opened two knobs that did not previously exist, so a batch of
+questions became askable for the first time:
+
+* `--group-size` — the scale group, now DECOUPLED from the lattice dimension.
+  E8 always decodes 8-vectors; the scale may be amortized over 8/16/32/64
+  scalars. Ceiling is 64: head_dim is 64 for every VDA encoder.
+* `--v-bits` — asymmetric K/V budget. Charged at the MEAN of the two widths,
+  so K=4b/V=2b costs exactly 4.0 effective bits, identical to K=3b/V=3b.
+
+`scripts/run_probes.sh` runs all 13 serially; `scripts/run_everything.sh`
+chains the F28 delta re-run first, then the probes, in one command. Each probe
+carries an explicit HYPOTHESIS and FALSIFIER in the script — a probe that comes
+back against its hypothesis is a result to record, not a failed run.
+
+| probe | question | why it matters |
+|---|---|---|
+| P1 | Does the E8 coding gain appear on real KV cache as g coarsens? | **Decisive.** No trend ⇒ lattice direction is closed |
+| P2 | Are rotation and fine grouping substitutes? | Reframes DG-2 as granularity-dependent; territory occupied by GyRot |
+| P3 | Spend bits on payload or on scales? | Clearest practical payoff; g=8 spends a full effective bit on metadata |
+| P4 | Should K and V get the same width? | Unasked for video depth; three-way at identical 4.0 eff bits |
+| P5 | Does 2-bit become viable at coarse g? | Tests whether the 2-bit collapse is a rate-allocation artifact |
+| P6 | Are fp16 scales worth it once amortized 8× further? | Tests whether F18 generalizes beyond g=8 |
+| P7 | Does seed variance grow with g? | Internal consistency check on P2's mechanism |
+| P8 | D4 vs E8 at *truly* matched effective bits | Corrects `tab:d4`'s attribution |
+| P9 | Does quantization error compound over longer windows? | Unique to video; unknown either way |
+| P10 | Does masked TAE stay monotone at coarse g? | Scopes the project's most defensible claim |
+| P11 | Does the granularity result hold at vitl? | Blocked on F27 identity; treat as uninterpretable if surgery is unfaithful |
+| P12 | Do the best NYU settings transfer to KITTI? | Analysis-only, computed from P1 |
+| P13 | Is TAE gameability about quantization or detail loss generally? | Blur study, built at F16/F25, never run |
+
+### Reading rule
+P1 and P2 are the decisive pair. If P1 shows no granularity trend on real KV
+cache, the synthetic mechanism does not transfer and the lattice direction is
+closed for good — record that and stop, rather than looking for a variant that
+rescues it. Three attempts have already died that way (DG-4, the TAE headline,
+and the F28 investigation itself).

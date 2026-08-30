@@ -16,6 +16,7 @@ from research.quantizers.lattice_vq import (
     LatticeE8Quantizer,
     LatticeD4Quantizer,
     ScalarRoundQuantizer,
+    ScalarGroupQuantizer,
 )
 
 
@@ -93,37 +94,76 @@ def test_e8_boundary_edge_case():
     assert in_range, f"E8 boundary tie case produced out-of-range point: {z.tolist()}"
 
 
-def test_e8_rate_distortion_ordering():
+def test_e8_matches_grouped_scalar_at_matched_rate():
     """
-    Rate-distortion ordering at equal bit-rate on N(0,1) input:
-    MSE(E8) <= MSE(D4) <= MSE(scalar). Validates the coding-gain direction
-    empirically (theory: E8 ~1.5dB, D4 ~1.19dB over scalar; E8 - D4 ~0.65dB).
+    At MATCHED all-inclusive rate and MATCHED scale granularity, E8 must land
+    within a small tolerance of the grouped-scalar baseline on N(0,1) input.
+
+    This is the regression test for the range-reservation bug (ledger T4). An
+    earlier revision shrank the decode range by 2.5 units so the greedy parity
+    flip was always legal; that cost ~0.9 dB at the 3-bit operating point and
+    silently biased every published E8-vs-scalar comparison. Any reintroduced
+    handicap shows up here as E8 falling outside the tolerance band.
+
+    Note this asserts a TIE, not an E8 win. The +0.65 dB E8 granular gain is a
+    high-resolution result for a fixed lattice on a stationary source; per-group
+    max-normalization at group 8 re-fits the cell size every 8 values, which
+    substitutes for exactly the shaping the lattice would have provided.
     """
     torch.manual_seed(0)
-    d = 64
-    bits = 4
-    x = torch.randn(4000, d)
+    x = torch.randn(4000, 64)
 
-    scalar_q = ScalarRoundQuantizer(bits=bits)
-    d4_q = LatticeD4Quantizer(bits=bits)
-    e8_q = LatticeE8Quantizer(bits=bits)
+    for bits in (3, 4, 6):
+        # both at group 8 with the same scale width -> identical b_eff
+        scalar_q = ScalarGroupQuantizer(bits=bits, group_size=8, scale_bits=16)
+        e8_q = LatticeE8Quantizer(bits=bits, group_size=8, scale_bits=16)
 
-    x_scalar, _ = scalar_q(x)
-    x_d4, _ = d4_q(x)
-    x_e8, _ = e8_q(x)
+        mse_scalar = ((x - scalar_q(x)[0]) ** 2).mean().item()
+        mse_e8 = ((x - e8_q(x)[0]) ** 2).mean().item()
+        delta_db = 10 * torch.log10(torch.tensor(mse_scalar / mse_e8)).item()
 
-    mse_scalar = ((x - x_scalar) ** 2).mean().item()
-    mse_d4 = ((x - x_d4) ** 2).mean().item()
-    mse_e8 = ((x - x_e8) ** 2).mean().item()
+        print(f"  b_eff={bits + 2.0}: scalar={mse_scalar:.6f}, E8={mse_e8:.6f} "
+              f"({delta_db:+.2f} dB)")
+        assert -0.25 <= delta_db <= 0.75, (
+            f"E8 at {bits}b payload is {delta_db:+.2f} dB vs matched-rate grouped "
+            f"scalar; expected a near-tie. A large negative value means the decode "
+            f"range is being reserved again (ledger T4)."
+        )
 
-    print(f"  MSE @ {bits}-bit: scalar={mse_scalar:.6f}, D4={mse_d4:.6f}, E8={mse_e8:.6f}")
-    assert mse_e8 <= mse_d4, f"E8 MSE ({mse_e8:.6f}) should be <= D4 MSE ({mse_d4:.6f})"
-    assert mse_d4 <= mse_scalar, f"D4 MSE ({mse_d4:.6f}) should be <= scalar MSE ({mse_scalar:.6f})"
 
-    gain_e8_over_scalar_db = 10 * torch.log10(torch.tensor(mse_scalar / mse_e8)).item()
-    gain_e8_over_d4_db = 10 * torch.log10(torch.tensor(mse_d4 / mse_e8)).item()
-    print(f"  Measured coding gain: E8 vs scalar = {gain_e8_over_scalar_db:.2f} dB "
-          f"(theory ~1.5dB), E8 vs D4 = {gain_e8_over_d4_db:.2f} dB (theory ~0.65dB)")
+def test_d4_loses_at_matched_rate_on_metadata():
+    """
+    D4's group of 4 costs twice the scale metadata of E8's group of 8, so at
+    matched all-inclusive rate D4 must run a lower payload and lose badly.
+
+    This pins the ATTRIBUTION: D4's deficit is rate allocation, not lattice
+    geometry. Comparing at equal nominal payload instead hands D4 two extra
+    effective bits and inverts the conclusion.
+    """
+    torch.manual_seed(0)
+    x = torch.randn(4000, 64)
+    scale_bits = 16
+    target_beff = 8.0
+
+    d4_payload = int(target_beff - scale_bits / 4)   # 4 bits
+    e8_payload = int(target_beff - scale_bits / 8)   # 6 bits
+
+    d4_q = LatticeD4Quantizer(bits=d4_payload, group_size=4, scale_bits=scale_bits)
+    e8_q = LatticeE8Quantizer(bits=e8_payload, group_size=8, scale_bits=scale_bits)
+
+    mse_d4 = ((x - d4_q(x)[0]) ** 2).mean().item()
+    mse_e8 = ((x - e8_q(x)[0]) ** 2).mean().item()
+    gap_db = 10 * torch.log10(torch.tensor(mse_d4 / mse_e8)).item()
+
+    print(f"  at b_eff={target_beff}: D4({d4_payload}b)={mse_d4:.6f}, "
+          f"E8({e8_payload}b)={mse_e8:.6f}, gap={gap_db:+.2f} dB")
+    assert mse_d4 > mse_e8, (
+        f"D4 ({mse_d4:.6f}) should lose to E8 ({mse_e8:.6f}) at matched b_eff"
+    )
+    assert gap_db > 5.0, (
+        f"D4 deficit is only {gap_db:.2f} dB; expected >5 dB from paying two "
+        f"extra effective bits of scale metadata"
+    )
 
 
 def test_e8_scale_bits_option():
@@ -166,3 +206,46 @@ if __name__ == "__main__":
     test_e8_scale_bits_option()
     test_e8_no_unearned_effective_bits_claim()
     print("All E8 quantizer tests passed.")
+
+
+def test_e8_scale_group_decoupled_from_lattice_dimension():
+    """
+    The scale group may be any multiple of 8 while E8 still decodes 8-vectors.
+    Membership must hold at every group, and the metadata overhead must fall
+    as 1/group_size (ledger F28).
+    """
+    torch.manual_seed(0)
+    x = torch.randn(512, 512)
+
+    for k in (8, 16, 32, 64, 128):
+        q = LatticeE8Quantizer(bits=3, group_size=k, scale_bits=16)
+        x_q, info = q(x)
+
+        assert info['group_size'] == k
+        assert info['scale_overhead_bits_per_scalar'] == 16.0 / k
+
+        # Recover lattice coordinates through the SCALE grouping, then view as
+        # 8-vectors -- k is a multiple of 8, so no 8-vector straddles two scales.
+        scale = info['scale'].unsqueeze(-1)
+        z = (x_q.reshape(*x.shape[:-1], 512 // k, k) / scale).reshape(-1, 8)
+
+        is_int = torch.isclose(z, z.round(), atol=1e-3).all(-1)
+        is_half = torch.isclose(z - 0.5, (z - 0.5).round(), atol=1e-3).all(-1)
+        parity_src = torch.where(is_int.unsqueeze(-1), z, z - 0.5).round()
+
+        assert (is_int | is_half).all(), f"non-E8 point emitted at group_size={k}"
+        assert (parity_src.sum(-1).long() % 2 == 0).all(), \
+            f"odd coordinate sum at group_size={k}"
+        print(f"  g={k}: valid E8 points, overhead "
+              f"{info['scale_overhead_bits_per_scalar']:.3f} b/scalar")
+
+
+def test_e8_rejects_scale_group_not_multiple_of_eight():
+    """A scale group that is not a multiple of 8 would split an 8-vector across
+    two scales, which the decoder cannot represent. Reject it loudly."""
+    for bad in (4, 12, 20):
+        try:
+            LatticeE8Quantizer(bits=3, group_size=bad, scale_bits=16)
+        except AssertionError:
+            continue
+        raise AssertionError(f"group_size={bad} should have been rejected")

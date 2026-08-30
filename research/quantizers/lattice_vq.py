@@ -353,28 +353,33 @@ class LatticeD4Quantizer(nn.Module):
         self.n_levels = 2 ** bits
         self.half_levels = self.n_levels // 2
 
-    def _nearest_d4_point(self, x_scaled: torch.Tensor) -> torch.Tensor:
+    def _nearest_d4_point(
+        self, x_scaled: torch.Tensor, lo: float, hi: float
+    ) -> torch.Tensor:
         """
-        Find the nearest D4 lattice point to each 4-vector.
+        Find the nearest D4 lattice point to each 4-vector, subject to every
+        coordinate lying in [lo, hi].
 
         The D4 decoding algorithm:
         1. Round each coordinate independently → z_round
         2. Check parity: if sum(z_round) is even → it's a D4 point (done!)
-        3. If odd → find the coordinate with the largest rounding error
-           and flip it to the opposite direction. This guarantees the
-           result has even coordinate sum (= D4 point) with minimum distortion.
+        3. If odd → flip one coordinate by ±1. Any single flip fixes parity,
+           so we take the cheapest flip that keeps the coordinate in range.
 
-        Callers MUST pre-clamp x_scaled to [-half_levels+0.5, half_levels-1.5]
-        (see forward()) so that the ±1 parity correction applied here can
-        never push a coordinate outside [-half_levels, half_levels-1].
+        Earlier revisions instead shrank the caller's input range so that the
+        greedy "largest residual" flip was always legal. That reserved 2.0 of
+        the representable units and cost far more than the lattice gain it
+        protected (see docs/optimization_ledger.md T4); the bounded search
+        below keeps the full range and is never worse than the greedy choice.
 
         Args:
-            x_scaled: Tensor of shape (..., 4), pre-clamped by the caller.
+            x_scaled: Tensor of shape (..., 4).
+            lo, hi: inclusive bounds every output coordinate must respect.
 
         Returns:
-            Nearest D4 lattice points, same shape, guaranteed in-range.
+            Nearest in-range D4 lattice points, same shape.
         """
-        z_round = x_scaled.round()
+        z_round = x_scaled.round().clamp(lo, hi)
         residuals = x_scaled - z_round  # fractional parts
 
         # Check parity of coordinate sum
@@ -382,34 +387,19 @@ class LatticeD4Quantizer(nn.Module):
         is_odd = (coord_sum.long() % 2 != 0)  # (...,) boolean mask
 
         if is_odd.any():
-            # For odd-parity vectors: flip the coordinate with largest |residual|
-            abs_residuals = residuals.abs()
-            # Find which coordinate to flip
-            flip_idx = abs_residuals.argmax(dim=-1)  # (...,)
+            # Flipping coordinate j by +1 changes squared error by 1 - 2*r_j,
+            # and by -1 by 1 + 2*r_j. Mask out flips that would leave [lo, hi]
+            # and take the global minimum over both directions.
+            d = x_scaled.shape[-1]
+            inf = torch.full_like(residuals, float('inf'))
+            cost_up = torch.where((z_round + 1.0) <= hi, 1.0 - 2.0 * residuals, inf)
+            cost_dn = torch.where((z_round - 1.0) >= lo, 1.0 + 2.0 * residuals, inf)
 
-            # Gather the residual sign at the flip index
-            flip_idx_expanded = flip_idx.unsqueeze(-1)  # (..., 1)
-            flip_residual = residuals.gather(-1, flip_idx_expanded)  # (..., 1)
-            flip_dir = flip_residual.sign()  # +1 if we should round up, -1 if down
-
-            # Tie-break: a zero residual means the scaled coordinate was
-            # already an exact integer, so sign() gives 0 and the parity
-            # would be left unfixed. Force a direction, preferring +1 unless
-            # that would push the coordinate past the upper boundary.
-            zero_mask = (flip_dir == 0)
-            if zero_mask.any():
-                current_val = z_round.gather(-1, flip_idx_expanded)
-                would_exceed_upper = (current_val + 1) > (self.half_levels - 1)
-                tie_dir = torch.where(
-                    would_exceed_upper,
-                    torch.full_like(flip_dir, -1.0),
-                    torch.full_like(flip_dir, 1.0),
-                )
-                flip_dir = torch.where(zero_mask, tie_dir, flip_dir)
-
-            # Create the correction: +1 or -1 applied only at flip_idx
-            correction = torch.zeros_like(z_round)
-            correction.scatter_(-1, flip_idx_expanded, flip_dir)
+            both = torch.cat([cost_up, cost_dn], dim=-1)  # (..., 2d)
+            flip_idx = both.argmin(dim=-1, keepdim=True)
+            picked = torch.zeros_like(both)
+            picked.scatter_(-1, flip_idx, 1.0)
+            correction = picked[..., :d] - picked[..., d:]
 
             # Apply correction only to odd-parity vectors
             is_odd_expanded = is_odd.unsqueeze(-1).expand_as(z_round)
@@ -449,16 +439,16 @@ class LatticeD4Quantizer(nn.Module):
         # Scale to integer range
         x_scaled = x_grouped / scale
 
-        # Pre-clamp BEFORE decoding: guarantees that round() followed by the
-        # single ±1 parity correction in _nearest_d4_point can never leave
-        # [-half_levels, half_levels-1]. See docs/optimization_ledger.md T4.
-        x_scaled = x_scaled.clamp(-self.half_levels + 0.5, self.half_levels - 1.5)
+        # Use the FULL representable range, matching the grouped-scalar
+        # baseline. The decoder enforces [lo, hi] internally by choosing a
+        # legal parity flip, so no range has to be reserved up front.
+        lo, hi = -float(self.half_levels), float(self.half_levels - 1)
+        x_scaled = x_scaled.clamp(lo, hi)
 
-        # Find nearest D4 lattice point (already guaranteed in-range; no
-        # post-hoc clamp needed, and none is applied, since clamping AFTER
-        # the parity correction could itself break even-coordinate-sum
-        # membership).
-        x_lattice = self._nearest_d4_point(x_scaled)
+        # Find nearest in-range D4 lattice point (the decoder guarantees both
+        # even-coordinate-sum membership and the bounds, so no post-hoc clamp
+        # is applied -- that could itself break membership).
+        x_lattice = self._nearest_d4_point(x_scaled, lo, hi)
 
         # Dequantize
         x_quant = (x_lattice * scale).reshape(orig_shape)
@@ -516,57 +506,68 @@ class LatticeE8Quantizer(nn.Module):
         """
         Args:
             bits: Bits per scalar coordinate (controls the grid resolution).
-            group_size: Must be 8 for E8 lattice. Kept as arg for API consistency.
+            group_size: Number of consecutive scalars sharing ONE SCALE. Must be
+                        a multiple of 8. This is deliberately DECOUPLED from the
+                        lattice dimension: E8 always decodes 8-vectors, but the
+                        scale may be amortized over 8, 16, 32, ... scalars.
+
+                        The distinction matters. The +0.65 dB E8 granular gain
+                        assumes a fixed lattice over a stationary source, but
+                        per-group max-normalization re-fits the cell size every
+                        `group_size` values, which substitutes for exactly the
+                        shaping the lattice provides. At group_size=8 the two
+                        cancel and E8 ties grouped scalar; the gain reappears
+                        monotonically as the scale is amortized further
+                        (measured on Gaussian input: +0.32 dB at 16, +0.49 at
+                        32, +0.57 at 64, +0.64 at 512). See ledger F28.
             scale_bits: Bit-width used to store each group's per-group scale
                         (16 = fp16, 8 = uint8 quantized against a per-tensor
                         fp32 max). Real overhead — see
                         info['scale_overhead_bits_per_scalar'].
         """
         super().__init__()
-        assert group_size == 8, "E8 lattice requires group_size=8"
+        assert group_size % 8 == 0 and group_size >= 8, (
+            f"E8 scale group_size must be a positive multiple of 8, got {group_size}"
+        )
         assert scale_bits in (8, 16), "scale_bits must be 8 or 16"
         self.bits = bits
-        self.group_size = 8
+        self.group_size = group_size
         self.scale_bits = scale_bits
         self.n_levels = 2 ** bits
         self.half_levels = self.n_levels // 2
 
-    def _nearest_d8_point(self, x_scaled: torch.Tensor) -> torch.Tensor:
+    def _nearest_d8_point(
+        self, x_scaled: torch.Tensor, lo: float, hi: float
+    ) -> torch.Tensor:
         """
-        Nearest D8 (even-coordinate-sum integer) lattice point, using the
-        same round + single-coordinate parity-flip algorithm as
-        LatticeD4Quantizer._nearest_d4_point, generalized to 8-dimensional
-        groups. Callers must pre-clamp x_scaled to
-        [-half_levels+0.5, half_levels-1.5] (same discipline as D4; see
-        docs/optimization_ledger.md T4) so the ±1 parity correction can never
-        push a coordinate outside [-half_levels, half_levels-1].
+        Nearest D8 (even-coordinate-sum integer) lattice point with every
+        coordinate constrained to [lo, hi], using the same bounded parity-flip
+        search as LatticeD4Quantizer._nearest_d4_point generalized to
+        8-dimensional groups.
+
+        Earlier revisions reserved 2.5 of the representable units so that the
+        greedy "largest residual" flip was always legal. Measured against a
+        full-range decode that reservation cost about 0.9 dB at the 3-bit
+        operating point -- more than the E8 coding gain it existed to protect
+        (docs/optimization_ledger.md T4).
         """
-        z_round = x_scaled.round()
+        z_round = x_scaled.round().clamp(lo, hi)
         residuals = x_scaled - z_round
 
         coord_sum = z_round.sum(dim=-1)
         is_odd = (coord_sum.long() % 2 != 0)
 
         if is_odd.any():
-            abs_residuals = residuals.abs()
-            flip_idx = abs_residuals.argmax(dim=-1)
-            flip_idx_expanded = flip_idx.unsqueeze(-1)
-            flip_residual = residuals.gather(-1, flip_idx_expanded)
-            flip_dir = flip_residual.sign()
+            d = x_scaled.shape[-1]
+            inf = torch.full_like(residuals, float('inf'))
+            cost_up = torch.where((z_round + 1.0) <= hi, 1.0 - 2.0 * residuals, inf)
+            cost_dn = torch.where((z_round - 1.0) >= lo, 1.0 + 2.0 * residuals, inf)
 
-            zero_mask = (flip_dir == 0)
-            if zero_mask.any():
-                current_val = z_round.gather(-1, flip_idx_expanded)
-                would_exceed_upper = (current_val + 1) > (self.half_levels - 1)
-                tie_dir = torch.where(
-                    would_exceed_upper,
-                    torch.full_like(flip_dir, -1.0),
-                    torch.full_like(flip_dir, 1.0),
-                )
-                flip_dir = torch.where(zero_mask, tie_dir, flip_dir)
-
-            correction = torch.zeros_like(z_round)
-            correction.scatter_(-1, flip_idx_expanded, flip_dir)
+            both = torch.cat([cost_up, cost_dn], dim=-1)  # (..., 2d)
+            flip_idx = both.argmin(dim=-1, keepdim=True)
+            picked = torch.zeros_like(both)
+            picked.scatter_(-1, flip_idx, 1.0)
+            correction = picked[..., :d] - picked[..., d:]
 
             is_odd_expanded = is_odd.unsqueeze(-1).expand_as(z_round)
             z_round = torch.where(is_odd_expanded, z_round + correction, z_round)
@@ -585,13 +586,14 @@ class LatticeE8Quantizer(nn.Module):
         """
         orig_shape = x.shape
         d = x.shape[-1]
-        assert d % 8 == 0, f"Feature dim {d} must be divisible by 8 for E8 lattice"
+        k = self.group_size
+        assert d % k == 0, (
+            f"Feature dim {d} must be divisible by scale group_size {k}"
+        )
 
-        # Reshape into 8-vectors
-        x_grouped = x.reshape(*x.shape[:-1], d // 8, 8)
-
-        # Per-group symmetric scale
-        alpha = x_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
+        # SCALE is computed over groups of k scalars...
+        x_scale_grouped = x.reshape(*x.shape[:-1], d // k, k)
+        alpha = x_scale_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
         scale = alpha / (self.half_levels - 1)
 
         if self.scale_bits == 8:
@@ -599,21 +601,23 @@ class LatticeE8Quantizer(nn.Module):
             scale_step = scale_max / 255.0
             scale = (scale / scale_step).round().clamp(0, 255) * scale_step
 
-        x_scaled = x_grouped / scale
+        # ...but DECODING is always over 8-vectors. Normalize within the scale
+        # group, then re-view as 8-vectors for the lattice. k is a multiple of 8
+        # so this split is exact and no 8-vector ever straddles two scales.
+        x_scaled = (x_scale_grouped / scale).reshape(*x.shape[:-1], d // 8, 8)
 
-        # Pre-clamp so BOTH cosets' D8 decode inputs stay in the safe range
-        # [-half_levels+0.5, half_levels-1.5]: the integer coset decodes
-        # x_scaled_clamped directly, the half-integer coset decodes
-        # (x_scaled_clamped - 0.5), whose range is a strict subset of the
-        # integer coset's when x_scaled_clamped is clamped to
-        # [-half_levels+1.0, half_levels-1.5].
-        x_scaled = x_scaled.clamp(-self.half_levels + 1.0, self.half_levels - 1.5)
+        # Use the FULL representable range, matching the grouped-scalar
+        # baseline. Each coset's decoder enforces its own bounds internally,
+        # so no range has to be reserved for the parity correction.
+        lo, hi = -float(self.half_levels), float(self.half_levels - 1)
+        x_scaled = x_scaled.clamp(lo, hi)
 
-        # Candidate A: integer coset (D8)
-        z_int = self._nearest_d8_point(x_scaled)
+        # Candidate A: integer coset (D8), constrained to [lo, hi]
+        z_int = self._nearest_d8_point(x_scaled, lo, hi)
 
-        # Candidate B: half-integer coset (D8 + [0.5]*8)
-        z_half = self._nearest_d8_point(x_scaled - 0.5) + 0.5
+        # Candidate B: half-integer coset (D8 + [0.5]*8). Decoding the shifted
+        # point in [lo-0.5, hi-0.5] puts the +0.5 result back inside [lo, hi].
+        z_half = self._nearest_d8_point(x_scaled - 0.5, lo - 0.5, hi - 0.5) + 0.5
 
         # Pick whichever candidate is closer to the (clamped) point
         dist_int = ((x_scaled - z_int) ** 2).sum(dim=-1, keepdim=True)
@@ -621,16 +625,16 @@ class LatticeE8Quantizer(nn.Module):
         use_half = (dist_half < dist_int).expand_as(z_int)
         x_lattice = torch.where(use_half, z_half, z_int)
 
-        # Dequantize
-        x_quant = (x_lattice * scale).reshape(orig_shape)
+        # Dequantize: fold back to scale groups so `scale` broadcasts correctly.
+        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(orig_shape)
 
         info = {
             'scale': scale.squeeze(-1),
             'bits': self.bits,  # nominal payload bits; no unearned savings
-            'group_size': 8,
+            'group_size': k,
             'method': 'lattice_e8',
             'scale_bits': self.scale_bits,
-            'scale_overhead_bits_per_scalar': self.scale_bits / self.group_size,
+            'scale_overhead_bits_per_scalar': self.scale_bits / k,
             'coding_gain_db': 1.5,  # Theoretical E8 gain (requires index coding to realize as a rate reduction)
         }
         return x_quant, info
