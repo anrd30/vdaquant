@@ -101,6 +101,53 @@ run ladder_vitl_sintel --dataset sintel --eval-mode temporal --encoder vitl \
     --quantizer lattice_e8 --scale-bits 8 --bits 4 3 2 --no-qjl --rht-seed 0 \
     --temporal-window 32 --max-samples 2000 --max-scenes 10 --tae-covis-tau 0.05
 
+echo "########## STAGE 5: blur degradation (TAE-audit generalisation) ##########"
+# Reviewer objection to close off: "maybe the TAE failure is a quantisation
+# artefact." Answer with a degradation that has NOTHING to do with quantisation
+# -- Gaussian blur on the FP32 predictions themselves -- and show unmasked TAE
+# still falls while masked TAE correctly rises. One FP32 pass + cheap CPU blurs
+# per sigma. ~20 min on one GPU (dominated by the FP32 pass).
+BLUR_DIR="$OUT/blur_degradation"
+if [ -f "$BLUR_DIR/blur_degradation_results.json" ]; then
+  echo "[skip] blur_degradation"; SKIP=$((SKIP+1))
+else
+  echo ""; echo "════════ [run] blur_degradation  $(date '+%H:%M:%S') ════════"
+  t0=$SECONDS
+  mkdir -p "$BLUR_DIR"
+  if python scripts/run_blur_degradation.py --dataset sintel \
+       --sigmas 0 0.5 1 2 4 8 --temporal-window 32 --max-scenes 23 \
+       --tae-covis-tau 0.05 --output-dir "$BLUR_DIR" 2>&1 \
+       | tee "$BLUR_DIR.log" | grep -E "sigma|TAE|covis|delta1|Error|Traceback"; then :; fi
+  if [ -f "$BLUR_DIR/blur_degradation_results.json" ]; then
+    echo "[done] blur_degradation in $(( (SECONDS-t0)/60 )) min"; PASS=$((PASS+1))
+  else
+    echo "[FAIL] blur_degradation — see $BLUR_DIR.log"; FAIL=$((FAIL+1))
+    FAILED="$FAILED blur_degradation"
+  fi
+fi
+
+echo "########## STAGE 6: measured GPU peak (analytic table cross-check) ##########"
+# The pareto suite already records fps + peak-memory per config in Stages 1-4,
+# so the hardware-benchmark table in the paper is assembled from those JSONs.
+# This extra call is the one measured FP16-vs-quant-sim peak that report_kv_memory
+# prints for transparency about the simulation, on both encoders.
+HW_DIR="$OUT/hardware"
+if [ -f "$HW_DIR/kv_memory_measured.log" ]; then
+  echo "[skip] kv_memory_measured"; SKIP=$((SKIP+1))
+else
+  echo ""; echo "════════ [run] kv_memory_measured  $(date '+%H:%M:%S') ════════"
+  t0=$SECONDS
+  mkdir -p "$HW_DIR"
+  if python scripts/report_kv_memory.py --measure 2>&1 | tee "$HW_DIR/kv_memory_measured.log" \
+       | grep -E "encoder|window|FP16|quant|peak|MB|GB|Error"; then :; fi
+  if [ -s "$HW_DIR/kv_memory_measured.log" ]; then
+    echo "[done] kv_memory_measured in $(( (SECONDS-t0)/60 )) min"; PASS=$((PASS+1))
+  else
+    echo "[FAIL] kv_memory_measured"; FAIL=$((FAIL+1))
+    FAILED="$FAILED kv_memory_measured"
+  fi
+fi
+
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "F28 RE-RUN COMPLETE   pass=$PASS  skip=$SKIP  fail=$FAIL"
