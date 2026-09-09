@@ -30,7 +30,13 @@
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-SUITE="python scripts/run_pareto_benchmark_suite.py"
+PY="${PY:-$(command -v python || command -v python3)}"
+if [ -z "$PY" ]; then
+  echo "ERROR: no python interpreter found (tried 'python' and 'python3'). Set PY=/path/to/python and re-run."
+  exit 1
+fi
+echo "Using python: $PY"
+SUITE="$PY scripts/run_pareto_benchmark_suite.py"
 OUT="outputs/rerun_f28"
 mkdir -p "$OUT"
 PASS=0; SKIP=0; FAIL=0; FAILED=""
@@ -114,7 +120,7 @@ else
   echo ""; echo "════════ [run] blur_degradation  $(date '+%H:%M:%S') ════════"
   t0=$SECONDS
   mkdir -p "$BLUR_DIR"
-  if python scripts/run_blur_degradation.py --dataset sintel \
+  if $PY scripts/run_blur_degradation.py --dataset sintel \
        --sigmas 0 0.5 1 2 4 8 --temporal-window 32 --max-scenes 23 \
        --tae-covis-tau 0.05 --output-dir "$BLUR_DIR" 2>&1 \
        | tee "$BLUR_DIR.log" | grep -E "sigma|TAE|covis|delta1|Error|Traceback"; then :; fi
@@ -157,7 +163,7 @@ else
   echo ""; echo "════════ [run] kv_memory_measured  $(date '+%H:%M:%S') ════════"
   t0=$SECONDS
   mkdir -p "$HW_DIR"
-  if python scripts/report_kv_memory.py --measure 2>&1 | tee "$HW_DIR/kv_memory_measured.log" \
+  if $PY scripts/report_kv_memory.py --measure 2>&1 | tee "$HW_DIR/kv_memory_measured.log" \
        | grep -E "encoder|window|FP16|quant|peak|MB|GB|Error"; then :; fi
   if [ -s "$HW_DIR/kv_memory_measured.log" ]; then
     echo "[done] kv_memory_measured in $(( (SECONDS-t0)/60 )) min"; PASS=$((PASS+1))
