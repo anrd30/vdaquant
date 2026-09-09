@@ -126,6 +126,25 @@ else
   fi
 fi
 
+echo "########## STAGE 5b: P1 group-size sweep (lattice-direction decisive) ##########"
+# HYPOTHESIS (synthetic, ledger F28/F29): E8 ties grouped scalar at g=8 and the
+# gain grows monotonically with g (+0.32/+0.49/+0.57 dB at g=16/32/64 on
+# Gaussian input). NEVER tested on real KV cache. If the trend holds, the
+# lattice claim is alive; if E8 tracks scalar_g8 at all g or gets WORSE as g
+# grows, the lattice direction is closed outright.
+# NOTE: coarser g LOWERS effective bits (3b: g=8 -> 4.00, g=64 -> 3.125), so
+# E8 must be read against scalar_g8 AT THE SAME g, not against g=8.
+for g in 16 32 64; do
+  run "p1_e8_nyu_g$g"   --dataset nyuv2 --eval-mode groundtruth --quantizer lattice_e8 \
+      --group-size "$g" --scale-bits 8 --bits 4 3 --no-qjl --rht-seed 0 --max-samples 654
+  run "p1_sg_nyu_g$g"   --dataset nyuv2 --eval-mode groundtruth --quantizer scalar_g8 \
+      --group-size "$g" --scale-bits 8 --bits 4 3 --no-qjl --rht-seed 0 --max-samples 654
+  run "p1_e8_kitti_g$g" --dataset kitti --eval-mode groundtruth --quantizer lattice_e8 \
+      --group-size "$g" --scale-bits 8 --bits 4 3 --no-qjl --rht-seed 0 --max-samples 1000
+  run "p1_sg_kitti_g$g" --dataset kitti --eval-mode groundtruth --quantizer scalar_g8 \
+      --group-size "$g" --scale-bits 8 --bits 4 3 --no-qjl --rht-seed 0 --max-samples 1000
+done
+
 echo "########## STAGE 6: measured GPU peak (analytic table cross-check) ##########"
 # The pareto suite already records fps + peak-memory per config in Stages 1-4,
 # so the hardware-benchmark table in the paper is assembled from those JSONs.
