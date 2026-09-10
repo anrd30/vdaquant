@@ -62,9 +62,11 @@ def label(img_bgr: np.ndarray, text: str) -> np.ndarray:
 def build_model(model_configs):
     from video_depth_anything.video_depth import VideoDepthAnything
     m = VideoDepthAnything(**model_configs).eval()
-    ckpts = [REPO_ROOT / "checkpoints" / "video_depth_anything_vits.pth",
-             REPO_ROOT / "video_depth_anything_vits.pth",
-             Path("/content/vdaquant/checkpoints/video_depth_anything_vits.pth")]
+    enc = model_configs.get('encoder', 'vits')
+    fname = f"video_depth_anything_{enc}.pth"
+    ckpts = [REPO_ROOT / "checkpoints" / fname,
+             REPO_ROOT / fname,
+             Path(f"/content/vdaquant/checkpoints/{fname}")]
     loaded = False
     for c in ckpts:
         if c.exists() and c.stat().st_size > 10_000_000:
@@ -121,9 +123,21 @@ def main():
     ap.add_argument("--bits", nargs="+", type=int, default=[8, 4, 3, 2])
     ap.add_argument("--num-frames", type=int, default=8)
     ap.add_argument("--quantizer", default="lattice_e8",
-                    choices=["scalar", "uniform_vector", "lattice_d4", "lattice_e8"])
+                    choices=["scalar", "uniform_vector", "lattice_d4", "lattice_e8",
+                             "lattice_bw16", "lattice_golay24"])
     ap.add_argument("--scale-bits", type=int, default=8, choices=[8, 16])
     ap.add_argument("--qjl", dest="use_qjl", action=argparse.BooleanOptionalAction, default=False)
+    ap.add_argument("--encoder", default="vits", choices=["vits", "vitb", "vitl"],
+                    help="VDA backbone to visualise. vits is the light default; vitl "
+                         "matches the headline paper numbers.")
+    ap.add_argument("--group-size", type=int, default=None,
+                    help="Scale group size for lattice quantizers. Defaults to 16 for BW16.")
+    ap.add_argument("--no-rotation", dest="use_rotation", action="store_false", default=True,
+                    help="Quantise the raw (unrotated) activations — the rotation-ablation figure.")
+    ap.add_argument("--rht-seed", type=int, default=0,
+                    help="Seed the Hadamard random-sign draw for reproducibility.")
+    ap.add_argument("--tag", default="",
+                    help="Optional suffix on the output strip filenames (e.g. \"bw16_norot\").")
     ap.add_argument("--output-dir", default="outputs/depth_samples")
     ap.add_argument("--make-video", action="store_true",
                     help="Also assemble the strips into an MP4 (best for the video datasets).")
@@ -139,7 +153,12 @@ def main():
     samples, _ = load_gt_dataset(args.dataset, data_dir, max_samples=args.num_frames)
     print(f"  [Data] {len(samples)} {args.dataset} frames")
 
-    model_configs = {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]}
+    if args.encoder == "vits":
+        model_configs = {'encoder': 'vits', 'features': 64,  'out_channels': [48, 96, 192, 384]}
+    elif args.encoder == "vitb":
+        model_configs = {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]}
+    else:  # vitl
+        model_configs = {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]}
     fp32 = build_model(model_configs)
 
     # Pre-build one quantized model per bit-width (fresh surgery from the FP32 weights each time).
@@ -148,9 +167,12 @@ def main():
         mq = build_model(model_configs)
         mq = apply_rotated_quantization_to_vda(
             mq, bits=bit, quantizer=args.quantizer, use_qjl=args.use_qjl,
-            scale_bits=args.scale_bits, verbose=False, replace_temporal=True)
+            scale_bits=args.scale_bits, verbose=False, replace_temporal=True,
+            use_rotation=args.use_rotation, rht_seed=args.rht_seed,
+            scale_group=args.group_size)
         quant_models[bit] = mq
-        print(f"  [Surgery] {bit}-bit {args.quantizer} ready")
+        rot_tag = "no-rot" if not args.use_rotation else "rot"
+        print(f"  [Surgery] {bit}-bit {args.quantizer} ({rot_tag}) ready")
 
     strips = []
     for i, s in enumerate(samples):
@@ -165,14 +187,16 @@ def main():
         strip = cols[0]
         for c in cols[1:]:
             strip = np.concatenate([strip, gap, c], axis=1)
-        path = out_dir / f"strip_{i:04d}.png"
+        suffix = f"_{args.tag}" if args.tag else ""
+        path = out_dir / f"strip_{i:04d}{suffix}.png"
         cv2.imwrite(str(path), strip)
         strips.append(strip)
         print(f"  [Saved] {path.name}  ({strip.shape[1]}x{strip.shape[0]})")
 
     if args.make_video and len(strips) > 1:
         h, w = strips[0].shape[:2]
-        vid_path = out_dir / f"compare_{args.dataset}.mp4"
+        suffix = f"_{args.tag}" if args.tag else ""
+        vid_path = out_dir / f"compare_{args.dataset}{suffix}.mp4"
         vw = cv2.VideoWriter(str(vid_path), cv2.VideoWriter_fourcc(*"mp4v"), 6, (w, h))
         for st in strips:
             if st.shape[:2] != (h, w):

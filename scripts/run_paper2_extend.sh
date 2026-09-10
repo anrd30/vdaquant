@@ -15,6 +15,10 @@
 #       quantiser but reports MEASURED runtime alongside the analytic
 #       memory savings, matching how LLVQ (ICML 2026) presents its numbers
 #       before it had integer kernels.
+#   QUAL Qualitative depth-map panels (Fig-3-style side-by-sides) on
+#       NYU / KITTI / Sintel + a rotation-ablation panel. Produces PNG
+#       strips (RGB | FP32 | 4b | 3b | 2b) and an MP4 for the Sintel
+#       ladder so reviewers can see the 2-bit temporal collapse. ~20 min.
 #
 # Skipped intentionally (do them later, on the personal A100 or a follow-up):
 #   #2  K/V asymmetry seed sweep         — dropped, current results already ship
@@ -132,6 +136,59 @@ if [ ! -f "$HW_DIR/vitl_bw16_b3.log" ]; then
 else
   echo "[skip] hardware_benchmark"; SKIP=$((SKIP+1))
 fi
+
+# =============================================================================
+echo "########## STAGE QUAL: Qualitative depth-map figures (4 panels) ##########"
+# Fig-3-style side-by-side visualisations: RGB | FP32 | 4b | 3b | 2b for the
+# headline quantiser (BW16), on all three benchmarks; plus a rotation-ablation
+# panel showing why the Hadamard rotation is not optional. These are the
+# qualitative equivalents of the numerical Pareto — reviewers who don't read
+# TAE tables can eyeball the collapse at 2-bit and the rotation lift at 3-bit.
+QUAL_DIR="$OUT/qualitative"
+DUMP="$PY scripts/dump_depth_samples.py"
+mkdir -p "$QUAL_DIR"
+
+qual_run() {
+  local name="$1"; shift
+  local d="$QUAL_DIR/$name"
+  # Skip if any strip already produced for this panel.
+  if compgen -G "$d/strip_*.png" > /dev/null; then
+    echo "[skip] qual/$name"; SKIP=$((SKIP+1)); return 0
+  fi
+  echo ""; echo "════════ [qual] $name  $(date '+%H:%M:%S') ════════"; echo "   $*"
+  local t0=$SECONDS
+  if $DUMP --output-dir "$d" "$@" 2>&1 | tee "$d.log" \
+       | grep -E "Model|Surgery|Saved|Video|Error|Traceback"; then :; fi
+  if compgen -G "$d/strip_*.png" > /dev/null; then
+    echo "[done] qual/$name in $(( (SECONDS-t0)/60 )) min"; PASS=$((PASS+1))
+  else
+    echo "[FAIL] qual/$name — see $d.log"; FAIL=$((FAIL+1)); FAILED="$FAILED qual_$name"
+  fi
+}
+
+# Panel 1: NYU indoor — headline BW16 bit-ladder. Static frames, no video.
+#          Bits 8 (~FP16 storage), 4 (lossless), 3 (headline), 2 (collapse).
+qual_run "nyu_bw16_ladder" --dataset nyuv2 --encoder vits \
+    --quantizer lattice_bw16 --scale-bits 8 --group-size 16 \
+    --num-frames 6 --bits 8 4 3 2 --no-qjl --rht-seed 0 --tag bw16
+
+# Panel 2: KITTI outdoor — same ladder, single scene.
+qual_run "kitti_bw16_ladder" --dataset kitti --encoder vits \
+    --quantizer lattice_bw16 --scale-bits 8 --group-size 16 \
+    --num-frames 6 --bits 8 4 3 2 --no-qjl --rht-seed 0 --tag bw16
+
+# Panel 3: Sintel video — the temporal-collapse showcase.
+#          --make-video so we get an MP4 that visually shows flicker under 2-bit.
+qual_run "sintel_bw16_ladder" --dataset sintel --encoder vits \
+    --quantizer lattice_bw16 --scale-bits 8 --group-size 16 \
+    --num-frames 24 --bits 8 4 3 2 --no-qjl --rht-seed 0 --tag bw16 \
+    --make-video
+
+# Panel 4: Rotation ablation on Sintel — BW16 3-bit WITH vs WITHOUT rotation.
+#          Same scene, same seed, so the difference is purely the RHT.
+qual_run "sintel_bw16_b3_norot" --dataset sintel --encoder vits \
+    --quantizer lattice_bw16 --scale-bits 8 --group-size 16 \
+    --num-frames 12 --bits 3 --no-qjl --no-rotation --rht-seed 0 --tag norot
 
 # =============================================================================
 echo ""
