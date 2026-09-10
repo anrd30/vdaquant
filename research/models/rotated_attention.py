@@ -51,13 +51,16 @@ from research.quantizers.lattice_vq import (
     UniformVectorQuantizer,
     LatticeD4Quantizer,
     LatticeE8Quantizer,
+    LatticeBW16Quantizer,
+    LatticeGolay24Quantizer,
     IdentityQuantizer,
 )
 from research.quantizers.qjl_bias import QJLBiasCorrection
 
 
 def _get_quantizer(
-    method: Literal['scalar', 'scalar_g8', 'uniform_vector', 'lattice_d4', 'lattice_e8', 'identity'],
+    method: Literal['scalar', 'scalar_g8', 'uniform_vector', 'lattice_d4', 'lattice_e8',
+                    'lattice_bw16', 'lattice_golay24', 'identity'],
     bits: int,
     group_size: int = 4,
     scale_bits: int = 16,
@@ -93,6 +96,16 @@ def _get_quantizer(
         return LatticeD4Quantizer(bits=bits, group_size=4, scale_bits=scale_bits)
     elif method == 'lattice_e8':
         return LatticeE8Quantizer(bits=bits, group_size=g, scale_bits=scale_bits)
+    elif method == 'lattice_bw16':
+        # BW16: group_size must be multiple of 16. If caller passed the default
+        # of 8, promote to 16 (a group smaller than the lattice dim is nonsense
+        # for BW16). Any explicit multiple of 16 is honoured.
+        bw_g = 16 if (scale_group is None or scale_group < 16) else scale_group
+        return LatticeBW16Quantizer(bits=bits, group_size=bw_g, scale_bits=scale_bits)
+    elif method == 'lattice_golay24':
+        # Λ24_A: group_size must be multiple of 24.
+        g24 = 24 if (scale_group is None or scale_group < 24) else scale_group
+        return LatticeGolay24Quantizer(bits=bits, group_size=g24, scale_bits=scale_bits)
     elif method == 'identity':
         return IdentityQuantizer(bits=bits)
     else:

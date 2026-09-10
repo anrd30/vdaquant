@@ -769,6 +769,14 @@ QUANTIZER_GROUP_SIZE = {
     # per-8-group scale, identically to lattice_e8 — that IS the point of
     # this quantizer, so it must be charged the same group_size here.
     'scalar_g8': 8,
+    # BW16 (Λ16 via Construction A over RM(1,4)): 16-dim vector quantiser,
+    # pays a per-16-group scale.
+    'lattice_bw16': 16,
+    # Λ24_A (Construction A over extended Golay G_24): 24-dim vector
+    # quantiser. Requires feature dimension divisible by 24, which does not
+    # hold for the standard head_dim=64 KV cache; caller must flatten
+    # across heads before invoking.
+    'lattice_golay24': 24,
 }
 
 
@@ -816,7 +824,8 @@ def bit_accounting_for(quantizer_name: str, bit_val: int, use_qjl: bool,
         }
     group_size = (group_size_override
                   if (group_size_override is not None
-                      and quantizer_name in ('scalar_g8', 'lattice_e8'))
+                      and quantizer_name in ('scalar_g8', 'lattice_e8',
+                                             'lattice_bw16', 'lattice_golay24'))
                   else resolve_group_size(quantizer_name, head_dim))
     payload = bit_val if v_bits is None else (bit_val + v_bits) / 2.0
     return compute_real_bit_accounting(
@@ -1489,7 +1498,8 @@ def main():
     )
     parser.add_argument("--quantizer", type=str, default="lattice_d4",
                          choices=["scalar", "scalar_g8", "uniform_vector", "lattice_d4",
-                                  "lattice_e8", "identity"],
+                                  "lattice_e8", "lattice_bw16", "lattice_golay24",
+                                  "identity"],
                          help="'identity' is the SURGERY-FIDELITY CONTROL (F27): it applies the "
                               "full attention surgery but with a no-op quantizer, so the run "
                               "differs from the FP32 baseline ONLY by the attention "

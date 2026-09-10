@@ -56,6 +56,40 @@ run() {  # run <name> <args...>
 }
 
 # =============================================================================
+echo "########## STAGE 0: BW16 & Golay24-A lattice sweeps (NEW LATTICES) ##########"
+# Two new lattice families beyond E8/D4/scalar:
+#   * lattice_bw16    -- Construction A over RM(1,4). 16-dim lattice, min-norm 4.
+#                       group_size 16 (minimum) or a multiple. head_dim=64 fits
+#                       (4 groups per head).
+#   * lattice_golay24 -- Construction A over the extended Golay code G_24.
+#                       24-dim lattice, min-norm 4. head_dim=64 is NOT
+#                       divisible by 24, so we set group_size=48 (uses
+#                       tensor flattening across the trailing dim so pairs
+#                       of heads are quantised together).
+# Both quantisers correspond to well-defined lattices verified by unit tests
+# in tests/test_bw16_golay24.py (kissing weights, mod-2 membership, etc.).
+# Reported precisely as "L16_A / L24_A (Construction A)" in the paper.
+for bits in 4 3; do
+  run "bw16_nyu_b${bits}"   --dataset nyuv2 --eval-mode groundtruth --quantizer lattice_bw16 \
+      --scale-bits 8 --bits $bits --no-qjl --rht-seed 0 --max-samples 654 --group-size 16
+  run "bw16_kitti_b${bits}" --dataset kitti --eval-mode groundtruth --quantizer lattice_bw16 \
+      --scale-bits 8 --bits $bits --no-qjl --rht-seed 0 --max-samples 1000 --group-size 16
+done
+for bits in 4 3; do
+  run "g24_nyu_b${bits}"   --dataset nyuv2 --eval-mode groundtruth --quantizer lattice_golay24 \
+      --scale-bits 8 --bits $bits --no-qjl --rht-seed 0 --max-samples 654 --group-size 48
+  run "g24_kitti_b${bits}" --dataset kitti --eval-mode groundtruth --quantizer lattice_golay24 \
+      --scale-bits 8 --bits $bits --no-qjl --rht-seed 0 --max-samples 1000 --group-size 48
+done
+# Sintel temporal + co-visibility TAE for BW16 and Golay24 at 3-bit only.
+run "bw16_sintel_b3" --dataset sintel --eval-mode temporal --quantizer lattice_bw16 \
+    --scale-bits 8 --bits 3 --no-qjl --rht-seed 0 --temporal-window 32 \
+    --max-samples 2000 --max-scenes 23 --tae-covis-tau 0.05 --group-size 16
+run "g24_sintel_b3"  --dataset sintel --eval-mode temporal --quantizer lattice_golay24 \
+    --scale-bits 8 --bits 3 --no-qjl --rht-seed 0 --temporal-window 32 \
+    --max-samples 2000 --max-scenes 23 --tae-covis-tau 0.05 --group-size 48
+
+# =============================================================================
 echo "########## STAGE 1: Sintel K/V asymmetry (temporal — NEW) ##########"
 # Complements the NYU/KITTI K/V we already ran under outputs_new/asym_kv/.
 # Uses the corrected TAE (co-visibility mask) from Paper 1's finding.
