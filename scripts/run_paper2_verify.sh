@@ -97,15 +97,9 @@ run "qjl_on_nyu"    --dataset nyuv2 --eval-mode groundtruth --quantizer lattice_
 run "qjl_on_kitti"  --dataset kitti --eval-mode groundtruth --quantizer lattice_e8 \
     --scale-bits 8 --bits 3      --qjl --rht-seed 0 --max-samples 1000
 
-# =============================================================================
-echo "########## STAGE 5: Symmetric K=V baseline for K/V table (paper cross-check) ##########"
-# Runs the symmetric 3/3 baseline on NYU/KITTI under identical config to the
-# 4/2 and 2/4 asymmetric runs from outputs_new/asym_kv/. Same protocol =
-# apples-to-apples for the K/V table in Paper 2.
-run "kv_3_3_nyu"   --dataset nyuv2 --eval-mode groundtruth --quantizer lattice_e8 \
-    --scale-bits 8 --bits 3 --v-bits 3 --no-qjl --rht-seed 0 --max-samples 654
-run "kv_3_3_kitti" --dataset kitti --eval-mode groundtruth --quantizer lattice_e8 \
-    --scale-bits 8 --bits 3 --v-bits 3 --no-qjl --rht-seed 0 --max-samples 1000
+# Symmetric K=V=3b baseline is NOT re-run here — it's already in
+# outputs/rerun_f28/e8_nyu/ and e8_kitti/ at the 3-bit rows. Reuse those.
+# (Removed a redundant stage to save ~30 min of GPU.)
 
 # =============================================================================
 echo ""
