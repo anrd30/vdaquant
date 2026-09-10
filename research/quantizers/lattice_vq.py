@@ -732,12 +732,46 @@ class LatticeBW16Quantizer(nn.Module):
         return picked
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+        """
+        Quantize using BW16 (Construction A over RM(1, 4)).
+
+        Shape handling. When the trailing feature dim d is a multiple of the
+        scale group size k (>= 16), the quantizer processes each 16-vector
+        within the last dim independently, one scale per k-group. When d is
+        smaller than k or is not a multiple of k, the quantizer absorbs the
+        preceding sequence dimension into the last dim and, if that still
+        doesn't produce a multiple of k, pads with zeros to the next
+        multiple of k. Any padding introduced is removed from the output so
+        the caller sees the original shape unchanged.
+        """
         orig_shape = x.shape
+        orig_numel = x.numel()
+        L = 16                  # lattice dimension
+        k = self.group_size     # scale group size (>= L, multiple of 16)
+
+        # Two-step reshape: (a) absorb preceding sequence dim if last dim is
+        # too small or not a multiple of k; (b) pad the last dim up to a
+        # multiple of k if still not aligned. Together these guarantee we
+        # can form k-groups even on non-round tensor shapes.
+        did_merge = False
+        pad_len = 0
+        if x.shape[-1] < k or x.shape[-1] % k != 0:
+            if x.ndim >= 2:
+                merged = x.shape[-2] * x.shape[-1]
+                x = x.reshape(*x.shape[:-2], merged)
+                did_merge = True
+            pad_len = (-x.shape[-1]) % k
+            if pad_len > 0:
+                pad_shape = list(x.shape)
+                pad_shape[-1] = pad_len
+                padding = torch.zeros(*pad_shape, dtype=x.dtype, device=x.device)
+                x = torch.cat([x, padding], dim=-1)
+
         d = x.shape[-1]
-        k = self.group_size
-        assert d % k == 0, (
-            f"Feature dim {d} must be divisible by scale group_size {k}"
-        )
+        if d % k != 0:
+            raise ValueError(
+                f"Feature dim {d} must be divisible by scale group_size {k}"
+            )
 
         x_scale_grouped = x.reshape(*x.shape[:-1], d // k, k)
         alpha = x_scale_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
@@ -748,15 +782,20 @@ class LatticeBW16Quantizer(nn.Module):
             scale_step = scale_max / 255.0
             scale = (scale / scale_step).round().clamp(0, 255) * scale_step
 
-        # Reshape to 16-vectors (independent of group size, as long as k % 16 == 0).
-        x_scaled = (x_scale_grouped / scale).reshape(*x.shape[:-1], d // 16, 16)
+        x_scaled = (x_scale_grouped / scale).reshape(*x.shape[:-1], d // L, L)
 
         lo, hi = -float(self.half_levels), float(self.half_levels - 1)
         x_scaled = x_scaled.clamp(lo, hi)
 
         x_lattice = self._nearest_bw16_point(x_scaled, lo, hi)
 
-        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(orig_shape)
+        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(x.shape)
+        # Strip padding from the LAST dim (before flattening) so we don't
+        # cross a row boundary of the merged (unpadded) tensor.
+        if pad_len > 0:
+            x_quant = x_quant[..., :x.shape[-1] - pad_len]
+        # Restore caller's original shape.
+        x_quant = x_quant.reshape(orig_shape)
 
         info = {
             'scale': scale.squeeze(-1),
@@ -766,6 +805,7 @@ class LatticeBW16Quantizer(nn.Module):
             'scale_bits': self.scale_bits,
             'scale_overhead_bits_per_scalar': self.scale_bits / k,
             'coding_gain_db': 0.86,  # BW16 vs scalar; ~0.21 dB over E8 at matched rate
+            'lattice_dim': L,
         }
         return x_quant, info
 
@@ -855,17 +895,48 @@ class LatticeGolay24Quantizer(nn.Module):
         return picked
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+        """
+        Quantize using Λ24_A (Construction A over the extended Golay code).
+
+        Shape handling. If the trailing dim is not a multiple of the scale
+        group size k (>= 24), we absorb the preceding sequence dim into the
+        last dim and, if that still doesn't produce a multiple of k, pad
+        with zeros. Padding is stripped from the output.
+
+        Head_dim = 64 (VDA backbone) is not divisible by 24, so the
+        sequence-merge + pad path is exercised on essentially every real
+        attention tensor. This is intentional -- the alternative is to skip
+        the lattice entirely on those layers, which would prevent an
+        apples-to-apples comparison with E8.
+        """
         orig_shape = x.shape
+        orig_numel = x.numel()
+        L = 24
+        k = self.group_size     # must be multiple of 24
+
+        did_merge = False
+        pad_len = 0
+        if x.shape[-1] < k or x.shape[-1] % k != 0:
+            if x.ndim >= 2:
+                merged = x.shape[-2] * x.shape[-1]
+                x = x.reshape(*x.shape[:-2], merged)
+                did_merge = True
+            pad_len = (-x.shape[-1]) % k
+            if pad_len > 0:
+                pad_shape = list(x.shape)
+                pad_shape[-1] = pad_len
+                padding = torch.zeros(*pad_shape, dtype=x.dtype, device=x.device)
+                x = torch.cat([x, padding], dim=-1)
+
         d = x.shape[-1]
-        k = self.group_size
-        assert d % k == 0, (
-            f"Feature dim {d} must be divisible by scale group_size {k}"
-        )
-        assert d % 24 == 0, (
-            f"Feature dim {d} must be divisible by lattice dimension 24 for Λ24. "
-            "For head_dim = 64 KV caches you must flatten across heads before "
-            "calling this quantiser."
-        )
+        if d % k != 0:
+            raise ValueError(
+                f"Feature dim {d} must be divisible by scale group_size {k}"
+            )
+        if d % L != 0:
+            raise ValueError(
+                f"Feature dim {d} must be divisible by lattice dimension {L}"
+            )
 
         x_scale_grouped = x.reshape(*x.shape[:-1], d // k, k)
         alpha = x_scale_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
@@ -876,14 +947,18 @@ class LatticeGolay24Quantizer(nn.Module):
             scale_step = scale_max / 255.0
             scale = (scale / scale_step).round().clamp(0, 255) * scale_step
 
-        x_scaled = (x_scale_grouped / scale).reshape(*x.shape[:-1], d // 24, 24)
+        x_scaled = (x_scale_grouped / scale).reshape(*x.shape[:-1], d // L, L)
 
         lo, hi = -float(self.half_levels), float(self.half_levels - 1)
         x_scaled = x_scaled.clamp(lo, hi)
 
         x_lattice = self._nearest_golay24_point(x_scaled, lo, hi)
 
-        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(orig_shape)
+        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(x.shape)
+        # Strip trailing padding from the LAST dim before reshaping.
+        if pad_len > 0:
+            x_quant = x_quant[..., :x.shape[-1] - pad_len]
+        x_quant = x_quant.reshape(orig_shape)
 
         info = {
             'scale': scale.squeeze(-1),
@@ -893,6 +968,7 @@ class LatticeGolay24Quantizer(nn.Module):
             'scale_bits': self.scale_bits,
             'scale_overhead_bits_per_scalar': self.scale_bits / k,
             'coding_gain_db': 1.03,  # Λ24_A vs scalar; true Leech is higher (~2.7 dB)
+            'lattice_dim': L,
         }
         return x_quant, info
 
