@@ -873,51 +873,48 @@ class LatticeGolay24Quantizer(nn.Module):
     ) -> torch.Tensor:
         """
         For each 24-vector row in x_scaled, return the nearest Λ24_A point
-        with every coordinate in [lo, hi]. See LatticeBW16Quantizer for the
-        analogous 16-dim enumeration; here the codebook has 4096 codewords.
+        with every coordinate in [lo, hi]. The Golay code has 4096 codewords.
 
-        Memory. The naive (batch, 4096, 24) intermediate tensor is too large
-        for typical VDA attention shapes on 40 GB GPUs (e.g. shape
-        (2, 6, 196, 32, 24) with 4096 candidates -> 18 GB). We therefore
-        iterate over Golay codewords in chunks, tracking the running best
-        distance per input vector so that peak memory is bounded by the
-        chunk size rather than the full codebook.
+        The obvious "one big (batch, 4096, 24) tensor" runs out of memory on
+        real VDA attention shapes; the "chunk over codewords" alternative is
+        correct but has 32 rounds of Python-loop overhead and gathers,
+        making it about an order of magnitude slower than an ideal
+        implementation. This version keeps the full 4096 codewords in a
+        single argmin call and instead chunks over the LEADING (batch)
+        dimension, so peak memory is bounded by chunk_size * 4096 * 24 * 4
+        bytes and the compute is fully vectorised per chunk.
+
+        On typical VDA shapes with batch_size = 512 the intermediate is
+        ~200 MB, which is comfortable, and each chunk does exactly one
+        argmin over all 4096 codewords.
         """
         assert x_scaled.shape[-1] == 24, x_scaled.shape
         C = golay24_codewords_torch(device=x_scaled.device, dtype=x_scaled.dtype)  # (4096, 24)
+        lo_bounds = torch.ceil((lo - C) * 0.5)      # (4096, 24)
+        hi_bounds = torch.floor((hi - C) * 0.5)     # (4096, 24)
 
-        # Chunked scan over the 4096 codewords to bound peak memory.
-        # 128 codewords per chunk works out to a (..., 128, 24) intermediate,
-        # 32x smaller than the naive full enumeration.
-        chunk = 128
-        best_d2 = None   # running minimum distance per input row
-        best_pt = None   # running best lattice point per input row
+        # Flatten leading dims to a single batch dim, chunk it, then unflatten.
+        lead_shape = x_scaled.shape[:-1]
+        flat = x_scaled.reshape(-1, 24)             # (N, 24)
+        N = flat.shape[0]
+        out = torch.empty_like(flat)
 
-        for start in range(0, C.shape[0], chunk):
-            C_chunk = C[start:start + chunk]              # (chunk, 24)
-            x_exp = x_scaled.unsqueeze(-2)                # (..., 1, 24)
-            shifted = (x_exp - C_chunk) * 0.5             # (..., chunk, 24)
-            lo_bounds = torch.ceil((lo - C_chunk) * 0.5)  # (chunk, 24)
-            hi_bounds = torch.floor((hi - C_chunk) * 0.5) # (chunk, 24)
+        # 512 fits in ~200 MB per chunk (512 * 4096 * 24 * 4 bytes = 200 MB).
+        # Adjust if the input dtype is fp16 (halve memory) or GPU is smaller.
+        BATCH = 512
+        for start in range(0, N, BATCH):
+            end = min(start + BATCH, N)
+            x_chunk = flat[start:end]               # (b, 24)
+            x_exp = x_chunk.unsqueeze(-2)           # (b, 1, 24)
+            shifted = (x_exp - C) * 0.5             # (b, 4096, 24)
             z = shifted.round().clamp(lo_bounds, hi_bounds)
-            cand = 2.0 * z + C_chunk                      # (..., chunk, 24)
-            d2 = ((cand - x_exp) ** 2).sum(dim=-1)        # (..., chunk)
+            cand = 2.0 * z + C                      # (b, 4096, 24)
+            d2 = ((cand - x_exp) ** 2).sum(dim=-1)  # (b, 4096)
+            best_idx = d2.argmin(dim=-1)            # (b,)
+            best_idx_exp = best_idx.view(-1, 1, 1).expand(-1, 1, 24)
+            out[start:end] = cand.gather(-2, best_idx_exp).squeeze(-2)
 
-            # Best within this chunk
-            chunk_best_d2, chunk_best_idx = d2.min(dim=-1, keepdim=True)  # (..., 1)
-            chunk_best_pt = cand.gather(
-                -2, chunk_best_idx.unsqueeze(-1).expand(*chunk_best_idx.shape, 24)
-            ).squeeze(-2)                                 # (..., 24)
-
-            if best_d2 is None:
-                best_d2 = chunk_best_d2.squeeze(-1)       # (...,)
-                best_pt = chunk_best_pt                   # (..., 24)
-            else:
-                improved = chunk_best_d2.squeeze(-1) < best_d2
-                best_d2 = torch.where(improved, chunk_best_d2.squeeze(-1), best_d2)
-                improved_exp = improved.unsqueeze(-1).expand_as(best_pt)
-                best_pt = torch.where(improved_exp, chunk_best_pt, best_pt)
-        return best_pt
+        return out.reshape(*lead_shape, 24)
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, dict]:
         """
