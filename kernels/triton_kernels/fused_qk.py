@@ -126,10 +126,11 @@ if TRITON_AVAILABLE:
                 mask=n_mask, other=0.0,
             )                                                   # (BLOCK_N,)
 
-            # 3. Reconstruct the 16 scalars and accumulate Q @ K^T.
-            #    Triton can't slice a 2D tile, so use a mask-based
-            #    reduction to extract column i of q_tile.
+            # 3. Build the decoded K tile (BLOCK_N, 16) column-by-column
+            #    via mask-and-add (same trick as fused_pv).  Then use
+            #    tl.dot for the (BLOCK_M, 16) @ (16, BLOCK_N) matmul.
             col_range = tl.arange(0, 16)                        # (16,)
+            k_tile = tl.zeros((BLOCK_N, 16), dtype=tl.float32)
             for i in tl.static_range(0, 16):
                 u = ((packed >> (5 + i * OFFSET_BITS)) & OFFSET_MASK).to(tl.int32)
                 offset_signed = u - OFFSET_BIAS
@@ -137,10 +138,10 @@ if TRITON_AVAILABLE:
                             mask=n_mask, other=0.0)
                 x_scaled = 2.0 * offset_signed.to(tl.float32) + c
                 k_val = x_scaled * scale                        # (BLOCK_N,) fp32
-                # Extract q_tile[:, i] as sum(q_tile * (col == i), axis=1).
                 is_i = (col_range == i).to(tl.float32)          # (16,)
-                q_col_i = tl.sum(q_tile * is_i[None, :], axis=1)  # (BLOCK_M,)
-                acc += q_col_i[:, None] * k_val[None, :]
+                k_tile = k_tile + k_val[:, None] * is_i[None, :]
+            # tl.dot: (BLOCK_M, 16) @ (16, BLOCK_N) -> (BLOCK_M, BLOCK_N)
+            acc += tl.dot(q_tile, tl.trans(k_tile), allow_tf32=False)
 
         # Write the score tile.
         tl.store(
