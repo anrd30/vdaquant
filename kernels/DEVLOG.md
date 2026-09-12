@@ -16,6 +16,62 @@ Format:
 
 ---
 
+## 2026-09-12 14:30 IST  session 5: FUSED ATTENTION KERNEL
+    context      : end-to-end fused decode + attention kernel so K and V
+                   never materialise as fp16 during the forward
+    hardware     : RTX 4050 Laptop, 6.0 GB, Triton 3.7.0
+    changes      :
+      - kernels/triton_kernels/fused_qk.py -- Q @ K^T with K decoded
+        inline.  One program per (BLOCK_M, BLOCK_N) output tile; loop
+        over D-groups; per group, mask-based column extraction of
+        q_tile (Triton can't slice 2D tiles).  bits in {2,3,4}.
+      - kernels/triton_kernels/fused_pv.py -- P @ V with V decoded
+        inline.  One program per (BLOCK_M, 16) output tile.  D-group
+        loop -> N-block loop -> per-coord decode -> tl.sum reduction
+        along N.
+      - kernels/triton_kernels/fused_attention.py -- wrapper:
+             scores = fused_qk_bw16(Q, packed_K) * (1/sqrt(D))
+             probs  = F.softmax(scores, dim=-1)      # unfused
+             out    = fused_pv_bw16(probs, packed_V)
+        Two Triton kernels + one PyTorch softmax.  K and V bytes stay
+        packed; the fp16 K/V intermediates never exist.
+      - kernels/tests/test_fused_attention.py -- 3 correctness gates,
+        all pass on RTX 4050, max diff O(1e-7) vs standard PyTorch
+        attention on the decoded tensors.
+    findings     :
+      - fused_qk BENCHMARK on RTX 4050 vs unfused decode + matmul:
+          ViT-S mm2 (1369x64):    12.5 ms -> 0.5 ms   24.4x
+          ViT-S mm0 (1369x192):    6.2 ms -> 1.4 ms    4.4x
+          ViT-S mm1  (361x384):    6.1 ms -> 0.3 ms   22.7x
+          ViT-S mm3 (5476x64):     5.0 ms -> 7.6 ms    0.7x  (too many programs)
+        mm3's regression is because BLOCK_M=BLOCK_N=32 produces 30k
+        programs for a 5476x5476 output; needs bigger tiles or two-stage
+        reduction.  Fix in a follow-up session.
+      - FULL FUSED ATTENTION on RTX 4050 (VDA shapes at 3-bit):
+          ViT-S mm2 (1369x64):   22.2 ms -> 1.9 ms   11.86x
+          ViT-S mm0 (1369x192):   8.3 ms -> 4.9 ms    1.70x
+          ViT-S mm1 ( 361x384):   7.1 ms -> 0.8 ms    8.64x
+        Every result BIT-EXACT-ish: max diff O(1e-7), which is fp
+        accumulation-order round-off, not a correctness bug.
+      - Triton gotcha (2 hits this session):
+          (a) `k_pack_base[:, 0] + byte_i * stride_kb` fails with
+              "unsupported tensor index: constexpr[0]".  Fix: build a
+              1D base pointer from n_offs * stride_kn + g * stride_kg
+              and add byte offsets directly.
+          (b) `q_tile[:, i:i+1]` fails with "unsupported tensor
+              index: slice".  Fix: mask-based column extraction:
+                  is_i = (arange(0, 16) == i).to(fp32)     # (16,)
+                  q_col = tl.sum(q_tile * is_i[None, :], axis=1)
+              Same trick to scatter into acc[:, i].
+    next         :
+      - Tune BLOCK sizes for mm3 (large M=N case).
+      - Fold softmax into the fused_qk pass (FlashAttention online
+        softmax).  Removes the fp32 (M, N) probs intermediate.
+      - Integrate into RotatedTemporalAttention.
+      - Benchmark on A100 for the Paper 2 headline latency number.
+
+---
+
 ## 2026-09-12 14:00 IST  session 4: multi-bit Triton + KV cache Triton path + benchmark
     context      : make the Triton decode general (bits in {2,3,4}) and
                    plumb it into PackedKVCache so all reads go via
