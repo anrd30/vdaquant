@@ -16,6 +16,63 @@ Format:
 
 ---
 
+## 2026-09-12 15:20 IST  session 6: autotune + VDA integration proof + steady-state benchmark
+    context      : make the fused kernels self-tune per GPU/shape, then
+                   prove the fused path is a drop-in for VDA's
+                   RotatedTemporalAttention and quote steady-state
+                   latency for Paper 2 Table 6
+    hardware     : RTX 4050 Laptop
+    changes      :
+      - fused_qk.py and fused_pv.py wear triton.autotune with 5-6
+        Config candidates each.  Autotune key is (M, N, D) so different
+        VDA layers get their own tuned tile size.
+      - BLOCK size sweep for mm3 (5476x5476x64) found:
+             BM=32 BN=32   -> 8.18 ms
+             BM=32 BN=128  -> 2.60 ms
+             BM=64 BN=64   -> 248.14 ms   (shared-mem trap)
+             BM=64 BN=256  -> 2.21 ms     (best)
+        Autotune correctly avoids the trap and picks BM=64 BN=256 for
+        mm3 after warmup.
+      - kernels/tests/test_vda_integration.py -- integration proof:
+        the fused kernel produces the same output as the simulator
+        path (LatticeBW16Quantizer + fp16 buffer + PyTorch attn) on
+        rotated Q, K, V for all three VDA head dimensions.  Runs
+        the HadamardRotation from research/models on both paths so the
+        comparison is faithful to the VDA forward.  Max diff after
+        rotation:
+             D=64:  1.29e-4
+             D=192: 1.13e-4
+             D=384: 9.37e-5
+        All under the 5e-3 gate.  This is the paper's "drop-in for
+        VDA temporal attention" claim proved on a 4050.
+      - kernels/benchmark_full_attention.py -- one-file Markdown-table
+        benchmark that reports fp16 baseline / simulator / fused on
+        every VDA temporal layer.  Feeds Paper 2 Table 6 directly.
+    tests        : 33/33 pass (17 + 5 + 5 + 3 + 3)
+                    NEW: 3 VDA integration tests, all pass
+    findings     :
+      - VDA-shaped attention benchmark, cache pre-packed (steady-
+        state deployment):
+             ViT-S mm2 (1369x64):    simulator 20.76 ms -> fused  1.63 ms  12.8x
+             ViT-S mm0 (1369x192):   simulator 10.83 ms -> fused  5.47 ms   2.0x
+             ViT-S mm1 ( 361x384):   simulator  5.76 ms -> fused  0.98 ms   5.9x
+        This is what Paper 2 Table 6 will actually cite: STEADY-STATE
+        LATENCY of the fused kernel vs the simulator, with KV in
+        packed int form.  The one-shot pack+attn is slower (pack is
+        the Python 32-coset enumeration; a Triton PACK kernel would
+        fix that too).
+      - Autotune first-call compilation cost is high (60-120 s on
+        6 GB card) as it recompiles all Configs for each new shape;
+        subsequent calls with the same shape hit the cache in ~us.
+    next         :
+      - Triton PACK kernel to kill the one-shot pack cost.
+      - FlashAttention-style single-kernel with online softmax.
+      - Run benchmark on A100 for the paper's headline numbers.
+      - Real VDA-S checkpoint + a NYU test batch on the 4050 for the
+        end-to-end delta_1 parity check.
+
+---
+
 ## 2026-09-12 14:30 IST  session 5: FUSED ATTENTION KERNEL
     context      : end-to-end fused decode + attention kernel so K and V
                    never materialise as fp16 during the forward
