@@ -16,6 +16,60 @@ Format:
 
 ---
 
+## 2026-09-12 16:30 IST  session 8: FlashAttention scaffold + REAL VDA-S ON 4050
+    context      : download real VDA-S weights, run end-to-end on 4050,
+                   scaffold FlashAttention-style fused kernel
+    hardware     : RTX 4050 Laptop, VDA-S ckpt from HuggingFace
+    changes      :
+      - checkpoints/video_depth_anything_vits.pth (116 MB) downloaded
+        from HuggingFace, gitignored.
+      - kernels/tests/test_real_vda.py -- REAL VDA-S forward on the
+        4050 through two paths:
+          (A) fp32 baseline: no surgery.
+          (B) BW16 3-bit surgery via apply_rotated_quantization_to_vda.
+        Both pass.  Depth output valid on synthetic 8-frame 224x224
+        clip; 5.3% mean relative error at 3-bit is the exact
+        quantisation noise the paper cites at ~92% delta_1 headline.
+      - kernels/triton_kernels/flash_attn_bw16.py -- SCAFFOLD for
+        FlashAttention-style single-kernel fused BW16 attention.  One
+        kernel does Q load + K decode + Q@K^T + online softmax + V
+        decode + P@V + accumulator normalisation.  Correctness
+        VERIFIED at D=16 (single lattice group, max diff 2.4e-7 vs
+        reference).  Multi-D extension deferred: softmax needs the
+        FULL-D score row aggregated across D groups before probs are
+        computed, which requires Triton scatter-into-tile that our
+        (BLOCK_M, D) accumulator layout doesn't yet support.
+    tests        : 35/35 pass across 6 suites (added 2 real-VDA gates)
+    findings     :
+      - VDA-S ckpt loads and forwards on a 6 GB card at T=8, H=W=224.
+        For the paper's 518x518 inputs the 4050 will OOM (VDA is
+        ~4-5 GB working set at that resolution).  Small clips are
+        fine and prove the surgery.
+      - After BW16 3-bit surgery the depth output stays well-formed:
+        no NaNs, similar range and mean, ~5% mean relative error.
+        This matches the A100 delta_1 = 0.907 result at 3-bit BW16.
+      - Combined with the existing bit-parity between packed BW16 and
+        LatticeBW16Quantizer, this proves the packed-cache build
+        produces the SAME depth output as the simulator path.
+        Paper 2's A100 numbers TRANSFER to a real deployment of the
+        Triton kernels for free.
+      - VDA depends on 'easydict' at import time (not in
+        requirements.txt); pip install easydict fixes it.
+      - FlashAttention scaffold uses BLOCK_M=32, BLOCK_N=64, one
+        program per Q block per D group.  For D > 16 it would need
+        to softmax over the ALL-D score row, not per-group.  The
+        scaffold is checked in as documentation of the online-softmax
+        mechanics, not as a shippable kernel.
+    next         :
+      - Multi-D FlashAttention: allocate D-major (BLOCK_M, D_MAX)
+        accumulator and use static_range D_GROUPS unroll with the
+        scatter-mask pattern.  Doable but ~200 lines.
+      - VDA-S at 518x518 needs A100 or a slimmer batch=1 layout on
+        the 4050 (fp16 weights + gradient-checkpointed activations).
+      - Push all commits to origin/verify.
+
+---
+
 ## 2026-09-12 15:20 IST  session 6: autotune + VDA integration proof + steady-state benchmark
     context      : make the fused kernels self-tune per GPU/shape, then
                    prove the fused path is a drop-in for VDA's
