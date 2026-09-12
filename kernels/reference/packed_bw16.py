@@ -88,11 +88,16 @@ class PackedBW16:
         return self.fp16_reference_bytes() / max(self.nbytes(), 1)
 
 
+_CHUNK_ROWS = 1 << 15   # 32k rows per chunk -> ~64 MB intermediate at 32 cosets
+
+
 def _find_nearest_coset(x_grouped: torch.Tensor,
                         cosets: torch.Tensor
                         ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Nearest-neighbour search over the 32 BW16 cosets.
+    Nearest-neighbour search over the 32 BW16 cosets, batch-chunked so a
+    naive (..., 32, 16) broadcast does not OOM on a 6 GB card for a full
+    VDA temporal-attention KV tile.
 
     Args:
         x_grouped: (..., 16) real-valued groups after rotation and scaling.
@@ -101,21 +106,38 @@ def _find_nearest_coset(x_grouped: torch.Tensor,
     Returns:
         best_idx:      (...,)        long, index of the winning coset in 0..31
         best_offsets:  (..., 16)     int, integer part of (x - c)/2 for the winner
-
-    The residual r = (x - c) / 2 is rounded to the nearest integer per
-    coordinate; the reconstructed codeword is c + 2 * round(r), and the
-    winning coset minimises L2 distance.
     """
-    # Broadcast: (..., 1, 16) - (32, 16) -> (..., 32, 16)
-    delta = x_grouped.unsqueeze(-2) - cosets              # (..., 32, 16)
-    residuals = torch.round(delta / 2.0)                  # (..., 32, 16)
-    reconstructed = cosets + 2.0 * residuals              # (..., 32, 16)
-    sq_err = ((x_grouped.unsqueeze(-2) - reconstructed) ** 2).sum(dim=-1)
-    best_idx = sq_err.argmin(dim=-1)                      # (...,)
-    # Gather the offsets for the winning coset.
-    idx = best_idx.unsqueeze(-1).unsqueeze(-1).expand(*best_idx.shape, 1, 16)
-    best_offsets = residuals.gather(-2, idx).squeeze(-2)  # (..., 16)
-    return best_idx, best_offsets
+    orig_shape = x_grouped.shape[:-1]
+    flat = x_grouped.reshape(-1, 16)                       # (N, 16)
+    N = flat.shape[0]
+
+    if N <= _CHUNK_ROWS:
+        # Fast path: one broadcast.
+        delta = flat.unsqueeze(1) - cosets                 # (N, 32, 16)
+        residuals = torch.round(delta / 2.0)               # (N, 32, 16)
+        reconstructed = cosets + 2.0 * residuals           # (N, 32, 16)
+        sq_err = ((flat.unsqueeze(1) - reconstructed) ** 2).sum(dim=-1)   # (N, 32)
+        best_idx = sq_err.argmin(dim=-1)                   # (N,)
+        idx = best_idx.view(-1, 1, 1).expand(-1, 1, 16)
+        best_offsets = residuals.gather(1, idx).squeeze(1) # (N, 16)
+    else:
+        # Chunk over the leading batch axis to bound peak memory.
+        best_idx = torch.empty(N, dtype=torch.long, device=flat.device)
+        best_offsets = torch.empty(N, 16, dtype=flat.dtype, device=flat.device)
+        for i in range(0, N, _CHUNK_ROWS):
+            j = min(i + _CHUNK_ROWS, N)
+            slab = flat[i:j]                                # (n, 16)
+            delta = slab.unsqueeze(1) - cosets              # (n, 32, 16)
+            residuals = torch.round(delta / 2.0)
+            reconstructed = cosets + 2.0 * residuals
+            sq_err = ((slab.unsqueeze(1) - reconstructed) ** 2).sum(dim=-1)
+            idx_slab = sq_err.argmin(dim=-1)                # (n,)
+            best_idx[i:j] = idx_slab
+            best_offsets[i:j] = residuals.gather(
+                1, idx_slab.view(-1, 1, 1).expand(-1, 1, 16)).squeeze(1)
+
+    return (best_idx.reshape(orig_shape),
+            best_offsets.reshape(*orig_shape, 16))
 
 
 def pack_bw16(x: torch.Tensor,
