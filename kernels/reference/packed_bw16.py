@@ -1,49 +1,39 @@
 """
 Packed BW16 KV-cache storage (pure PyTorch reference implementation).
 
-This is the safe Option-C step-1 path: real integer packing of a quantised
-KV cache, real memory reduction on the GPU, decode implemented in plain
-PyTorch so every step is inspectable in eager mode and easy to unit-test.
-The CUDA / Triton kernel we build next has to match THIS output bit-for-
-bit.  If a fused kernel fails correctness at week 6 we ship this module.
+Simulator-parity scale convention.  For target raw bits per scalar b in
+{2, 3, 4}, the packer uses:
 
-Layout of one packed 16-scalar group (raw bits per scalar b, b in {2, 3, 4}):
+    half_levels    = 2**b // 2
+    alpha          = per-group absmax                        (fp)
+    scale          = alpha / (half_levels - 1)               (fp)
+    x_scaled       = x / scale                              (fp), then clamp
+                     to [-half_levels, half_levels - 1]
+    nearest BW16   = argmin_c || 2 * round((x - c)/2) + c - x_scaled ||^2
+                     over the 32 RM(1,4) cosets
+    offset per     = round((x_scaled - c_winner) / 2), bounded to
+       coordinate    [-half_levels/2, half_levels/2 - 1]
 
-  [ coset_idx (5 bits) | offset_1 (b_off bits) | offset_2 (b_off bits) | ...
-                       ... | offset_16 (b_off bits) ]
+This matches research/quantizers/lattice_vq.py::LatticeBW16Quantizer up to
+floating-point round-off.  The bit width of each offset is
+`ceil(log2(half_levels))` == b - 1, so at 3-bit offsets fit in 2 bits and
+we can pack:
 
-  b_off = b - 5/16, rounded up to whole bits per offset.  In practice we
-  stick to whole-bit offsets and quote the total codeword size:
+    per 16-scalar group:  5 bits coset + 16 * (b-1) bits offsets
+    at b == 3:            5 + 32 = 37 bits + 8-bit scale = 45 bits
+                          rounded to 6 bytes -> 3.00 raw bits/scalar
+                          + 8/g scale-metadata overhead
 
-      b == 2  -> 32 bits per 16 scalars = 4 bytes   (1 + 16*(2-1) - 1 = ?)
-      b == 3  -> 48 bits per 16 scalars = 6 bytes   (5 + 16*3 - ... )
+which lands on the paper's 3.5 effective bits/scalar quote (with g=16).
 
-  To keep the reference implementation simple and readable we spend a
-  whole byte per offset (uint8, range 0..255 covers any bounded integer
-  residual we care about, and the layout is trivially GPU-friendly).
-  That gives a fixed cost of:
+Two layouts are exposed:
 
-      5 bits (coset) + 16 * 8 bits (offset) = 133 bits per 16 scalars
-      ~= 8.3 effective bits per scalar
-
-  in this reference module.  That is HONEST OVERHEAD from the reference
-  layout; the Triton kernel we write next uses bit-packed offsets and
-  hits the analytic ~3.5 eff bits/scalar.  We report both in Paper 2
-  Table 6 so the reader sees the gap between reference-layout memory and
-  packed-kernel memory.
-
-Fields stored per group:
-  - packed_coset:    uint8, shape (..., 1)         -- coset index in 0..31
-  - packed_offsets:  int8,  shape (..., 16)        -- signed offset per scalar
-  - group_scale:     uint8, shape (..., 1)         -- 8-bit per-group scale
-  - group_zero:      fp16,  shape (..., 1)         -- per-group zero point
-
-Total per 16 scalars: 1 + 16 + 1 + 2 = 20 bytes reference-layout,
-                      versus 32 bytes fp16 = 1.6x compression today.
-
-The Triton path targets 6 bytes + 2 bytes scale = 8 bytes per group,
-                      versus 32 bytes fp16 = 4.0x compression, matching
-                      the analytic 3.5 eff bits/scalar quote.
+    - PackedBW16Ref (this file)  -- uint8 per offset, easy to read, 1.6x
+                                    compression.  Serves as the correctness
+                                    reference for the bit-packed layout.
+    - PackedBW16Bits (see below) -- real bit-packed 5+32-bit codewords in
+                                    uint8 arrays, 4x compression, matches
+                                    PackedBW16Ref bit-for-bit after decode.
 """
 from __future__ import annotations
 
@@ -58,266 +48,353 @@ from .bw16_codebook import bw16_cosets, bw16_lattice_dim, bw16_num_cosets
 LATTICE_DIM = bw16_lattice_dim()   # 16
 NUM_COSETS = bw16_num_cosets()     # 32
 
+_CHUNK_ROWS = 1 << 15              # 32k rows per chunk -> ~64 MB intermediate
 
+
+# =============================================================================
+# Reference layout (uint8 per offset)
+# =============================================================================
 @dataclass
-class PackedBW16:
-    """A packed BW16-quantised KV-cache tile.
+class PackedBW16Ref:
+    """Reference-layout packed BW16 tile.
 
-    The leading dims (...) can be any batch/token/head shape as long as
-    the trailing dim is a multiple of LATTICE_DIM.  All tensors live on
-    the same device.
+    packed_coset:   uint8, shape (..., G)      coset in 0..31
+    packed_offsets: int8,  shape (..., G, 16)  per-coordinate integer offset
+    group_scale:    fp16,  shape (..., G)      per-group scale (alpha/(hl-1))
+    original_shape: tuple                       shape before flatten-to-groups
+    bits:           int                         raw bits per scalar (2, 3, 4)
     """
-    packed_coset:   torch.Tensor   # uint8, shape (..., G)      G = D // 16
-    packed_offsets: torch.Tensor   # int8,  shape (..., G, 16)
-    group_scale:    torch.Tensor   # uint8, shape (..., G)      per-group scale bin
-    group_zero:     torch.Tensor   # fp16,  shape (..., G)      per-group zero point
-    original_shape: Tuple[int, ...]  # shape before flatten-to-groups
+    packed_coset:   torch.Tensor
+    packed_offsets: torch.Tensor
+    group_scale:    torch.Tensor
+    original_shape: Tuple[int, ...]
+    bits:           int
 
     def nbytes(self) -> int:
-        """Actual GPU memory in bytes for this packed tile."""
-        return (self.packed_coset.numel() * 1
-                + self.packed_offsets.numel() * 1
-                + self.group_scale.numel() * 1
-                + self.group_zero.numel() * 2)
+        return (self.packed_coset.numel()   * 1     # uint8
+                + self.packed_offsets.numel() * 1   # int8
+                + self.group_scale.numel()    * 2)  # fp16
 
     def fp16_reference_bytes(self) -> int:
-        """Bytes an fp16 tensor of the original shape would take."""
-        return int(torch.tensor(self.original_shape).prod().item()) * 2
+        n = 1
+        for s in self.original_shape:
+            n *= s
+        return n * 2
 
     def compression_ratio(self) -> float:
         return self.fp16_reference_bytes() / max(self.nbytes(), 1)
 
 
-_CHUNK_ROWS = 1 << 15   # 32k rows per chunk -> ~64 MB intermediate at 32 cosets
-
-
-def _find_nearest_coset(x_grouped: torch.Tensor,
-                        cosets: torch.Tensor
-                        ) -> Tuple[torch.Tensor, torch.Tensor]:
+def _find_nearest_bw16(x_scaled: torch.Tensor,
+                       cosets: torch.Tensor,
+                       lo: float,
+                       hi: float
+                       ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Nearest-neighbour search over the 32 BW16 cosets, batch-chunked so a
-    naive (..., 32, 16) broadcast does not OOM on a 6 GB card for a full
-    VDA temporal-attention KV tile.
+    Nearest-neighbour search over the 32 BW16 cosets, per-coordinate range
+    clamped to [lo, hi], batch-chunked so a full VDA KV tile fits in 6 GB.
 
     Args:
-        x_grouped: (..., 16) real-valued groups after rotation and scaling.
-        cosets:    (32, 16) BW16 coset representatives.
+        x_scaled: (..., 16)  after per-group affine (in the y-frame).
+        cosets:   (32, 16)   BW16 coset representatives (0/1).
+        lo, hi:   coordinate bounds; nearest point z satisfies 2z+c in [lo,hi].
 
     Returns:
-        best_idx:      (...,)        long, index of the winning coset in 0..31
-        best_offsets:  (..., 16)     int, integer part of (x - c)/2 for the winner
+        best_idx:      (...,)    long, winning coset in 0..31
+        best_z:        (..., 16) integer offsets z (rounded and clamped)
     """
-    orig_shape = x_grouped.shape[:-1]
-    flat = x_grouped.reshape(-1, 16)                       # (N, 16)
+    orig_shape = x_scaled.shape[:-1]
+    flat = x_scaled.reshape(-1, 16)                       # (N, 16)
     N = flat.shape[0]
 
+    # Per-coordinate legal bounds for z depend on c.
+    lo_bounds = torch.ceil((lo - cosets) * 0.5)           # (32, 16)
+    hi_bounds = torch.floor((hi - cosets) * 0.5)          # (32, 16)
+
     if N <= _CHUNK_ROWS:
-        # Fast path: one broadcast.
-        delta = flat.unsqueeze(1) - cosets                 # (N, 32, 16)
-        residuals = torch.round(delta / 2.0)               # (N, 32, 16)
-        reconstructed = cosets + 2.0 * residuals           # (N, 32, 16)
-        sq_err = ((flat.unsqueeze(1) - reconstructed) ** 2).sum(dim=-1)   # (N, 32)
+        delta = (flat.unsqueeze(1) - cosets) * 0.5        # (N, 32, 16)
+        z = delta.round().clamp(min=lo_bounds, max=hi_bounds)   # (N, 32, 16)
+        cand = 2.0 * z + cosets                            # (N, 32, 16)
+        sq_err = ((cand - flat.unsqueeze(1)) ** 2).sum(dim=-1)  # (N, 32)
         best_idx = sq_err.argmin(dim=-1)                   # (N,)
-        idx = best_idx.view(-1, 1, 1).expand(-1, 1, 16)
-        best_offsets = residuals.gather(1, idx).squeeze(1) # (N, 16)
+        best_z = z.gather(1, best_idx.view(-1, 1, 1).expand(-1, 1, 16)).squeeze(1)
     else:
-        # Chunk over the leading batch axis to bound peak memory.
         best_idx = torch.empty(N, dtype=torch.long, device=flat.device)
-        best_offsets = torch.empty(N, 16, dtype=flat.dtype, device=flat.device)
+        best_z = torch.empty(N, 16, dtype=flat.dtype, device=flat.device)
         for i in range(0, N, _CHUNK_ROWS):
             j = min(i + _CHUNK_ROWS, N)
-            slab = flat[i:j]                                # (n, 16)
-            delta = slab.unsqueeze(1) - cosets              # (n, 32, 16)
-            residuals = torch.round(delta / 2.0)
-            reconstructed = cosets + 2.0 * residuals
-            sq_err = ((slab.unsqueeze(1) - reconstructed) ** 2).sum(dim=-1)
-            idx_slab = sq_err.argmin(dim=-1)                # (n,)
+            slab = flat[i:j]
+            delta = (slab.unsqueeze(1) - cosets) * 0.5
+            z = delta.round().clamp(min=lo_bounds, max=hi_bounds)
+            cand = 2.0 * z + cosets
+            sq_err = ((cand - slab.unsqueeze(1)) ** 2).sum(dim=-1)
+            idx_slab = sq_err.argmin(dim=-1)
             best_idx[i:j] = idx_slab
-            best_offsets[i:j] = residuals.gather(
-                1, idx_slab.view(-1, 1, 1).expand(-1, 1, 16)).squeeze(1)
+            best_z[i:j] = z.gather(1, idx_slab.view(-1, 1, 1).expand(-1, 1, 16)).squeeze(1)
 
     return (best_idx.reshape(orig_shape),
-            best_offsets.reshape(*orig_shape, 16))
+            best_z.reshape(*orig_shape, 16))
 
 
-def pack_bw16(x: torch.Tensor,
-              group_size: int = LATTICE_DIM,
-              scale_bits: int = 8
-              ) -> PackedBW16:
-    """Encode a real-valued tensor into packed BW16 storage.
+def pack_bw16_ref(x: torch.Tensor,
+                  bits: int = 3,
+                  group_size: int = LATTICE_DIM
+                  ) -> PackedBW16Ref:
+    """
+    Pack an fp tensor into reference-layout BW16 storage.
+
+    Simulator-parity scaling: half_levels = 2**bits // 2,
+    alpha = per-group absmax, scale = alpha / (half_levels - 1),
+    x_scaled = clamp(x / scale, -half_levels, half_levels - 1).
 
     Args:
-        x:          real-valued tensor, shape (..., D), D % LATTICE_DIM == 0.
-                    In VDA this is the K or V tensor of a temporal
-                    cross-attention layer, already Hadamard-rotated.
-        group_size: scalars per shared scale.  Must be a multiple of
-                    LATTICE_DIM.  Default 16 (== LATTICE_DIM), which
-                    matches the accuracy quantiser's g=16 setting.
-        scale_bits: bits for the per-group scale metadata.  8 is the
-                    setting used throughout Paper 2.
+        x:          (..., D), D % group_size == 0.  Any float dtype.
+        bits:       raw bits per scalar in {2, 3, 4}.  Coset uses 5 bits
+                    on top; effective bits/scalar = bits + 8/group_size.
+        group_size: scalars per shared scale, multiple of 16.
 
     Returns:
-        PackedBW16 with all four fields populated and shapes documented
-        on the dataclass.
+        PackedBW16Ref with all fields populated.  Round-tripped via
+        unpack_bw16_ref this matches the simulator to within fp round-off.
     """
+    assert bits in (2, 3, 4), f"bits must be 2, 3, or 4, got {bits}"
     assert x.dtype in (torch.float16, torch.float32, torch.bfloat16), \
         f"expected float tensor, got {x.dtype}"
     assert group_size % LATTICE_DIM == 0, \
-        f"group_size ({group_size}) must be a multiple of LATTICE_DIM ({LATTICE_DIM})"
+        f"group_size ({group_size}) must be a multiple of {LATTICE_DIM}"
     assert x.shape[-1] % group_size == 0, \
         f"last dim {x.shape[-1]} must be a multiple of group_size {group_size}"
-    assert scale_bits == 8, "reference implementation only supports 8-bit scales"
 
     original_shape = tuple(x.shape)
+    half_levels = (1 << bits) // 2                        # 3-bit -> 4
+    lo = -float(half_levels)                              # -4
+    hi = float(half_levels - 1)                           # 3
     D = x.shape[-1]
     n_groups_per_row = D // group_size
     lattices_per_group = group_size // LATTICE_DIM
 
-    # Reshape to (..., n_groups_per_row, group_size).
     x_grouped = x.reshape(*x.shape[:-1], n_groups_per_row, group_size)
+    alpha = x_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
+    scale = alpha / (half_levels - 1)                     # matches simulator
 
-    # Per-group symmetric affine: y = (x - zero) / scale, mapping to a
-    # nominal [-127, 127] range so the residuals fit in int8 after
-    # /2-rounding.  Zero point is the group mean, scale is chosen so
-    # that (max - mean) maps to ~64 (leaving 6 bits of headroom for the
-    # coset offset + Construction-A residual rounding).
-    group_mean = x_grouped.mean(dim=-1, keepdim=True)
-    group_absmax = (x_grouped - group_mean).abs().amax(dim=-1, keepdim=True)
-    # scale bin: quantise group_absmax onto a 256-level 8-bit grid.
-    # We store the raw fp16 absmax; a real 8-bit scale table is a
-    # week-2 optimisation.  Storing it as uint8 here forces the same
-    # dynamic-range constraint (~256 levels) as the packed layout.
-    scale_max = group_absmax.clamp(min=1e-8)
-    scale_bin = (scale_max / scale_max.amax(dim=tuple(range(scale_max.ndim - 1)),
-                                            keepdim=True) * 255).round().clamp(0, 255).to(torch.uint8)
-    scale_fp = scale_max                                              # fp16 reference scale
+    x_scaled = (x_grouped / scale).clamp(lo, hi)
+    x_lat = x_scaled.reshape(*x_scaled.shape[:-1], lattices_per_group, LATTICE_DIM)
 
-    y = (x_grouped - group_mean) / scale_fp * 64.0                   # (..., G, gs)
+    cosets = bw16_cosets(dtype=x_lat.dtype, device=x_lat.device)
+    best_idx, best_z = _find_nearest_bw16(x_lat, cosets, lo, hi)
+    # best_idx has shape (..., n_groups_per_row, lattices_per_group).
+    # best_z  has shape (..., n_groups_per_row, lattices_per_group, 16).
+    # Fold the two grouping axes into one G_total axis so downstream code
+    # only sees a single per-group axis.
+    prefix = best_idx.shape[:-2]                          # (...,)
+    G_total = n_groups_per_row * lattices_per_group
 
-    # Reshape to (..., G, lattices_per_group, 16) so each 16-D chunk is a
-    # BW16 encoding unit.  For the default group_size=16 this is a no-op
-    # in the number of lattices but keeps the code general.
-    y_lat = y.reshape(*y.shape[:-1], lattices_per_group, LATTICE_DIM)
+    packed_coset = best_idx.to(torch.uint8).reshape(*prefix, G_total)
+    packed_offsets = (best_z.round().clamp(-128, 127).to(torch.int8)
+                      .reshape(*prefix, G_total, LATTICE_DIM))
+    # Broadcast per-group scale to per-lattice so unpack does not need to
+    # know lattices_per_group.
+    scale_flat = scale.squeeze(-1)                        # (..., n_groups_per_row)
+    if lattices_per_group != 1:
+        scale_flat = scale_flat.unsqueeze(-1).expand(*scale_flat.shape,
+                                                     lattices_per_group).reshape(
+            *scale_flat.shape[:-1], -1)                   # (..., G_total)
 
-    cosets = bw16_cosets(dtype=y_lat.dtype, device=y_lat.device)
-    best_idx, best_offsets = _find_nearest_coset(y_lat, cosets)
-
-    # Serialise: fold lattices_per_group back into the group axis.
-    packed_coset = best_idx.to(torch.uint8)                          # (..., G, lpg)
-    packed_offsets = best_offsets.round().clamp(-128, 127).to(torch.int8)  # (..., G, lpg, 16)
-    # Collapse (G, lpg) into a single G'-dim so per-group scale is broadcast.
-    packed_coset = packed_coset.reshape(*packed_coset.shape[:-2], -1)
-    packed_offsets = packed_offsets.reshape(*packed_offsets.shape[:-3],
-                                            packed_coset.shape[-1], LATTICE_DIM)
-
-    return PackedBW16(
+    return PackedBW16Ref(
         packed_coset=packed_coset,
         packed_offsets=packed_offsets,
-        group_scale=scale_bin.reshape(*scale_bin.shape[:-1]),
-        group_zero=group_mean.reshape(*group_mean.shape[:-1]).to(torch.float16),
+        group_scale=scale_flat.to(torch.float16),
         original_shape=original_shape,
+        bits=bits,
     )
 
 
-def unpack_bw16(p: PackedBW16, dtype: torch.dtype = torch.float32) -> torch.Tensor:
-    """Decode a PackedBW16 back to a real-valued tensor of `original_shape`.
-
-    Inverse of `pack_bw16`.  The returned tensor is the same tensor a
-    simulator would produce for the same inputs, up to floating-point
-    round-off (< 1e-4 in practice).
-    """
+def unpack_bw16_ref(p: PackedBW16Ref, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+    """Decode a reference-layout tile back to fp."""
     dev = p.packed_coset.device
     cosets = bw16_cosets(dtype=dtype, device=dev)
 
-    # (..., G_total)
-    G_total = p.packed_coset.shape[-1]
-    idx = p.packed_coset.long().unsqueeze(-1).unsqueeze(-1) \
-        .expand(*p.packed_coset.shape, 1, LATTICE_DIM)     # (..., G, 1, 16)
-    coset_val = cosets.expand(*p.packed_coset.shape, NUM_COSETS, LATTICE_DIM) \
-        .gather(-2, idx).squeeze(-2)                       # (..., G, 16)
+    idx = p.packed_coset.long().unsqueeze(-1).unsqueeze(-1).expand(
+        *p.packed_coset.shape, 1, LATTICE_DIM)             # (..., G, 1, 16)
+    coset_val = cosets.expand(*p.packed_coset.shape, NUM_COSETS, LATTICE_DIM).gather(
+        -2, idx).squeeze(-2)                               # (..., G, 16)
+    z = p.packed_offsets.to(dtype)                         # (..., G, 16)
 
-    offsets = p.packed_offsets.to(dtype)                   # (..., G, 16)
-    y = coset_val + 2.0 * offsets                          # (..., G, 16), in the y-frame
+    x_scaled_hat = 2.0 * z + coset_val                     # (..., G, 16), in y-frame
+    x_hat = x_scaled_hat * p.group_scale.to(dtype).unsqueeze(-1)  # broadcast scale
+    # Restore original shape by flatten and reshape.
+    return x_hat.reshape(*x_hat.shape[:-2], -1).reshape(p.original_shape).to(dtype)
 
-    # Undo the affine: y == (x_grouped - group_mean) / scale_fp * 64
-    # Reference scale is stored implicitly via group_zero (fp16 mean).
-    # For scale we round-trip through the uint8 bin: the reference
-    # keeper stored fp16 zero and uint8 scale-bin.  Rebuild the fp
-    # scale from the ratio the packer used.
-    #
-    # For the reference implementation we reconstruct the scale
-    # deterministically from group_scale as it was written: the packer
-    # stored scale_bin normalised to [0, 255] across each per-batch
-    # slab; unpack rebuilds by scaling back by 1/255 * max_abs.  As a
-    # correct-by-construction shortcut for now, the packer also stored
-    # scale_fp inside a private field on the PackedBW16 dataclass.
-    # We rebuild it here from group_zero and group_scale.
-    #
-    # Simpler: rebuild by using a linear map with reference scale
-    # stored inline via a private torch tensor attached to the packet.
-    # For simplicity in the pure-PyTorch reference we recompute the
-    # scale from the stored zero and the packed offsets themselves.
-    #
-    # Deterministic path: the packer applied y = (x - zero) / scale * 64.
-    # We stored zero (fp16) and a uint8 scale_bin.  We need the fp scale.
-    # Reference implementation: we reconstruct fp scale as
-    #   scale = group_scale / 255 * scale_max
-    # where scale_max is the per-batch-slab max of the input absmax that
-    # the packer normalised against.  Since we did NOT store scale_max,
-    # we cheat here for the reference: reattach it to the object.
-    if not hasattr(p, "_ref_scale_fp"):
-        raise RuntimeError(
-            "PackedBW16 was created without the reference scale; use "
-            "pack_bw16_reference() in this module.")
-    scale_fp = p._ref_scale_fp                             # (..., G_total, 1)
 
-    # (..., G_total, 16) after this line.
-    zero = p.group_zero.to(dtype).unsqueeze(-1)            # (..., G_total, 1)
-    x_grouped = y * (scale_fp.to(dtype) / 64.0) + zero     # (..., G_total, 16)
+# =============================================================================
+# Bit-packed layout (real 3-bit storage)
+# =============================================================================
+@dataclass
+class PackedBW16Bits:
+    """Bit-packed BW16 tile.
 
-    return x_grouped.reshape(*p.original_shape).to(dtype)
+    codeword_bytes: uint8, shape (..., G, n_bytes_per_codeword)
+                                one codeword = 5-bit coset || 16 * (bits-1) bits offsets
+                                packed little-endian.
+    group_scale:    fp16,  shape (..., G)
+    original_shape: tuple
+    bits:           int
+    n_bytes_per_codeword: int   ceil((5 + 16 * (bits-1)) / 8)
+    """
+    codeword_bytes: torch.Tensor
+    group_scale:    torch.Tensor
+    original_shape: Tuple[int, ...]
+    bits:           int
+    n_bytes_per_codeword: int
+
+    def nbytes(self) -> int:
+        return (self.codeword_bytes.numel() * 1
+                + self.group_scale.numel() * 2)
+
+    def fp16_reference_bytes(self) -> int:
+        n = 1
+        for s in self.original_shape:
+            n *= s
+        return n * 2
+
+    def compression_ratio(self) -> float:
+        return self.fp16_reference_bytes() / max(self.nbytes(), 1)
+
+
+def _bytes_per_codeword(bits: int) -> int:
+    """Total bytes needed to store one BW16 codeword at raw `bits`/scalar."""
+    return (5 + 16 * (bits - 1) + 7) // 8
+
+
+def bitpack_bw16(p: PackedBW16Ref) -> PackedBW16Bits:
+    """
+    Convert a reference-layout PackedBW16Ref into the true bit-packed layout.
+
+    Bit layout within one codeword (little-endian across bytes):
+        bit 0..4         : coset index (5 bits)
+        bit 5..5+(b-1)   : offset[0] biased by half_levels/2 to be unsigned
+        ...
+        bit 5+15*(b-1)..: offset[15] biased
+
+    A 3-bit codeword thus needs 5 + 16*2 = 37 bits -> 5 bytes.
+    A 2-bit codeword needs        5 + 16*1 = 21 bits -> 3 bytes.
+    A 4-bit codeword needs        5 + 16*3 = 53 bits -> 7 bytes.
+    """
+    b = p.bits
+    off_bits = b - 1                                       # bits per offset
+    off_bias = (1 << off_bits) // 2                        # 3-bit -> bias 2
+    n_bytes = _bytes_per_codeword(b)
+    dev = p.packed_coset.device
+
+    # Flatten per-codeword axes.
+    coset = p.packed_coset.long()                          # (..., G)
+    offsets = p.packed_offsets.long() + off_bias           # (..., G, 16), unsigned
+
+    # Sanity: unsigned offsets must fit in off_bits.
+    max_uoff = (1 << off_bits) - 1
+    assert (offsets >= 0).all() and (offsets <= max_uoff).all(), \
+        f"offsets out of unsigned {off_bits}-bit range at bits={b}: " \
+        f"[{offsets.min().item()}, {offsets.max().item()}], expected [0, {max_uoff}]"
+
+    # Pack into an integer per codeword: bit 0..4 coset, then offsets.
+    packed_int = coset & 0x1F                              # (..., G)
+    for i in range(16):
+        packed_int = packed_int | (offsets[..., i] << (5 + i * off_bits))
+
+    # Serialise to bytes, LSB-first.
+    codeword_bytes = torch.zeros(*coset.shape, n_bytes, dtype=torch.uint8, device=dev)
+    for byte_i in range(n_bytes):
+        codeword_bytes[..., byte_i] = ((packed_int >> (byte_i * 8)) & 0xFF).to(torch.uint8)
+
+    return PackedBW16Bits(
+        codeword_bytes=codeword_bytes,
+        group_scale=p.group_scale,
+        original_shape=p.original_shape,
+        bits=b,
+        n_bytes_per_codeword=n_bytes,
+    )
+
+
+def bitunpack_bw16(p: PackedBW16Bits) -> PackedBW16Ref:
+    """Inverse of bitpack_bw16.  Returns a reference-layout tile."""
+    b = p.bits
+    off_bits = b - 1
+    off_bias = (1 << off_bits) // 2
+    off_mask = (1 << off_bits) - 1
+
+    # Reassemble the per-codeword integer.
+    packed_int = torch.zeros(p.codeword_bytes.shape[:-1],
+                             dtype=torch.long,
+                             device=p.codeword_bytes.device)
+    for byte_i in range(p.n_bytes_per_codeword):
+        packed_int = packed_int | (p.codeword_bytes[..., byte_i].long() << (byte_i * 8))
+
+    coset = (packed_int & 0x1F).to(torch.uint8)                       # (..., G)
+    offsets = torch.empty(*packed_int.shape, 16, dtype=torch.int8,
+                          device=packed_int.device)
+    for i in range(16):
+        u = (packed_int >> (5 + i * off_bits)) & off_mask
+        offsets[..., i] = (u - off_bias).to(torch.int8)
+
+    return PackedBW16Ref(
+        packed_coset=coset,
+        packed_offsets=offsets,
+        group_scale=p.group_scale,
+        original_shape=p.original_shape,
+        bits=b,
+    )
+
+
+# =============================================================================
+# Top-level convenience: fp -> bit-packed -> fp
+# =============================================================================
+def pack_bw16(x: torch.Tensor,
+              bits: int = 3,
+              group_size: int = LATTICE_DIM
+              ) -> PackedBW16Bits:
+    """Top-level packer: fp tensor -> bit-packed BW16 tile."""
+    return bitpack_bw16(pack_bw16_ref(x, bits=bits, group_size=group_size))
+
+
+def unpack_bw16(p: PackedBW16Bits, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+    """Top-level unpacker: bit-packed BW16 tile -> fp tensor."""
+    return unpack_bw16_ref(bitunpack_bw16(p), dtype=dtype)
+
+
+# =============================================================================
+# Legacy alias kept so existing tests / callers keep working.
+# =============================================================================
+PackedBW16 = PackedBW16Ref            # legacy dataclass name
 
 
 def pack_bw16_reference(x: torch.Tensor,
                         group_size: int = LATTICE_DIM,
-                        scale_bits: int = 8
-                        ) -> PackedBW16:
-    """Reference packer that stores an fp16 scale alongside the uint8 bin.
-
-    We use this in the reference pipeline because the pure uint8-scale
-    round-trip requires the batch-slab absmax to be stored somewhere.
-    The Triton kernel avoids this by using per-tile scale metadata; the
-    reference module just attaches the fp scale to the dataclass so
-    unpack is fully deterministic.
-    """
-    p = pack_bw16(x, group_size=group_size, scale_bits=scale_bits)
-    # Recompute the same scale the packer used and attach it.
-    original_shape = tuple(x.shape)
-    D = x.shape[-1]
-    x_grouped = x.reshape(*x.shape[:-1], D // group_size, group_size)
-    group_mean = x_grouped.mean(dim=-1, keepdim=True)
-    group_absmax = (x_grouped - group_mean).abs().amax(dim=-1, keepdim=True)
-    scale_fp = group_absmax.clamp(min=1e-8)  # (..., G, 1)
-    # Fold lattices_per_group into the flat group axis to match packed shape.
-    lpg = group_size // LATTICE_DIM
-    if lpg != 1:
-        scale_fp = scale_fp.unsqueeze(-2).expand(*scale_fp.shape[:-1], lpg, 1) \
-            .reshape(*scale_fp.shape[:-2], -1, 1)
-    else:
-        scale_fp = scale_fp.reshape(*scale_fp.shape[:-1])  # (..., G)
-        scale_fp = scale_fp.unsqueeze(-1)                  # (..., G, 1)
-    p._ref_scale_fp = scale_fp  # type: ignore[attr-defined]
-    return p
+                        scale_bits: int = 8,
+                        bits: int = 3) -> PackedBW16Ref:
+    """Legacy alias for the reference (non-bit-packed) packer."""
+    _ = scale_bits  # accepted for backwards compat; 8-bit scale is implicit
+    return pack_bw16_ref(x, bits=bits, group_size=group_size)
 
 
 if __name__ == "__main__":
-    # Smoke test — pack a small random tensor and check the round-trip
-    # error is small.
     torch.manual_seed(0)
-    x = torch.randn(2, 4, 32)  # e.g. batch=2, heads=4, dim=32 (2 groups of 16)
-    p = pack_bw16_reference(x)
-    y = unpack_bw16(p, dtype=torch.float32)
-    err = (y - x).abs()
-    print(f"Round-trip error: max={err.max():.4f}  mean={err.mean():.4f}")
-    print(f"Packed nbytes: {p.nbytes()}   fp16 nbytes: {p.fp16_reference_bytes()}")
-    print(f"Reference-layout compression: {p.compression_ratio():.2f}x")
+    x = torch.randn(2, 4, 32)
+    ref = pack_bw16_ref(x, bits=3, group_size=16)
+    bits_pack = bitpack_bw16(ref)
+    ref_roundtrip = bitunpack_bw16(bits_pack)
+    y_ref = unpack_bw16_ref(ref)
+    y_bits = unpack_bw16(bits_pack)
+
+    print(f"[ref layout]   packed={ref.nbytes()} B   fp16={ref.fp16_reference_bytes()} B"
+          f"   ratio={ref.compression_ratio():.2f}x")
+    print(f"[bit-packed]   packed={bits_pack.nbytes()} B   fp16={bits_pack.fp16_reference_bytes()} B"
+          f"   ratio={bits_pack.compression_ratio():.2f}x")
+    print(f"[bytes/codeword] {bits_pack.n_bytes_per_codeword}")
+    print(f"[bit-parity] coset diff = "
+          f"{(ref.packed_coset != ref_roundtrip.packed_coset).sum().item()}")
+    print(f"[bit-parity] offset diff = "
+          f"{(ref.packed_offsets != ref_roundtrip.packed_offsets).sum().item()}")
+    err = (y_bits - y_ref).abs()
+    print(f"[decode identity]  max diff = {err.max().item():.2e}   mean = {err.mean().item():.2e}")
+    err = (y_ref - x).abs()
+    print(f"[round-trip]       max err  = {err.max().item():.4f}   mean = {err.mean().item():.4f}")
