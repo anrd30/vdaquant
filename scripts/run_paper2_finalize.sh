@@ -19,21 +19,21 @@
 #         E8 in the same regime" reviewer point.
 #         ~1.3h,  8 runs
 #
-#   TW64  T=64 temporal window on Sintel with a smaller sample cap so the
-#         BW16 enumeration decoder stays inside the 80 GB A100.
-#         Fills the last row of table 5.
-#         ~30 min,  1 run
-#
 # Skipped intentionally:
+#   - T=64 temporal window.  VDA's motion-module positional-encoding buffer
+#     is baked into the checkpoint at max_len=32; running at T=64 crashes
+#     in pos_encoder with a shape mismatch (not an OOM, not our decoder).
+#     Any T>32 result would require PE extrapolation, which is orthogonal
+#     to KV cache quantisation.  Paper 2 reports T in {8,16,32} and says
+#     so explicitly.
 #   - KIVI empirical baseline.  Paper 2 will position KIVI as "targets LLM
 #     autoregressive decode; VDA has neither, comparison is out of scope"
-#     in related work and drop the K/V asymmetry section entirely.  If we
-#     later decide to fold it back in, add a KIVI stage here.
-#   - Fused CUDA/Triton kernel work — that is engineering, not benchmarking,
-#     and lives on the personal A100.
+#     in related work and drop the K/V asymmetry section entirely.
+#   - Fused CUDA/Triton kernel work — engineering, not benchmarking; lives
+#     on the personal A100 after these runs land.
 #   - TartanAir / Bonn / DIODE — deferred to personal A100.
 #
-# Everything is resumable in outputs/paper2_final/.  Total ~3.8h.
+# Everything is resumable in outputs/paper2_final/.  Total ~3.3h.
 #
 # Usage:
 #   cd <repo>/code_run1
@@ -112,15 +112,8 @@ for bits in 3 4; do
 done
 
 # =============================================================================
-echo "########## STAGE TW64: Sintel T=64 rerun with smaller cap (1 run) ##########"
-# Original bw16_sintel_w64 OOM'd at --max-samples 2000.  Same config with a
-# tighter cap keeps peak memory under 80 GB while still giving a Sintel-scale
-# estimate.
-run "sintel_w64_capped" --dataset sintel --eval-mode temporal \
-    --quantizer lattice_bw16 --scale-bits 8 --bits 3 --no-qjl --rht-seed 0 \
-    --temporal-window 64 --max-samples 500 --max-scenes 23 --tae-covis-tau 0.05 \
-    --group-size 16
-
+# STAGE TW64 removed — VDA's pos_encoder is baked at max_len=32, cannot
+# accept T=64 without checkpoint-level PE extrapolation.  See header.
 # =============================================================================
 echo ""
 echo "════════════════════════════════════════════════════════════════════════"
