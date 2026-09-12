@@ -16,6 +16,52 @@ Format:
 
 ---
 
+## 2026-09-12 13:40 IST  session 3: PackedKVCache + FIRST TRITON KERNEL
+    context      : integration wrapper for VDA + first Triton decode kernel
+    hardware     : RTX 4050 Laptop, 6.0 GB, Triton 3.7.0
+    changes      :
+      - kernels/reference/kv_cache.py PackedKVCache -- drop-in for VDA's
+        fp16 KV buffer.  write(t, x) / read(k, dtype) API matches the
+        indexed slice pattern in RotatedTemporalAttention.  Handles
+        head_dim < group_size via absorb-and-pad (VDA DPT cross-attn
+        has head_dim=8).
+      - kernels/tests/test_kv_cache_end_to_end.py -- 5 gates, all pass.
+        BIT-EXACT vs LatticeBW16Quantizer through a mock temporal
+        attention forward: K diff = 0, output diff = 0.
+      - kernels/triton_kernels/decode_bw16.py -- FIRST TRITON KERNEL.
+        Simple element-wise decode: read 5 bytes -> unpack 5-bit coset
+        + 16 * 2-bit offsets -> gather codebook row -> scale ->
+        write fp16.  BLOCK codewords per program.
+    tests        : 5/5 pass on kv_cache_end_to_end
+                   triton smoke test: max diff 0.00e+00 on first try
+    findings     :
+      - Triton on Windows works with triton 3.7.0 -- no MSVC dance
+        needed, PyTorch's bundled runtime handles it.
+      - Triton kernel BENCHMARK on RTX 4050 vs PyTorch decode:
+          ViT-S mm0 (1,32,1369,192):    5.95 ms -> 0.48 ms   12.4x
+          ViT-S mm3 (1,32,5476, 64):    6.77 ms -> 0.75 ms    9.0x
+          ViT-L mm0 (1,32,1369,1024):  35.52 ms -> 2.38 ms   14.9x
+          ViT-L mm3 (1,32,5476, 256):  36.63 ms -> 2.44 ms   15.0x
+        Every result is BIT-EXACT vs the PyTorch decode.
+      - 15x is largely because the PyTorch decode does per-byte bit
+        extraction in eager mode; the Triton kernel keeps everything
+        in registers.  A well-written vectorised PyTorch decode could
+        close this gap somewhat, but Triton also enables the next step:
+        fusing decode with attention softmax + weighted V sum, which
+        eliminates the fp16 intermediate entirely.
+      - Triton gotcha found and fixed: plain Python globals inside
+        @triton.jit raise NameError at compile time.  Fix: pass all
+        integer constants as tl.constexpr kernel arguments.
+    next         :
+      - Fuse decode with a small attention kernel (K load stage).
+      - Benchmark on A100 -- expect similar or better speedup ratio.
+      - Add bits=4 and bits=2 to the kernel (currently only bits=3).
+      - Integrate PackedKVCache into RotatedTemporalAttention proper
+        so we can quote a whole-model measured peak and latency for
+        the paper.
+
+---
+
 ## 2026-09-12 13:20 IST  session 2: bit-parity with simulator + memory benchmark
     context      : achieve BIT-PARITY with LatticeBW16Quantizer so packed
                    storage is a mathematically exact drop-in for VDA's
