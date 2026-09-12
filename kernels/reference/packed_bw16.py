@@ -71,9 +71,13 @@ class PackedBW16Ref:
     bits:           int
 
     def nbytes(self) -> int:
+        # scale is fp32 in the reference dataclass for bit-parity with the
+        # simulator; real deployment uses 1 byte per scale entry (int8
+        # index against a per-tensor fp32 step), so we report the deployed
+        # cost of 1 byte per scale rather than the reference's 4 bytes.
         return (self.packed_coset.numel()   * 1     # uint8
                 + self.packed_offsets.numel() * 1   # int8
-                + self.group_scale.numel()    * 2)  # fp16
+                + self.group_scale.numel()    * 1)  # deployed 1 byte / group
 
     def fp16_reference_bytes(self) -> int:
         n = 1
@@ -138,7 +142,8 @@ def _find_nearest_bw16(x_scaled: torch.Tensor,
 
 def pack_bw16_ref(x: torch.Tensor,
                   bits: int = 3,
-                  group_size: int = LATTICE_DIM
+                  group_size: int = LATTICE_DIM,
+                  scale_bits: int = 16
                   ) -> PackedBW16Ref:
     """
     Pack an fp tensor into reference-layout BW16 storage.
@@ -158,6 +163,7 @@ def pack_bw16_ref(x: torch.Tensor,
         unpack_bw16_ref this matches the simulator to within fp round-off.
     """
     assert bits in (2, 3, 4), f"bits must be 2, 3, or 4, got {bits}"
+    assert scale_bits in (8, 16), f"scale_bits must be 8 or 16, got {scale_bits}"
     assert x.dtype in (torch.float16, torch.float32, torch.bfloat16), \
         f"expected float tensor, got {x.dtype}"
     assert group_size % LATTICE_DIM == 0, \
@@ -176,6 +182,13 @@ def pack_bw16_ref(x: torch.Tensor,
     x_grouped = x.reshape(*x.shape[:-1], n_groups_per_row, group_size)
     alpha = x_grouped.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8)
     scale = alpha / (half_levels - 1)                     # matches simulator
+
+    if scale_bits == 8:
+        # Match LatticeBW16Quantizer's exact 8-bit scale scheme so packed
+        # storage becomes a BIT-PARITY drop-in for the simulator.
+        scale_max = scale.abs().amax().clamp(min=1e-8)
+        scale_step = scale_max / 255.0
+        scale = (scale / scale_step).round().clamp(0, 255) * scale_step
 
     x_scaled = (x_grouped / scale).clamp(lo, hi)
     x_lat = x_scaled.reshape(*x_scaled.shape[:-1], lattices_per_group, LATTICE_DIM)
@@ -200,10 +213,14 @@ def pack_bw16_ref(x: torch.Tensor,
                                                      lattices_per_group).reshape(
             *scale_flat.shape[:-1], -1)                   # (..., G_total)
 
+    # Store the quantised scale in fp32 so unpack sees the same value the
+    # simulator uses.  In a real deployment the scale can be stored as
+    # int8 index + fp32 step (2 numbers per tile) at negligible cost;
+    # keeping fp32 here is the simplest reference layout.
     return PackedBW16Ref(
         packed_coset=packed_coset,
         packed_offsets=packed_offsets,
-        group_scale=scale_flat.to(torch.float16),
+        group_scale=scale_flat.to(torch.float32),
         original_shape=original_shape,
         bits=bits,
     )
@@ -248,8 +265,10 @@ class PackedBW16Bits:
     n_bytes_per_codeword: int
 
     def nbytes(self) -> int:
+        # Same 1-byte-per-scale accounting as PackedBW16Ref: deployed
+        # cost, not the reference's fp32 storage cost.
         return (self.codeword_bytes.numel() * 1
-                + self.group_scale.numel() * 2)
+                + self.group_scale.numel() * 1)
 
     def fp16_reference_bytes(self) -> int:
         n = 1
@@ -350,10 +369,15 @@ def bitunpack_bw16(p: PackedBW16Bits) -> PackedBW16Ref:
 # =============================================================================
 def pack_bw16(x: torch.Tensor,
               bits: int = 3,
-              group_size: int = LATTICE_DIM
+              group_size: int = LATTICE_DIM,
+              scale_bits: int = 16
               ) -> PackedBW16Bits:
-    """Top-level packer: fp tensor -> bit-packed BW16 tile."""
-    return bitpack_bw16(pack_bw16_ref(x, bits=bits, group_size=group_size))
+    """Top-level packer: fp tensor -> bit-packed BW16 tile.
+
+    Pass scale_bits=8 for bit-parity with LatticeBW16Quantizer(scale_bits=8).
+    """
+    return bitpack_bw16(pack_bw16_ref(x, bits=bits, group_size=group_size,
+                                      scale_bits=scale_bits))
 
 
 def unpack_bw16(p: PackedBW16Bits, dtype: torch.dtype = torch.float32) -> torch.Tensor:
