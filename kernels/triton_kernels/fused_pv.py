@@ -44,6 +44,16 @@ _LAYOUT = {
 
 if TRITON_AVAILABLE:
 
+    _AUTOTUNE_CONFIGS = [
+        triton.Config({'BLOCK_M': 32,  'BLOCK_N': 64},  num_warps=4),
+        triton.Config({'BLOCK_M': 32,  'BLOCK_N': 128}, num_warps=4),
+        triton.Config({'BLOCK_M': 64,  'BLOCK_N': 64},  num_warps=4),
+        triton.Config({'BLOCK_M': 64,  'BLOCK_N': 128}, num_warps=8),
+        triton.Config({'BLOCK_M': 64,  'BLOCK_N': 256}, num_warps=8),
+        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8),
+    ]
+
+    @triton.autotune(configs=_AUTOTUNE_CONFIGS, key=['M', 'N', 'D_GROUPS'])
     @triton.jit
     def _fused_pv_bw16_kernel(
         P_ptr,                 # fp32 (M, N)
@@ -152,7 +162,7 @@ if TRITON_AVAILABLE:
         V_scale = V_scale.contiguous()
 
         out = torch.empty(M, D, dtype=torch.float32, device=P.device)
-        grid = (triton.cdiv(M, BLOCK_M), D_GROUPS)
+        grid = lambda META: (triton.cdiv(M, META['BLOCK_M']), D_GROUPS)
         _fused_pv_bw16_kernel[grid](
             P, V_pack, V_scale, codebook.contiguous(), out,
             M, N, D_GROUPS,
@@ -160,7 +170,6 @@ if TRITON_AVAILABLE:
             V_pack.stride(0), V_pack.stride(1), V_pack.stride(2),
             V_scale.stride(0), V_scale.stride(1),
             out.stride(0), out.stride(1),
-            BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
             BYTES_PER_CODEWORD=L['bytes_per_codeword'],
             OFFSET_BITS=L['offset_bits'],
             OFFSET_MASK=L['offset_mask'],

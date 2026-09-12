@@ -52,6 +52,22 @@ _LAYOUT = {
 
 if TRITON_AVAILABLE:
 
+    # BLOCK sweep on RTX 4050 found:
+    #   small M/N shapes  -> BM=32, BN=128
+    #   large M/N shapes  -> BM=64, BN=256
+    #   BM=64, BN=64 is a shared-memory trap and 30x slower than either.
+    # Autotune picks per-GPU without our hardcoding.  Configs kept small
+    # (5) so autotune compilation stays cheap; add more if a new GPU
+    # regresses.
+    _AUTOTUNE_CONFIGS = [
+        triton.Config({'BLOCK_M': 32,  'BLOCK_N': 32},  num_warps=4),
+        triton.Config({'BLOCK_M': 32,  'BLOCK_N': 128}, num_warps=4),
+        triton.Config({'BLOCK_M': 64,  'BLOCK_N': 128}, num_warps=4),
+        triton.Config({'BLOCK_M': 64,  'BLOCK_N': 256}, num_warps=8),
+        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8),
+    ]
+
+    @triton.autotune(configs=_AUTOTUNE_CONFIGS, key=['M', 'N', 'D'])
     @triton.jit
     def _fused_qk_bw16_kernel(
         Q_ptr,                 # fp16  (M, D)
@@ -139,8 +155,8 @@ if TRITON_AVAILABLE:
         K_scale: torch.Tensor,              # fp32 (N, D_GROUPS)
         codebook: torch.Tensor,             # fp32 (32, 16)
         bits: int = 3,
-        BLOCK_M: int = 32,
-        BLOCK_N: int = 32,
+        BLOCK_M: int = None,                # ignored (kernel is autotuned)
+        BLOCK_N: int = None,                # ignored (kernel is autotuned)
     ) -> torch.Tensor:
         """
         Compute Q @ K^T where K is stored in packed BW16 form and is
@@ -163,7 +179,9 @@ if TRITON_AVAILABLE:
 
         out = torch.empty(M, N, dtype=torch.float32, device=Q.device)
 
-        grid = (triton.cdiv(M, BLOCK_M), triton.cdiv(N, BLOCK_N))
+        # Autotune picks BLOCK_M / BLOCK_N; grid is computed lazily.
+        grid = lambda META: (triton.cdiv(M, META['BLOCK_M']),
+                             triton.cdiv(N, META['BLOCK_N']))
         _fused_qk_bw16_kernel[grid](
             Q, K_pack, K_scale, codebook.contiguous(), out,
             M, N, D, D_GROUPS,
@@ -171,7 +189,6 @@ if TRITON_AVAILABLE:
             K_pack.stride(0), K_pack.stride(1), K_pack.stride(2),
             K_scale.stride(0), K_scale.stride(1),
             out.stride(0), out.stride(1),
-            BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
             BYTES_PER_CODEWORD=L['bytes_per_codeword'],
             OFFSET_BITS=L['offset_bits'],
             OFFSET_MASK=L['offset_mask'],
