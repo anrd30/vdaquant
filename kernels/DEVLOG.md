@@ -16,6 +16,55 @@ Format:
 
 ---
 
+## 2026-09-12 14:00 IST  session 4: multi-bit Triton + KV cache Triton path + benchmark
+    context      : make the Triton decode general (bits in {2,3,4}) and
+                   plumb it into PackedKVCache so all reads go via
+                   Triton on CUDA
+    hardware     : RTX 4050 Laptop, 6.0 GB
+    changes      :
+      - kernels/triton_kernels/decode_bw16.py generalised: _LAYOUT dict
+        holds (bytes_per_codeword, offset_bits, offset_mask,
+        offset_bias) per bit width; kernel takes them as tl.constexpr
+        arguments.  Now works for bits in {2, 3, 4}.
+      - kernels/reference/kv_cache.py: PackedKVCache.read() picks the
+        Triton fast path when available AND on CUDA.  Explicit
+        use_triton=False lets tests exercise the reference path.
+      - kernels/benchmark_memory.py extended to time Triton decode
+        alongside PyTorch decode and print speedup column.
+    tests        : 27/27 pass across all three suites
+                    * 17/17 test_bw16_roundtrip
+                    * 5/5 test_simulator_parity
+                    * 5/5 test_kv_cache_end_to_end (Triton path)
+    findings     :
+      - Triton smoke test bit-exact across all three bit widths:
+             bits=2: max diff 0.00e+00, 3 bytes/codeword
+             bits=3: max diff 0.00e+00, 5 bytes/codeword
+             bits=4: max diff 0.00e+00, 7 bytes/codeword
+      - Benchmark on RTX 4050 (all VDA layers at 3-bit):
+
+        | Layer                       | fp16   | packed | ratio | PyT unpack | Triton | speedup |
+        | ViT-S mm0 (1,32,1369, 192)  | 16.04M |  3.01M | 5.33x |    6.73 ms | 0.46ms | 14.5x   |
+        | ViT-S mm1 (1,32, 361, 384)  |  8.46M |  1.59M | 5.33x |    5.88 ms | 0.25ms | 23.1x   |
+        | ViT-S mm2 (1,32,1369,  64)  |  5.35M |  1.00M | 5.33x |    4.22 ms | 0.17ms | 24.3x   |
+        | ViT-S mm3 (1,32,5476,  64)  | 21.39M |  4.01M | 5.33x |    8.84 ms | 0.69ms | 12.9x   |
+        | ViT-L mm0 (1,32,1369,1024)  | 85.56M | 16.04M | 5.33x |   39.00 ms | 2.43ms | 16.0x   |
+        | ViT-L mm1 (1,32, 361,1024)  | 22.56M |  4.23M | 5.33x |    8.18 ms | 0.62ms | 13.1x   |
+        | ViT-L mm2 (1,32,1369, 256)  | 21.39M |  4.01M | 5.33x |    7.85 ms | 0.59ms | 13.2x   |
+        | ViT-L mm3 (1,32,5476, 256)  | 85.56M | 16.04M | 5.33x |   38.67 ms | 2.46ms | 15.7x   |
+        | TOTAL                       | 266.3M | 49.94M | 5.33x |            |        |         |
+
+      - fp16 bit-parity through the KV cache: fp32 mock attention
+        output max diff 0.00e+00 on VDA-sized ViT-S mm3 tile.
+    next         :
+      - Fused decode + attention kernel (the ultimate paper win).
+      - VDA integration into research/models/rotated_attention.py
+        (replace fp16 KV buffer with PackedKVCache instance).
+      - E8 companion for the "our lattice beats E8" comparator row.
+      - When A100 is available, re-run the benchmark table for the
+        Paper 2 Table 6 headline numbers.
+
+---
+
 ## 2026-09-12 13:40 IST  session 3: PackedKVCache + FIRST TRITON KERNEL
     context      : integration wrapper for VDA + first Triton decode kernel
     hardware     : RTX 4050 Laptop, 6.0 GB, Triton 3.7.0

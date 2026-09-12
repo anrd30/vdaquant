@@ -42,6 +42,16 @@ from .packed_bw16 import (
     bitpack_bw16, bitunpack_bw16,
     pack_bw16_ref, unpack_bw16_ref,
 )
+from .bw16_codebook import bw16_cosets
+
+# Triton fast-path is opt-in and only used when available AND the tile
+# is on CUDA.  Falls back to the pure-PyTorch decode otherwise so tests
+# still run on CPU.
+try:
+    from kernels.triton_kernels.decode_bw16 import decode_bw16_triton
+    _TRITON_AVAILABLE = True
+except ImportError:
+    _TRITON_AVAILABLE = False
 
 
 class PackedKVCache:
@@ -71,7 +81,8 @@ class PackedKVCache:
                  scale_bits: int = 8,
                  group_size: int = 16,
                  device: str | torch.device = "cuda",
-                 rotate_fn: Optional[callable] = None):
+                 rotate_fn: Optional[callable] = None,
+                 use_triton: bool = True):
         assert bits in (2, 3, 4), f"bits must be 2, 3, or 4, got {bits}"
         assert scale_bits in (8, 16)
         self.B = B
@@ -89,6 +100,12 @@ class PackedKVCache:
         # Cached rotation buffer shared with the write path to avoid
         # per-frame allocation churn.
         self._buf: Optional[torch.Tensor] = None
+        # Fast path setup.
+        self.use_triton = (use_triton and _TRITON_AVAILABLE
+                           and self.device.type == "cuda")
+        self._codebook: Optional[torch.Tensor] = None
+        if self.use_triton:
+            self._codebook = bw16_cosets(dtype=torch.float32, device=self.device)
 
     # -------------------------------------------------------------- write
     def write(self, t: int, x: torch.Tensor) -> None:
@@ -125,20 +142,41 @@ class PackedKVCache:
              dtype: torch.dtype = torch.float16) -> torch.Tensor:
         """Return the first k frames as an fp tensor of shape
         (B, k, tokens, head_dim).  Slots that have not been written are
-        an error."""
+        an error.
+
+        Uses the Triton decode kernel when self.use_triton is True; falls
+        back to the pure-PyTorch decode otherwise.  Both paths produce
+        bit-exact output (see kernels/triton_kernels/decode_bw16.py
+        smoke test).
+        """
         assert 0 < k <= self.T, f"k={k} out of (0, {self.T}]"
         frames = []
         for t in range(k):
             slot = self._slots[t]
             if slot is None:
                 raise RuntimeError(f"cache slot {t} not yet written")
-            ref = bitunpack_bw16(slot)
-            x = unpack_bw16_ref(ref, dtype=torch.float32)
-            # If write absorbed the tokens axis into head_dim, restore.
-            if self.head_dim < self.group_size or self.head_dim % self.group_size != 0:
-                merged = self.tokens * self.head_dim
-                x = x[..., :merged].reshape(self.B, self.tokens, self.head_dim)
-            frames.append(x.unsqueeze(1).to(dtype))
+            if self.use_triton:
+                # Triton fast path: fp16 output directly.
+                fp16 = decode_bw16_triton(slot.codeword_bytes,
+                                          slot.group_scale,
+                                          self._codebook,
+                                          bits=self.bits)          # (..., G, 16)
+                # Reshape to (B, D_padded) then trim.
+                if self.head_dim < self.group_size or self.head_dim % self.group_size != 0:
+                    merged = self.tokens * self.head_dim
+                    x = fp16.reshape(self.B, -1)[:, :merged].reshape(
+                        self.B, self.tokens, self.head_dim)
+                else:
+                    x = fp16.reshape(self.B, self.tokens, self.head_dim)
+                x = x.to(dtype)
+            else:
+                ref = bitunpack_bw16(slot)
+                x = unpack_bw16_ref(ref, dtype=torch.float32)
+                if self.head_dim < self.group_size or self.head_dim % self.group_size != 0:
+                    merged = self.tokens * self.head_dim
+                    x = x[..., :merged].reshape(self.B, self.tokens, self.head_dim)
+                x = x.to(dtype)
+            frames.append(x.unsqueeze(1))
         return torch.cat(frames, dim=1)                       # (B, k, tokens, head_dim)
 
     # -------------------------------------------------------------- utils

@@ -21,6 +21,13 @@ import time
 import torch
 
 from kernels.reference.packed_bw16 import pack_bw16, unpack_bw16
+from kernels.reference.bw16_codebook import bw16_cosets
+
+try:
+    from kernels.triton_kernels.decode_bw16 import decode_bw16_triton
+    _TRITON_AVAILABLE = True
+except ImportError:
+    _TRITON_AVAILABLE = False
 
 
 # VDA temporal-attention KV shapes measured from report_kv_memory.py.
@@ -62,6 +69,20 @@ def benchmark_one(encoder: str, layer: str, tokens: int, head_dim: int,
         torch.cuda.synchronize()
     t_unpack = time.perf_counter() - t0
 
+    # Triton fast path timing.
+    t_tri = -1.0
+    if _TRITON_AVAILABLE and device == "cuda":
+        codebook = bw16_cosets(dtype=torch.float32, device=device)
+        # Warmup
+        _ = decode_bw16_triton(p.codeword_bytes, p.group_scale, codebook,
+                               bits=bits); torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        for _ in range(5):
+            _ = decode_bw16_triton(p.codeword_bytes, p.group_scale, codebook,
+                                   bits=bits)
+        torch.cuda.synchronize()
+        t_tri = (time.perf_counter() - t0) / 5 * 1000
+
     err = (y - x).abs()
     peak = (torch.cuda.max_memory_allocated() / 1024**2) if device == "cuda" else -1.0
 
@@ -76,6 +97,7 @@ def benchmark_one(encoder: str, layer: str, tokens: int, head_dim: int,
         "err_mean": err.mean().item(),
         "pack_ms": t_pack * 1000,
         "unpack_ms": t_unpack * 1000,
+        "triton_ms": t_tri,
         "peak_mb": peak,
     }
 
@@ -83,27 +105,30 @@ def benchmark_one(encoder: str, layer: str, tokens: int, head_dim: int,
 def print_table(rows):
     print()
     print("| Encoder | Layer          | Shape                   | fp16 MB | Packed MB | Ratio |"
-          " Err mean | Pack ms | Unpack ms | Peak MB |")
+          " Pack ms | Unpack (PyT) ms | Unpack (Triton) ms | Speedup |")
     print("|---------|----------------|-------------------------|--------:|----------:|------:|"
-          "---------:|--------:|----------:|--------:|")
+          "--------:|----------------:|-------------------:|--------:|")
     total_fp16 = 0
     total_packed = 0
     for r in rows:
         total_fp16 += r["fp16_bytes"]
         total_packed += r["packed_bytes"]
+        speedup = (r["unpack_ms"] / r["triton_ms"]) if r["triton_ms"] > 0 else 0.0
+        tri_str = f"{r['triton_ms']:7.2f}" if r["triton_ms"] > 0 else "   n/a"
+        sp_str = f"{speedup:6.1f}x" if speedup > 0 else "   n/a"
         print(f"| {r['encoder']}  | {r['layer']:<14s} | "
               f"{str(r['shape']):<23s} | "
               f"{r['fp16_bytes']/1024**2:7.2f} | "
               f"{r['packed_bytes']/1024**2:9.2f} | "
               f"{r['ratio']:5.2f}x | "
-              f"{r['err_mean']:8.4f} | "
               f"{r['pack_ms']:7.1f} | "
-              f"{r['unpack_ms']:9.1f} | "
-              f"{r['peak_mb']:7.0f} |")
+              f"{r['unpack_ms']:15.2f} | "
+              f"{tri_str:>18s} | "
+              f"{sp_str:>7s} |")
     print(f"|         | TOTAL          |                         | "
           f"{total_fp16/1024**2:7.2f} | "
           f"{total_packed/1024**2:9.2f} | "
-          f"{total_fp16/max(total_packed,1):5.2f}x |          |         |           |         |")
+          f"{total_fp16/max(total_packed,1):5.2f}x |         |                 |                    |         |")
     print()
 
 
