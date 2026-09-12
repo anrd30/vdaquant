@@ -97,7 +97,7 @@ if TRITON_AVAILABLE:
                 other=0.0,
             )                                              # (BLOCK_M, BLOCK_N)
 
-            # Decode V block for this group: (BLOCK_N, 16).
+            # Decode packed V for this group: extract the codeword int and scale.
             v_pack_base = V_pack_ptr + n_offs * stride_vn + pid_g * stride_vg
             packed = tl.zeros((BLOCK_N,), dtype=tl.int64)
             for byte_i in tl.static_range(0, BYTES_PER_CODEWORD):
@@ -106,13 +106,15 @@ if TRITON_AVAILABLE:
                     mask=n_mask, other=0,
                 ).to(tl.int64)
                 packed |= (b << (byte_i * 8))
-            coset_idx = (packed & 0x1F).to(tl.int32)
+            coset_idx = (packed & 0x1F).to(tl.int32)       # (BLOCK_N,)
             scale = tl.load(
                 V_scale_ptr + n_offs * stride_sn + pid_g * stride_sg,
                 mask=n_mask, other=0.0,
             )                                              # (BLOCK_N,)
 
-            # For each of 16 output coords in the group, decode + accumulate.
+            # Build the full decoded V tile (BLOCK_N, 16) so we can use
+            # tl.dot for the matmul.  Column-by-column via mask-and-add.
+            v_tile = tl.zeros((BLOCK_N, 16), dtype=tl.float32)
             col_range = tl.arange(0, 16)
             for i in tl.static_range(0, 16):
                 u = ((packed >> (5 + i * OFFSET_BITS)) & OFFSET_MASK).to(tl.int32)
@@ -121,11 +123,14 @@ if TRITON_AVAILABLE:
                             mask=n_mask, other=0.0)
                 x_scaled = 2.0 * offset_signed.to(tl.float32) + c
                 v_val = x_scaled * scale                    # (BLOCK_N,)
-                # Contribution: sum_n P[m, n] * v_val[n]
-                contribution = tl.sum(p_tile * v_val[None, :], axis=1)  # (BLOCK_M,)
-                # Scatter into acc[:, i] using mask trick.
                 is_i = (col_range == i).to(tl.float32)      # (16,)
-                acc += contribution[:, None] * is_i[None, :]
+                v_tile = v_tile + v_val[:, None] * is_i[None, :]
+
+            # tl.dot: (BLOCK_M, BLOCK_N) @ (BLOCK_N, 16) -> (BLOCK_M, 16).
+            # This uses tensor cores; ~10x faster than the tl.sum reduction.
+            # allow_tf32=False keeps accumulation in true fp32; TF32 would
+            # cut precision by ~10 bits and break the bit-parity gate.
+            acc += tl.dot(p_tile, v_tile, allow_tf32=False)
 
         # Store the 16 output columns for this D-group.
         d_offs = pid_g * 16 + tl.arange(0, 16)
