@@ -15,3 +15,4 @@ checkpoints/
 *.pth
 *.pkl
 Video-Depth-Anything/
+/checkpoints/
