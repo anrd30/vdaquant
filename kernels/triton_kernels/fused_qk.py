@@ -52,19 +52,24 @@ _LAYOUT = {
 
 if TRITON_AVAILABLE:
 
-    # BLOCK sweep on RTX 4050 found:
-    #   small M/N shapes  -> BM=32, BN=128
-    #   large M/N shapes  -> BM=64, BN=256
-    #   BM=64, BN=64 is a shared-memory trap and 30x slower than either.
-    # Autotune picks per-GPU without our hardcoding.  Configs kept small
-    # (5) so autotune compilation stays cheap; add more if a new GPU
-    # regresses.
+    # Two-generation config sweep:
+    #   Ada (SM 8.9, ~100 KB shmem):  small-medium tiles, 4-8 warps
+    #   Ampere A100 (SM 8.0, 164 KB shmem, more regs): bigger tiles,
+    #     pipelined via num_stages
+    # BM=BN=64 is a shared-memory trap on 4050; excluded.
     _AUTOTUNE_CONFIGS = [
+        # -- Ada / small-card configs
         triton.Config({'BLOCK_M': 32,  'BLOCK_N': 32},  num_warps=4),
         triton.Config({'BLOCK_M': 32,  'BLOCK_N': 128}, num_warps=4),
         triton.Config({'BLOCK_M': 64,  'BLOCK_N': 128}, num_warps=4),
         triton.Config({'BLOCK_M': 64,  'BLOCK_N': 256}, num_warps=8),
         triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8),
+        # -- A100 configs: bigger tiles + pipeline stages
+        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 64},  num_warps=4, num_stages=3),
+        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8, num_stages=3),
+        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 256}, num_warps=8, num_stages=2),
+        triton.Config({'BLOCK_M': 256, 'BLOCK_N': 64},  num_warps=8, num_stages=3),
+        triton.Config({'BLOCK_M': 256, 'BLOCK_N': 128}, num_warps=8, num_stages=2),
     ]
 
     @triton.autotune(configs=_AUTOTUNE_CONFIGS, key=['M', 'N', 'D'])
