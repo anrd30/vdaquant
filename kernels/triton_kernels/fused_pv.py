@@ -44,20 +44,13 @@ _LAYOUT = {
 
 if TRITON_AVAILABLE:
 
-    # Two-generation config sweep, same rationale as fused_qk.
     _AUTOTUNE_CONFIGS = [
-        # -- Ada / small-card configs
         triton.Config({'BLOCK_M': 32,  'BLOCK_N': 64},  num_warps=4),
         triton.Config({'BLOCK_M': 32,  'BLOCK_N': 128}, num_warps=4),
         triton.Config({'BLOCK_M': 64,  'BLOCK_N': 64},  num_warps=4),
         triton.Config({'BLOCK_M': 64,  'BLOCK_N': 128}, num_warps=8),
         triton.Config({'BLOCK_M': 64,  'BLOCK_N': 256}, num_warps=8),
         triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8),
-        # -- A100 configs: bigger BLOCK_N (reduce-heavy along N) + pipeline
-        triton.Config({'BLOCK_M': 64,  'BLOCK_N': 128}, num_warps=4, num_stages=3),
-        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8, num_stages=3),
-        triton.Config({'BLOCK_M': 128, 'BLOCK_N': 256}, num_warps=8, num_stages=2),
-        triton.Config({'BLOCK_M': 256, 'BLOCK_N': 128}, num_warps=8, num_stages=2),
     ]
 
     @triton.autotune(configs=_AUTOTUNE_CONFIGS, key=['M', 'N', 'D_GROUPS'])
