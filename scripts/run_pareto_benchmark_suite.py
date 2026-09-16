@@ -1368,7 +1368,9 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
             # no in-range GT pixels, skip the scene's TAE too (same rationale).
             try:
                 tae_result = compute_tae_geometric_for_scene(
-                    pred_disps, gt_depths, Ks, poses, gt_range, covis_tau=covis_tau)
+                    pred_disps, gt_depths, Ks, poses, gt_range,
+                    scatter_zbuffer=(not args.no_scatter_zbuffer),
+                    covis_tau=covis_tau)
                 tae_list.append(tae_result["tae_percent"])
                 per_scene_tae[scene] = tae_result["tae_percent"]
                 total_pairs += tae_result["n_pairs"]
@@ -1559,6 +1561,12 @@ def main():
                               "agree within this relative tolerance. Masks are GT-only so every "
                               "config gets the same mask; excludes disocclusion/out-of-frame "
                               "inflation (docs/optimization_ledger.md F16).")
+    parser.add_argument("--no-scatter-zbuffer", action="store_true", default=False,
+                         help="[--eval-mode temporal] Disable the per-target z-buffer at "
+                              "the reprojection scatter and instead use the upstream VDA "
+                              "eval_tae.py behaviour (`depth_proj[Y, X] = Z`, last-write-wins). "
+                              "Used to verify that the observed TAE inversion under quantisation "
+                              "and blur is not an artefact of the z-buffer implementation.")
     parser.add_argument("--group-size", type=int, default=None,
                         help="Scalars sharing ONE SCALE for scalar_g8 / lattice_e8. "
                              "Must be a multiple of 8 and divide head_dim, which is "
