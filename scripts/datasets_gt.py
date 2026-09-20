@@ -740,8 +740,7 @@ DATASET_GT_CONFIG = {
     "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0), "auto_download": True},
     "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (0.1, 80.0), "auto_download": False},
     "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 70.0), "auto_download": False},
-    "bonn":   {"loader": lambda cd, ms, dl, rc: load_bonn_gt(cd, max_samples=ms, download=dl, require_cam=rc),
-                                                   "cache_subdir": "bonn",     "gt_range": (0.1, 10.0), "auto_download": False},
+    "bonn":   {"loader": load_bonn_gt,             "cache_subdir": "bonn",     "gt_range": (0.1, 10.0), "auto_download": False},
 }
 
 
@@ -769,7 +768,7 @@ def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None
     data_dir = Path(data_dir)
     cache = data_dir / cfg["cache_subdir"]
     kwargs = {"max_samples": max_samples, "download": cfg["auto_download"]}
-    if cfg["loader"] is load_sintel_gt:
+    if cfg["loader"] in (load_sintel_gt, load_bonn_gt):
         kwargs["require_cam"] = require_cam
     samples = cfg["loader"](cache, **kwargs)
     return samples, cfg["gt_range"]
