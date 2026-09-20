@@ -1298,11 +1298,11 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
     from video_depth_anything.video_depth import VideoDepthAnything
     from datasets_gt import load_gt_dataset, group_samples_by_scene, chunk_scene_into_windows
 
-    if args.dataset != "sintel":
+    if args.dataset not in ("sintel", "bonn"):
         raise ValueError(
-            f"--eval-mode temporal currently only supports --dataset sintel "
-            f"(the only dataset with both real video structure and camera "
-            f"pose data for geometric TAE). Got --dataset {args.dataset}."
+            f"--eval-mode temporal currently supports --dataset sintel or bonn "
+            f"(the datasets with both real consecutive-video structure and "
+            f"camera pose data for geometric TAE). Got --dataset {args.dataset}."
         )
 
     gt_samples, gt_range = load_gt_dataset(args.dataset, data_dir, max_samples=args.max_samples, require_cam=True)
@@ -1597,11 +1597,11 @@ def main():
                 f"ToU-gated (see scripts/download_datasets.sh), and 'all' can't mix GT ranges. "
                 f"Do not fabricate GT results for them."
             )
-    elif args.eval_mode == "temporal" and args.dataset != "sintel":
+    elif args.eval_mode == "temporal" and args.dataset not in ("sintel", "bonn"):
         raise ValueError(
-            "--eval-mode temporal currently only supports --dataset sintel "
-            "(docs/optimization_ledger.md T9 — the only dataset with both real "
-            "consecutive-video structure and camera pose data for geometric TAE)."
+            "--eval-mode temporal currently supports --dataset sintel or bonn "
+            "(the datasets with both real consecutive-video structure and "
+            "camera pose data for geometric TAE)."
         )
 
     output_dir = Path(args.output_dir)
