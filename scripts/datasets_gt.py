@@ -558,10 +558,190 @@ def load_sintel_gt(
 #
 # 'auto_download' marks whether the loader will fetch on its own (only NYU
 # does; the big multi-zip datasets go through download_datasets.sh).
+# =============================================================================
+# Bonn RGB-D Dynamic Objects (Palazzolo et al., IROS 2019)
+# https://www.ipb.uni-bonn.de/data/rgbd-dynamic-dataset/
+# Standard TUM RGB-D file format: rgb/, depth/ each PNG named by Unix
+# timestamp; rgb.txt/depth.txt map timestamp -> filename; groundtruth.txt
+# holds "timestamp tx ty tz qx qy qz qw" per line.
+# Kinect v1 depth encoding: uint16 PNG, value / 5000.0 = depth in metres.
+# Kinect v1 intrinsics (defaults used by every TUM-format eval that doesn't
+# ship its own calibration): fx=fy=525, cx=319.5, cy=239.5 for 640x480.
+# =============================================================================
+_BONN_KINECT_K = np.array([
+    [525.0,   0.0, 319.5],
+    [  0.0, 525.0, 239.5],
+    [  0.0,   0.0,   1.0],
+], dtype=np.float64)
+
+
+def _tum_read_stamps_and_files(txt_path: Path) -> list:
+    """Parse a TUM-style rgb.txt / depth.txt and return [(timestamp, filename)]."""
+    out = []
+    with open(txt_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            out.append((float(parts[0]), parts[1]))
+    return sorted(out)
+
+
+def _tum_read_poses(txt_path: Path):
+    """Return arrays (timestamps, positions[N,3], quaternions[N,4] xyzw)."""
+    stamps, txyz, qxyzw = [], [], []
+    with open(txt_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split()
+            if len(parts) < 8:
+                continue
+            stamps.append(float(parts[0]))
+            txyz.append([float(parts[1]), float(parts[2]), float(parts[3])])
+            qxyzw.append([float(parts[4]), float(parts[5]),
+                          float(parts[6]), float(parts[7])])
+    order = np.argsort(stamps)
+    return (np.array(stamps, dtype=np.float64)[order],
+            np.array(txyz, dtype=np.float64)[order],
+            np.array(qxyzw, dtype=np.float64)[order])
+
+
+def _quat_to_matrix(q_xyzw: np.ndarray) -> np.ndarray:
+    """Convert a xyzw quaternion to a 3x3 rotation matrix."""
+    x, y, z, w = q_xyzw
+    n = np.sqrt(x*x + y*y + z*z + w*w)
+    if n < 1e-12:
+        return np.eye(3, dtype=np.float64)
+    x, y, z, w = x/n, y/n, z/n, w/n
+    return np.array([
+        [1 - 2*(y*y + z*z),     2*(x*y - z*w),     2*(x*z + y*w)],
+        [    2*(x*y + z*w), 1 - 2*(x*x + z*z),     2*(y*z - x*w)],
+        [    2*(x*z - y*w),     2*(y*z + x*w), 1 - 2*(x*x + y*y)],
+    ], dtype=np.float64)
+
+
+def _tum_nearest_pose(stamp: float, pose_stamps: np.ndarray,
+                      pose_t: np.ndarray, pose_q: np.ndarray,
+                      max_dt: float = 0.05) -> Optional[np.ndarray]:
+    """Return the 4x4 camera-to-world pose closest to `stamp` in time, or None
+    if the nearest timestamp is farther than `max_dt` seconds away."""
+    idx = int(np.argmin(np.abs(pose_stamps - stamp)))
+    if abs(pose_stamps[idx] - stamp) > max_dt:
+        return None
+    R = _quat_to_matrix(pose_q[idx])
+    T = np.eye(4, dtype=np.float64)
+    T[:3, :3] = R
+    T[:3, 3] = pose_t[idx]
+    return T
+
+
+def load_bonn_gt(
+    cache_dir: Path,
+    max_samples: Optional[int] = None,
+    download: bool = False,
+    require_cam: bool = False,
+    max_pair_dt: float = 0.05,
+):
+    """
+    Load the Bonn RGB-D Dynamic Objects dataset (Palazzolo IROS 2019).
+
+    The directory layout after `unzip` on each rgbd_bonn_<seq>.zip is:
+        cache_dir/rgbd_bonn_<seq>/
+            rgb/*.png            (RGB frames, filenames are timestamps)
+            depth/*.png          (uint16 depth, value / 5000 = metres)
+            rgb.txt              (timestamp filename)
+            depth.txt            (timestamp filename)
+            groundtruth.txt      (timestamp tx ty tz qx qy qz qw)
+
+    For every depth frame we find the RGB frame with the nearest timestamp
+    (<= max_pair_dt seconds away) and the GT pose with the nearest timestamp.
+    Frames without a valid RGB or pose within tolerance are dropped.
+
+    Returns a flat list of dicts, sorted by scene then depth timestamp:
+        "rgb": (H,W,3) uint8, "depth": (H,W) float32 metres,
+        "valid_mask": (H,W) bool, "scene": str, "frame_idx": int,
+        "K": (3,3) float64, "pose": (4,4) float64 camera-to-world.
+    """
+    from PIL import Image
+
+    cache_dir = Path(cache_dir)
+    if not cache_dir.is_dir():
+        raise RuntimeError(
+            f"Bonn dataset root not found at {cache_dir}. Extract the "
+            f"rgbd_bonn_<seq>.zip files into this directory (each should "
+            f"become a subfolder like rgbd_bonn_balloon/)."
+        )
+
+    scene_dirs = sorted([p for p in cache_dir.iterdir()
+                          if p.is_dir() and p.name.startswith("rgbd_bonn_")])
+    if not scene_dirs:
+        raise RuntimeError(
+            f"No rgbd_bonn_<seq>/ subfolders under {cache_dir}. "
+            f"After downloading the zip files, run `unzip -q *.zip` in that "
+            f"directory."
+        )
+
+    samples = []
+    for scene_dir in scene_dirs:
+        scene = scene_dir.name.replace("rgbd_bonn_", "")
+        rgb_index   = _tum_read_stamps_and_files(scene_dir / "rgb.txt")
+        depth_index = _tum_read_stamps_and_files(scene_dir / "depth.txt")
+        p_stamps, p_txyz, p_q = _tum_read_poses(scene_dir / "groundtruth.txt")
+
+        rgb_stamps = np.array([r[0] for r in rgb_index], dtype=np.float64)
+
+        for frame_idx, (d_stamp, d_relpath) in enumerate(depth_index):
+            # Nearest RGB frame by timestamp.
+            rgb_idx = int(np.argmin(np.abs(rgb_stamps - d_stamp)))
+            if abs(rgb_stamps[rgb_idx] - d_stamp) > max_pair_dt:
+                continue
+            rgb_path = scene_dir / rgb_index[rgb_idx][1]
+            depth_path = scene_dir / d_relpath
+            if not rgb_path.exists() or not depth_path.exists():
+                continue
+
+            pose = _tum_nearest_pose(d_stamp, p_stamps, p_txyz, p_q,
+                                     max_dt=max_pair_dt)
+            if pose is None:
+                if require_cam:
+                    continue
+                # Leave pose as None only when temporal eval is not requested.
+
+            rgb = np.array(Image.open(rgb_path).convert("RGB"), dtype=np.uint8)
+            depth_u16 = np.array(Image.open(depth_path))          # (H, W) uint16
+            depth = depth_u16.astype(np.float32) / 5000.0         # metres
+            valid_mask = (depth > 0.1) & (depth < 10.0) & np.isfinite(depth)
+
+            samples.append({
+                "rgb": rgb, "depth": depth, "valid_mask": valid_mask,
+                "scene": scene, "frame_idx": frame_idx,
+                "K": _BONN_KINECT_K.copy(),
+                "pose": pose,
+            })
+
+            if max_samples is not None and len(samples) >= max_samples:
+                return samples
+
+    if not samples:
+        raise RuntimeError(
+            f"Bonn: no valid RGB/depth/pose triples found under {cache_dir}. "
+            f"Check that each scene folder contains rgb/, depth/, rgb.txt, "
+            f"depth.txt, and groundtruth.txt."
+        )
+    return samples
+
+
 DATASET_GT_CONFIG = {
     "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0), "auto_download": True},
     "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (0.1, 80.0), "auto_download": False},
     "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 70.0), "auto_download": False},
+    "bonn":   {"loader": lambda cd, ms, dl, rc: load_bonn_gt(cd, max_samples=ms, download=dl, require_cam=rc),
+                                                   "cache_subdir": "bonn",     "gt_range": (0.1, 10.0), "auto_download": False},
 }
 
 

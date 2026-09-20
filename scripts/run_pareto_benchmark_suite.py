@@ -1485,7 +1485,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
 # ============================================================
 def main():
     parser = argparse.ArgumentParser(description="VDA-HyperQuant Multi-Dataset Pareto Evaluation")
-    parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "all"], help="Target benchmark dataset")
+    parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "bonn", "all"], help="Target benchmark dataset")
     parser.add_argument("--encoder", type=str, default="vits", choices=["vits", "vitb", "vitl"],
                          help="VDA encoder variant (S4). head_dim is 64 for all, so surgery/"
                               "quantizers are encoder-independent; vitl tests cross-scale "
