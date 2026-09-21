@@ -736,11 +736,136 @@ def load_bonn_gt(
     return samples
 
 
+# =============================================================================
+# TUM RGB-D (Sturm et al., IROS 2012)
+# https://cvg.cit.tum.de/rgbd/dataset/
+# Same on-disk format as Bonn (rgb/, depth/, rgb.txt, depth.txt,
+# groundtruth.txt; depth uint16 / 5000 = metres) but intrinsics depend on
+# which physical Kinect the sequence was captured with; the freiburg1/2/3
+# prefix in the scene directory name selects the calibration.
+# =============================================================================
+_TUM_INTRINSICS = {
+    "freiburg1": np.array([[517.3,   0.0, 318.6],
+                           [  0.0, 516.5, 255.3],
+                           [  0.0,   0.0,   1.0]], dtype=np.float64),
+    "freiburg2": np.array([[520.9,   0.0, 325.1],
+                           [  0.0, 521.0, 249.7],
+                           [  0.0,   0.0,   1.0]], dtype=np.float64),
+    "freiburg3": np.array([[535.4,   0.0, 320.1],
+                           [  0.0, 539.2, 247.6],
+                           [  0.0,   0.0,   1.0]], dtype=np.float64),
+}
+
+
+def _tum_camera_from_scene(scene_name: str) -> str:
+    for cam in _TUM_INTRINSICS:
+        if cam in scene_name:
+            return cam
+    raise ValueError(
+        f"TUM scene '{scene_name}' has no freiburg1/2/3 prefix; cannot "
+        f"determine intrinsics. Rename the folder to include the correct "
+        f"camera tag."
+    )
+
+
+def load_tum_gt(
+    cache_dir: Path,
+    max_samples: Optional[int] = None,
+    download: bool = False,
+    require_cam: bool = False,
+    max_pair_dt: float = 0.05,
+):
+    """
+    Load TUM RGB-D sequences (Sturm et al., IROS 2012).
+
+    The directory layout after `tar xzf` on each rgbd_dataset_freiburgN_<seq>.tgz is:
+        cache_dir/rgbd_dataset_freiburgN_<seq>/
+            rgb/*.png            (RGB frames, filenames are timestamps)
+            depth/*.png          (uint16 depth, value / 5000 = metres)
+            rgb.txt              (timestamp filename)
+            depth.txt            (timestamp filename)
+            groundtruth.txt      (timestamp tx ty tz qx qy qz qw)
+
+    Intrinsics are selected per-scene based on the freiburg1/2/3 tag in the
+    folder name. For every depth frame we find the RGB frame with the nearest
+    timestamp (<= max_pair_dt seconds) and the GT pose with the nearest
+    timestamp. Frames without a valid RGB or pose within tolerance are dropped.
+    """
+    from PIL import Image
+
+    cache_dir = Path(cache_dir)
+    if not cache_dir.is_dir():
+        raise RuntimeError(
+            f"TUM dataset root not found at {cache_dir}. Extract the "
+            f"rgbd_dataset_freiburgN_<seq>.tgz files into this directory "
+            f"(each should become a subfolder like "
+            f"rgbd_dataset_freiburg1_desk/)."
+        )
+
+    scene_dirs = sorted([p for p in cache_dir.iterdir()
+                          if p.is_dir() and p.name.startswith("rgbd_dataset_freiburg")])
+    if not scene_dirs:
+        raise RuntimeError(
+            f"No rgbd_dataset_freiburg*/ subfolders under {cache_dir}. "
+            f"After downloading the .tgz files, run "
+            f"`for f in *.tgz; do tar xzf \"$f\"; done` in that directory."
+        )
+
+    samples = []
+    for scene_dir in scene_dirs:
+        scene = scene_dir.name.replace("rgbd_dataset_", "")
+        K = _TUM_INTRINSICS[_tum_camera_from_scene(scene_dir.name)]
+
+        rgb_index   = _tum_read_stamps_and_files(scene_dir / "rgb.txt")
+        depth_index = _tum_read_stamps_and_files(scene_dir / "depth.txt")
+        p_stamps, p_txyz, p_q = _tum_read_poses(scene_dir / "groundtruth.txt")
+
+        rgb_stamps = np.array([r[0] for r in rgb_index], dtype=np.float64)
+
+        for frame_idx, (d_stamp, d_relpath) in enumerate(depth_index):
+            rgb_idx = int(np.argmin(np.abs(rgb_stamps - d_stamp)))
+            if abs(rgb_stamps[rgb_idx] - d_stamp) > max_pair_dt:
+                continue
+            rgb_path = scene_dir / rgb_index[rgb_idx][1]
+            depth_path = scene_dir / d_relpath
+            if not rgb_path.exists() or not depth_path.exists():
+                continue
+
+            pose = _tum_nearest_pose(d_stamp, p_stamps, p_txyz, p_q,
+                                     max_dt=max_pair_dt)
+            if pose is None and require_cam:
+                continue
+
+            rgb = np.array(Image.open(rgb_path).convert("RGB"), dtype=np.uint8)
+            depth_u16 = np.array(Image.open(depth_path))
+            depth = depth_u16.astype(np.float32) / 5000.0
+            valid_mask = (depth > 0.1) & (depth < 10.0) & np.isfinite(depth)
+
+            samples.append({
+                "rgb": rgb, "depth": depth, "valid_mask": valid_mask,
+                "scene": scene, "frame_idx": frame_idx,
+                "K": K.copy(),
+                "pose": pose,
+            })
+
+            if max_samples is not None and len(samples) >= max_samples:
+                return samples
+
+    if not samples:
+        raise RuntimeError(
+            f"TUM: no valid RGB/depth/pose triples found under {cache_dir}. "
+            f"Check that each scene folder contains rgb/, depth/, rgb.txt, "
+            f"depth.txt, and groundtruth.txt."
+        )
+    return samples
+
+
 DATASET_GT_CONFIG = {
     "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0), "auto_download": True},
     "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (0.1, 80.0), "auto_download": False},
     "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 70.0), "auto_download": False},
     "bonn":   {"loader": load_bonn_gt,             "cache_subdir": "bonn",     "gt_range": (0.1, 10.0), "auto_download": False},
+    "tum":    {"loader": load_tum_gt,              "cache_subdir": "tum",      "gt_range": (0.1, 10.0), "auto_download": False},
 }
 
 
@@ -768,7 +893,7 @@ def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None
     data_dir = Path(data_dir)
     cache = data_dir / cfg["cache_subdir"]
     kwargs = {"max_samples": max_samples, "download": cfg["auto_download"]}
-    if cfg["loader"] in (load_sintel_gt, load_bonn_gt):
+    if cfg["loader"] in (load_sintel_gt, load_bonn_gt, load_tum_gt):
         kwargs["require_cam"] = require_cam
     samples = cfg["loader"](cache, **kwargs)
     return samples, cfg["gt_range"]

@@ -1298,9 +1298,9 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
     from video_depth_anything.video_depth import VideoDepthAnything
     from datasets_gt import load_gt_dataset, group_samples_by_scene, chunk_scene_into_windows
 
-    if args.dataset not in ("sintel", "bonn"):
+    if args.dataset not in ("sintel", "bonn", "tum"):
         raise ValueError(
-            f"--eval-mode temporal currently supports --dataset sintel or bonn "
+            f"--eval-mode temporal currently supports --dataset sintel, bonn, or tum "
             f"(the datasets with both real consecutive-video structure and "
             f"camera pose data for geometric TAE). Got --dataset {args.dataset}."
         )
@@ -1485,7 +1485,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
 # ============================================================
 def main():
     parser = argparse.ArgumentParser(description="VDA-HyperQuant Multi-Dataset Pareto Evaluation")
-    parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "bonn", "all"], help="Target benchmark dataset")
+    parser.add_argument("--dataset", type=str, default="kitti", choices=["kitti", "davis", "sintel", "nyuv2", "scannet", "bonn", "tum", "all"], help="Target benchmark dataset")
     parser.add_argument("--encoder", type=str, default="vits", choices=["vits", "vitb", "vitl"],
                          help="VDA encoder variant (S4). head_dim is 64 for all, so surgery/"
                               "quantizers are encoder-independent; vitl tests cross-scale "
@@ -1597,9 +1597,9 @@ def main():
                 f"ToU-gated (see scripts/download_datasets.sh), and 'all' can't mix GT ranges. "
                 f"Do not fabricate GT results for them."
             )
-    elif args.eval_mode == "temporal" and args.dataset not in ("sintel", "bonn"):
+    elif args.eval_mode == "temporal" and args.dataset not in ("sintel", "bonn", "tum"):
         raise ValueError(
-            "--eval-mode temporal currently supports --dataset sintel or bonn "
+            "--eval-mode temporal currently supports --dataset sintel, bonn, or tum "
             "(the datasets with both real consecutive-video structure and "
             "camera pose data for geometric TAE)."
         )
