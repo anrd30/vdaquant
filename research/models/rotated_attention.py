@@ -455,24 +455,32 @@ class RotatedTemporalAttention(nn.Module):
             # K/V live as packed uint8 codewords; the fused kernel decodes
             # inside its GEMMs. No fp16 K/V ever materialises. QJL is
             # skipped in this path (see __init__ note).
+            #
+            # Note: Hadamard rotation pads head_dim up to the next power
+            # of 2 (padded_dim). K_rot / V_rot / Q_rot all live in this
+            # padded frame; the fused kernel returns output in the same
+            # padded frame, and self.rotation.inverse strips the padding
+            # back down to head_dim.
             # ============================================================
-            from kernels.reference.packed_bw16 import pack_bw16
+            from kernels.reference.packed_bw16 import pack_bw16, PackedBW16Bits
             from kernels.reference.bw16_codebook import bw16_cosets
             from kernels.triton_kernels.fused_attention import fused_attention_bw16
 
-            # Pack once over the full (B, h, M, d) tensor, then slice per
-            # (b, h) pair below. Kernel is 2D-only, so we loop.
             k_bits = self.k_quantizer.bits if hasattr(self.k_quantizer, 'bits') else self.bits
+            padded_d = K_rot.shape[-1]      # rotation.padded_dim
+            if padded_d % 16 != 0:
+                raise RuntimeError(
+                    f"fused kernel needs padded_dim ({padded_d}) to be a multiple of 16; "
+                    f"got head_dim={d}, padded_dim={padded_d}. Check HadamardRotation."
+                )
             packed_K_all = pack_bw16(K_rot.contiguous(), bits=k_bits)
             packed_V_all = pack_bw16(V_rot.contiguous(), bits=k_bits)
             codebook = bw16_cosets(dtype=torch.float32, device=Q_rot.device)
 
-            out_rot = torch.empty(B, h, N, d, dtype=torch.float32, device=Q_rot.device)
-            # codeword_bytes has shape (B, h, M, D_GROUPS, n_bytes)
-            # group_scale     has shape (B, h, M, D_GROUPS)
+            out_rot = torch.empty(B, h, N, padded_d, dtype=torch.float32,
+                                    device=Q_rot.device)
             for b in range(B):
                 for hd in range(h):
-                    from kernels.reference.packed_bw16 import PackedBW16Bits
                     pk = PackedBW16Bits(
                         codeword_bytes=packed_K_all.codeword_bytes[b, hd].contiguous(),
                         group_scale=packed_K_all.group_scale[b, hd].contiguous(),
