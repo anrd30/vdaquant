@@ -355,6 +355,26 @@ class RotatedTemporalAttention(nn.Module):
             self.qjl = QJLBiasCorrection(self.rotation.padded_dim)
         else:
             self.qjl = None
+        # ============================================================
+        # Fused Triton BW16 attention path (opt-in for wall-clock).
+        # ============================================================
+        # Default OFF. When True, this replaces the simulator's
+        # quantise-to-fp16 + standard SDPA with:
+        #   1. pack K/V once via kernels.reference.packed_bw16.pack_bw16
+        #      (the KV cache lives in packed int form, no fp16 copy),
+        #   2. call kernels.triton_kernels.fused_attention.fused_attention_bw16,
+        #      which decodes the packed K/V INSIDE the Triton kernel.
+        # Only valid for quantizer='lattice_bw16'. QJL is skipped in the
+        # fused path (its correction happens after the fused Q@K, but
+        # softmax is inside the kernel so absorption requires a second
+        # pass or a kernel-side bias tensor; deferred). Turn on via
+        # apply_rotated_quantization_to_vda(..., use_fused_kernel=True).
+        self.use_fused_kernel = False
+        self._fused_supported = (
+            quantizer == 'lattice_bw16'
+            and bits in (2, 3, 4)
+            and (v_bits is None or v_bits == bits)
+        )
 
     def forward(
         self,
@@ -427,21 +447,69 @@ class RotatedTemporalAttention(nn.Module):
         # ═══ TEMPORAL-COUPLED ROTATION + QUANTIZATION ═══
         K_rot = self.rotation(K)
         V_rot = self.rotation(V)
-
-        K_q, _ = self.k_quantizer(K_rot)
-        V_q, _ = self.v_quantizer(V_rot)
-
         Q_rot = self.rotation(Q)
 
-        # Attention with optional QJL correction
-        attn = (Q_rot @ K_q.transpose(-2, -1)) * self.scale
+        if self.use_fused_kernel and self._fused_supported and not self.training:
+            # ============================================================
+            # FUSED PATH: packed KV cache + Triton fused attention.
+            # K/V live as packed uint8 codewords; the fused kernel decodes
+            # inside its GEMMs. No fp16 K/V ever materialises. QJL is
+            # skipped in this path (see __init__ note).
+            # ============================================================
+            from kernels.reference.packed_bw16 import pack_bw16
+            from kernels.reference.bw16_codebook import bw16_cosets
+            from kernels.triton_kernels.fused_attention import fused_attention_bw16
 
-        if self.qjl is not None and not self.training:
-            K_signs, K_norms = self.qjl.encode(K_rot, K_q)
-            attn = self.qjl.correct_scores(attn, Q_rot, K_signs, K_norms)
+            # Pack once over the full (B, h, M, d) tensor, then slice per
+            # (b, h) pair below. Kernel is 2D-only, so we loop.
+            k_bits = self.k_quantizer.bits if hasattr(self.k_quantizer, 'bits') else self.bits
+            packed_K_all = pack_bw16(K_rot.contiguous(), bits=k_bits)
+            packed_V_all = pack_bw16(V_rot.contiguous(), bits=k_bits)
+            codebook = bw16_cosets(dtype=torch.float32, device=Q_rot.device)
 
-        attn = attn.softmax(dim=-1)
-        out_rot = attn @ V_q
+            out_rot = torch.empty(B, h, N, d, dtype=torch.float32, device=Q_rot.device)
+            # codeword_bytes has shape (B, h, M, D_GROUPS, n_bytes)
+            # group_scale     has shape (B, h, M, D_GROUPS)
+            for b in range(B):
+                for hd in range(h):
+                    from kernels.reference.packed_bw16 import PackedBW16Bits
+                    pk = PackedBW16Bits(
+                        codeword_bytes=packed_K_all.codeword_bytes[b, hd].contiguous(),
+                        group_scale=packed_K_all.group_scale[b, hd].contiguous(),
+                        original_shape=K_rot[b, hd].shape,
+                        bits=packed_K_all.bits,
+                        n_bytes_per_codeword=packed_K_all.n_bytes_per_codeword,
+                    )
+                    pv = PackedBW16Bits(
+                        codeword_bytes=packed_V_all.codeword_bytes[b, hd].contiguous(),
+                        group_scale=packed_V_all.group_scale[b, hd].contiguous(),
+                        original_shape=V_rot[b, hd].shape,
+                        bits=packed_V_all.bits,
+                        n_bytes_per_codeword=packed_V_all.n_bytes_per_codeword,
+                    )
+                    Q_bh = Q_rot[b, hd].contiguous().to(torch.float16)
+                    out_bh = fused_attention_bw16(Q_bh, pk, pv, codebook,
+                                                    scale=self.scale, bits=k_bits)
+                    out_rot[b, hd] = out_bh.to(out_rot.dtype)
+            out_rot = out_rot.to(Q_rot.dtype)
+        else:
+            # ============================================================
+            # SIMULATOR PATH (default): quantise K/V to fp16 reconstruction
+            # and run standard SDPA. Cache stays fp16 during compute; the
+            # 3-bit accuracy claims in the paper are measured here.
+            # ============================================================
+            K_q, _ = self.k_quantizer(K_rot)
+            V_q, _ = self.v_quantizer(V_rot)
+
+            # Attention with optional QJL correction
+            attn = (Q_rot @ K_q.transpose(-2, -1)) * self.scale
+
+            if self.qjl is not None and not self.training:
+                K_signs, K_norms = self.qjl.encode(K_rot, K_q)
+                attn = self.qjl.correct_scores(attn, Q_rot, K_signs, K_norms)
+
+            attn = attn.softmax(dim=-1)
+            out_rot = attn @ V_q
 
         # Inverse rotation
         out = self.rotation.inverse(out_rot)
@@ -476,6 +544,7 @@ def apply_rotated_quantization_to_vda(
     rht_seed: Optional[int] = None,
     scale_group: Optional[int] = None,
     v_bits: Optional[int] = None,
+    use_fused_kernel: bool = False,
 ) -> nn.Module:
     """
     Apply Hadamard-rotated quantization to a Video-Depth-Anything model.
@@ -637,6 +706,15 @@ def apply_rotated_quantization_to_vda(
                     setattr(parent, attr_name, new_cross)
                     n_temporal += 1
 
+    # Toggle the fused Triton path on every replaced temporal layer if
+    # requested. No-op on backbone (self-attention has its own class).
+    n_fused = 0
+    if use_fused_kernel:
+        for m in model.modules():
+            if isinstance(m, RotatedTemporalAttention) and m._fused_supported:
+                m.use_fused_kernel = True
+                n_fused += 1
+
     try:
         device = next(model.parameters()).device
         model = model.to(device)
@@ -653,6 +731,10 @@ def apply_rotated_quantization_to_vda(
         print(f"  Hadamard rotation: {'Enabled' if use_rotation else 'DISABLED (T10 ablation, raw activations)'}"
               f"{f', rht_seed={rht_seed}' if use_rotation and rht_seed is not None else ''}")
         print(f"  QJL bias correction: {'Enabled' if use_qjl else 'Disabled'}")
+        if use_fused_kernel:
+            print(f"  Fused Triton BW16 kernel: ENABLED on {n_fused} temporal layer(s)")
+            print(f"    - K/V stored in packed uint8 (no fp16 cache copy)")
+            print(f"    - QJL correction skipped in this path")
         print(f"  Compression: ~{32 / bits:.1f}x nominal over FP32 KV cache (NOMINAL ONLY — "
               f"see compute_real_bit_accounting in scripts/ for the all-inclusive effective rate)")
         print(f"{'=' * 60}")
