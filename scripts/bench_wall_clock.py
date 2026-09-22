@@ -42,7 +42,21 @@ import torch
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REPO_ROOT / "Video-Depth-Anything"))
+sys.path.insert(0, str(SCRIPT_DIR))
+
+# Same VDA lookup as run_pareto_benchmark_suite.py so this works
+# regardless of whether Video-Depth-Anything sits inside vdaquant/
+# or one level up alongside it.
+for _p in [
+    REPO_ROOT / "Video-Depth-Anything",
+    REPO_ROOT.parent / "Video-Depth-Anything",
+    Path("/content/Video-Depth-Anything"),
+    Path("/content/vdaquant/Video-Depth-Anything"),
+]:
+    if _p.exists() and (_p / "video_depth_anything").exists():
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+        break
 
 
 def _synthetic_video(n_frames: int, h: int, w: int) -> np.ndarray:
