@@ -375,6 +375,105 @@ class RotatedTemporalAttention(nn.Module):
             and bits in (2, 3, 4)
             and (v_bits is None or v_bits == bits)
         )
+        # CUDA graph cache for the (B, h) kernel loop. Populated lazily
+        # on the first fused-forward call for each unique shape signature
+        # (B, h, N, M, padded_d). Wraps 64 kernel launches per layer into
+        # a single graph replay, killing Python/CUDA launch overhead
+        # (measured at ~21 ms per forward on mm1 before capture -> ~2-4 ms
+        # after). See scripts/profile_overhead.py for the pre-capture
+        # profile that motivated this.
+        # {shape_key: (graph, persistent_buffers_dict)}
+        self._fused_graph_cache = {}
+        # Set to False to bypass graph capture (useful for debugging or
+        # when shapes are dynamic).
+        self._fused_use_graphs = True
+
+    def _fused_graph_forward(self, shape_key, Q_rot, packed_K_all, packed_V_all,
+                              fused_attention_bw16, bw16_cosets):
+        """
+        Graph-captured (B, h) kernel loop. Replays a pre-recorded CUDA graph
+        with fresh data copied into persistent input buffers, avoiding
+        Python-side per-launch overhead.
+
+        First call for a given shape_key: warms up autotune (3 eager runs),
+        captures the graph with the persistent buffers filled by the sample.
+        Subsequent calls: copy_ new data into persistent buffers, replay,
+        return persistent output buffer.
+        """
+        from kernels.reference.packed_bw16 import PackedBW16Bits
+
+        B, h, N, M, padded_d, k_bits = shape_key
+        device = Q_rot.device
+
+        cache = self._fused_graph_cache.get(shape_key)
+        if cache is None:
+            # ---- First call: allocate persistent buffers, warm up, capture ----
+            codebook = bw16_cosets(dtype=torch.float32, device=device)
+
+            bufs = {
+                'Q_rot':   torch.empty_like(Q_rot),
+                'K_bytes': torch.empty_like(packed_K_all.codeword_bytes),
+                'K_scale': torch.empty_like(packed_K_all.group_scale),
+                'V_bytes': torch.empty_like(packed_V_all.codeword_bytes),
+                'V_scale': torch.empty_like(packed_V_all.group_scale),
+                'out_rot': torch.empty(B, h, N, padded_d, dtype=torch.float32, device=device),
+                'codebook': codebook,
+            }
+            # Fill with the current sample so warmup + capture see valid data.
+            bufs['Q_rot'].copy_(Q_rot)
+            bufs['K_bytes'].copy_(packed_K_all.codeword_bytes)
+            bufs['K_scale'].copy_(packed_K_all.group_scale)
+            bufs['V_bytes'].copy_(packed_V_all.codeword_bytes)
+            bufs['V_scale'].copy_(packed_V_all.group_scale)
+
+            def run_loop():
+                for b_idx in range(B):
+                    for hd_idx in range(h):
+                        pk = PackedBW16Bits(
+                            codeword_bytes=bufs['K_bytes'][b_idx, hd_idx],
+                            group_scale=bufs['K_scale'][b_idx, hd_idx],
+                            original_shape=(M, padded_d),
+                            bits=packed_K_all.bits,
+                            n_bytes_per_codeword=packed_K_all.n_bytes_per_codeword,
+                        )
+                        pv = PackedBW16Bits(
+                            codeword_bytes=bufs['V_bytes'][b_idx, hd_idx],
+                            group_scale=bufs['V_scale'][b_idx, hd_idx],
+                            original_shape=(M, padded_d),
+                            bits=packed_V_all.bits,
+                            n_bytes_per_codeword=packed_V_all.n_bytes_per_codeword,
+                        )
+                        Q_bh = bufs['Q_rot'][b_idx, hd_idx].to(torch.float16)
+                        out_bh = fused_attention_bw16(Q_bh, pk, pv, bufs['codebook'],
+                                                     scale=self.scale, bits=k_bits)
+                        bufs['out_rot'][b_idx, hd_idx].copy_(out_bh.to(bufs['out_rot'].dtype))
+
+            # Warmup on a side stream (per NVIDIA CUDA-graph docs).
+            side_stream = torch.cuda.Stream()
+            side_stream.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(side_stream):
+                for _ in range(3):
+                    run_loop()
+            torch.cuda.current_stream().wait_stream(side_stream)
+
+            # Capture.
+            graph = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(graph, stream=side_stream):
+                run_loop()
+
+            self._fused_graph_cache[shape_key] = (graph, bufs)
+            cache = (graph, bufs)
+
+        graph, bufs = cache
+        # Copy this call's inputs into the persistent buffers.
+        bufs['Q_rot'].copy_(Q_rot)
+        bufs['K_bytes'].copy_(packed_K_all.codeword_bytes)
+        bufs['K_scale'].copy_(packed_K_all.group_scale)
+        bufs['V_bytes'].copy_(packed_V_all.codeword_bytes)
+        bufs['V_scale'].copy_(packed_V_all.group_scale)
+        graph.replay()
+        # Clone so downstream ops don't fight the persistent buffer.
+        return bufs['out_rot'].clone()
 
     def forward(
         self,
@@ -451,16 +550,25 @@ class RotatedTemporalAttention(nn.Module):
 
         if self.use_fused_kernel and self._fused_supported and not self.training:
             # ============================================================
-            # FUSED PATH: packed KV cache + Triton fused attention.
+            # FUSED PATH: packed KV cache + Triton fused attention with
+            # CUDA-graph-captured (B, h) launch loop.
+            #
             # K/V live as packed uint8 codewords; the fused kernel decodes
             # inside its GEMMs. No fp16 K/V ever materialises. QJL is
             # skipped in this path (see __init__ note).
             #
-            # Note: Hadamard rotation pads head_dim up to the next power
-            # of 2 (padded_dim). K_rot / V_rot / Q_rot all live in this
-            # padded frame; the fused kernel returns output in the same
-            # padded frame, and self.rotation.inverse strips the padding
-            # back down to head_dim.
+            # Hadamard rotation pads head_dim up to the next power of 2
+            # (padded_dim). K_rot / V_rot / Q_rot all live in this padded
+            # frame; the fused kernel returns output in the same padded
+            # frame, and self.rotation.inverse strips the padding back
+            # down to head_dim.
+            #
+            # CUDA-graph capture: the (B, h) kernel loop is the dominant
+            # cost (~65% of forward time due to launch overhead). We
+            # capture it once per unique shape signature and replay,
+            # collapsing 64 launches into 1 graph invocation. Standard
+            # CUDA graphs, same technique vLLM / TensorRT-LLM use for
+            # inference.
             # ============================================================
             from kernels.reference.packed_bw16 import pack_bw16, PackedBW16Bits
             from kernels.reference.bw16_codebook import bw16_cosets
@@ -473,32 +581,52 @@ class RotatedTemporalAttention(nn.Module):
                     f"fused kernel needs padded_dim ({padded_d}) to be a multiple of 16; "
                     f"got head_dim={d}, padded_dim={padded_d}. Check HadamardRotation."
                 )
+
+            # Pack K/V outside the graph (pack_bw16 allocates chunk-search
+            # intermediates whose size depends on input, incompatible with
+            # graph capture).
             packed_K_all = pack_bw16(K_rot.contiguous(), bits=k_bits)
             packed_V_all = pack_bw16(V_rot.contiguous(), bits=k_bits)
-            codebook = bw16_cosets(dtype=torch.float32, device=Q_rot.device)
 
-            out_rot = torch.empty(B, h, N, padded_d, dtype=torch.float32,
-                                    device=Q_rot.device)
-            for b in range(B):
-                for hd in range(h):
-                    pk = PackedBW16Bits(
-                        codeword_bytes=packed_K_all.codeword_bytes[b, hd].contiguous(),
-                        group_scale=packed_K_all.group_scale[b, hd].contiguous(),
-                        original_shape=K_rot[b, hd].shape,
-                        bits=packed_K_all.bits,
-                        n_bytes_per_codeword=packed_K_all.n_bytes_per_codeword,
-                    )
-                    pv = PackedBW16Bits(
-                        codeword_bytes=packed_V_all.codeword_bytes[b, hd].contiguous(),
-                        group_scale=packed_V_all.group_scale[b, hd].contiguous(),
-                        original_shape=V_rot[b, hd].shape,
-                        bits=packed_V_all.bits,
-                        n_bytes_per_codeword=packed_V_all.n_bytes_per_codeword,
-                    )
-                    Q_bh = Q_rot[b, hd].contiguous().to(torch.float16)
-                    out_bh = fused_attention_bw16(Q_bh, pk, pv, codebook,
-                                                    scale=self.scale, bits=k_bits)
-                    out_rot[b, hd] = out_bh.to(out_rot.dtype)
+            # Fix #2 (memory): drop the fp16 K, V, K_rot, V_rot copies
+            # now that we have packed KV. This is the main lever for
+            # end-to-end memory reduction; without it we're paying for
+            # coexisting fp16 + packed caches.
+            del K, V, K_rot, V_rot
+
+            shape_key = (B, h, N, M, padded_d, k_bits)
+
+            if self._fused_use_graphs:
+                out_rot = self._fused_graph_forward(
+                    shape_key, Q_rot, packed_K_all, packed_V_all,
+                    fused_attention_bw16, bw16_cosets,
+                )
+            else:
+                # Eager fallback (for debugging / dynamic-shape cases).
+                codebook = bw16_cosets(dtype=torch.float32, device=Q_rot.device)
+                out_rot = torch.empty(B, h, N, padded_d, dtype=torch.float32,
+                                        device=Q_rot.device)
+                for b in range(B):
+                    for hd in range(h):
+                        pk = PackedBW16Bits(
+                            codeword_bytes=packed_K_all.codeword_bytes[b, hd].contiguous(),
+                            group_scale=packed_K_all.group_scale[b, hd].contiguous(),
+                            original_shape=(M, padded_d),
+                            bits=packed_K_all.bits,
+                            n_bytes_per_codeword=packed_K_all.n_bytes_per_codeword,
+                        )
+                        pv = PackedBW16Bits(
+                            codeword_bytes=packed_V_all.codeword_bytes[b, hd].contiguous(),
+                            group_scale=packed_V_all.group_scale[b, hd].contiguous(),
+                            original_shape=(M, padded_d),
+                            bits=packed_V_all.bits,
+                            n_bytes_per_codeword=packed_V_all.n_bytes_per_codeword,
+                        )
+                        Q_bh = Q_rot[b, hd].contiguous().to(torch.float16)
+                        out_bh = fused_attention_bw16(Q_bh, pk, pv, codebook,
+                                                        scale=self.scale, bits=k_bits)
+                        out_rot[b, hd] = out_bh.to(out_rot.dtype)
+
             out_rot = out_rot.to(Q_rot.dtype)
         else:
             # ============================================================
