@@ -52,7 +52,10 @@ def main():
         # Fake token stream shaped like VDA's flatten (batch*tokens, frames, feat).
         # Skip the reshape gymnastics: call the internal path with pre-shaped
         # Q/K/V by passing hidden_states of shape (B, M, C).
-        x = torch.randn(B, M, dim, device=device, dtype=torch.float16)
+        # Layer weights default to fp32; match input dtype to avoid mm mismatch.
+        # (Real inference runs under autocast so weights get cast on the fly;
+        # in this smoke test we just skip autocast.)
+        x = torch.randn(B, M, dim, device=device, dtype=torch.float32)
 
         with torch.no_grad():
             layer.use_fused_kernel = False
