@@ -181,6 +181,10 @@ def main():
     ap.add_argument("--output-dir", default=str(REPO_ROOT / "outputs" / "bench_wall_clock"))
     ap.add_argument("--oom-only", action="store_true",
                     help="Skip the FPS grid; run the OOM sweep only.")
+    ap.add_argument("--no-oom", action="store_true",
+                    help="Skip the OOM sweep; run only the FPS grid. Useful "
+                         "for multi-run median/CI benches where you want tight "
+                         "FPS numbers without paying for the sweep each time.")
     ap.add_argument("--oom-resolution", type=int, default=476,
                     help="Resolution to use for the OOM sweep.")
     ap.add_argument("--trials", type=int, default=5,
@@ -229,6 +233,13 @@ def main():
                     print(f"{config:<22} {res:>4} {n:>7} "
                           f"{m['fps']:>8.2f} {m['latency_s_mean']*1000:>10.1f} "
                           f"{m['peak_mem_mb']:>10.0f}")
+
+    if args.no_oom:
+        out_path = out_dir / "results.json"
+        with open(out_path, "w") as f:
+            json.dump(results, f, indent=2)
+        print(f"\nSaved to {out_path} (OOM sweep skipped via --no-oom)")
+        return
 
     print(f"\n=== OOM sweep @ {args.oom_resolution}px (cap={args.oom_cap}) ===")
     for config in args.configs:
