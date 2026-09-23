@@ -117,7 +117,8 @@ def _time_infer(model, frames: np.ndarray, input_size: int, fp32: bool,
 
 
 def _run_config(encoder: str, ckpt: Path, config: str, n_frames: int,
-                resolution: int, device: str) -> dict:
+                resolution: int, device: str, warmup: int = 1,
+                trials: int = 3) -> dict:
     """Load a fresh model in the requested config and time one inference run."""
     model = _load_vda(encoder, ckpt, device)
     fp32 = (config == "fp32_baseline")
@@ -127,7 +128,8 @@ def _run_config(encoder: str, ckpt: Path, config: str, n_frames: int,
     h = resolution
     w = int(resolution * 16 / 9)   # 16:9 aspect
     frames = _synthetic_video(n_frames, h, w)
-    metrics = _time_infer(model, frames, input_size=resolution, fp32=fp32)
+    metrics = _time_infer(model, frames, input_size=resolution, fp32=fp32,
+                          warmup=warmup, trials=trials)
     del model
     gc.collect()
     torch.cuda.empty_cache()
@@ -181,8 +183,13 @@ def main():
                     help="Skip the FPS grid; run the OOM sweep only.")
     ap.add_argument("--oom-resolution", type=int, default=476,
                     help="Resolution to use for the OOM sweep.")
-    ap.add_argument("--trials", type=int, default=3)
-    ap.add_argument("--warmup", type=int, default=1)
+    ap.add_argument("--trials", type=int, default=5,
+                    help="Timed trials averaged for FPS. Bumped from 3 -> 5 "
+                         "to reduce variance (previous run showed 20% CV).")
+    ap.add_argument("--warmup", type=int, default=3,
+                    help="Untimed warmup runs before trials. Bumped from 1 -> "
+                         "3 so all CUDA graph captures (one per unique "
+                         "attention shape) complete before timing starts.")
     args = ap.parse_args()
 
     device = "cuda"
@@ -201,7 +208,8 @@ def main():
                 for n in args.video_lengths:
                     try:
                         m = _run_config(args.encoder, ckpt, config, n_frames=n,
-                                        resolution=res, device=device)
+                                        resolution=res, device=device,
+                                        warmup=args.warmup, trials=args.trials)
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
                         if "out of memory" in str(e).lower():
                             torch.cuda.empty_cache()

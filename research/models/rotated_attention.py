@@ -582,11 +582,19 @@ class RotatedTemporalAttention(nn.Module):
                     f"got head_dim={d}, padded_dim={padded_d}. Check HadamardRotation."
                 )
 
+            # NVTX ranges so `nsys` traces label our path clearly.
+            nvtx_push = torch.cuda.nvtx.range_push
+            nvtx_pop = torch.cuda.nvtx.range_pop
+
             # Pack K/V outside the graph (pack_bw16 allocates chunk-search
             # intermediates whose size depends on input, incompatible with
             # graph capture).
+            nvtx_push(f"fused:pack_K M={M} d={padded_d}")
             packed_K_all = pack_bw16(K_rot.contiguous(), bits=k_bits)
+            nvtx_pop()
+            nvtx_push(f"fused:pack_V M={M} d={padded_d}")
             packed_V_all = pack_bw16(V_rot.contiguous(), bits=k_bits)
+            nvtx_pop()
 
             # Fix #2 (memory): drop the fp16 K, V, K_rot, V_rot copies
             # now that we have packed KV. This is the main lever for
@@ -597,10 +605,12 @@ class RotatedTemporalAttention(nn.Module):
             shape_key = (B, h, N, M, padded_d, k_bits)
 
             if self._fused_use_graphs:
+                nvtx_push(f"fused:graph_replay B={B} h={h} M={M} d={padded_d}")
                 out_rot = self._fused_graph_forward(
                     shape_key, Q_rot, packed_K_all, packed_V_all,
                     fused_attention_bw16, bw16_cosets,
                 )
+                nvtx_pop()
             else:
                 # Eager fallback (for debugging / dynamic-shape cases).
                 codebook = bw16_cosets(dtype=torch.float32, device=Q_rot.device)
