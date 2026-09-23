@@ -137,7 +137,7 @@ def _run_config(encoder: str, ckpt: Path, config: str, n_frames: int,
 
 
 def _find_max_frames(encoder: str, ckpt: Path, config: str, resolution: int,
-                     device: str, start: int = 32, cap: int = 4096) -> int:
+                     device: str, start: int = 32, cap: int = 16384) -> int:
     """Binary-search the largest n_frames that fits before OOM."""
     def try_run(n: int) -> bool:
         try:
@@ -186,10 +186,14 @@ def main():
     ap.add_argument("--trials", type=int, default=5,
                     help="Timed trials averaged for FPS. Bumped from 3 -> 5 "
                          "to reduce variance (previous run showed 20% CV).")
-    ap.add_argument("--warmup", type=int, default=3,
+    ap.add_argument("--warmup", type=int, default=5,
                     help="Untimed warmup runs before trials. Bumped from 1 -> "
-                         "3 so all CUDA graph captures (one per unique "
+                         "5 so all CUDA graph captures (one per unique "
                          "attention shape) complete before timing starts.")
+    ap.add_argument("--oom-cap", type=int, default=16384,
+                    help="Upper bound for the OOM binary search. Bumped from "
+                         "4096 -> 16384 to see whether BW16 unlocks longer "
+                         "clips than FP16 rather than both hitting the cap.")
     args = ap.parse_args()
 
     device = "cuda"
@@ -226,10 +230,11 @@ def main():
                           f"{m['fps']:>8.2f} {m['latency_s_mean']*1000:>10.1f} "
                           f"{m['peak_mem_mb']:>10.0f}")
 
-    print(f"\n=== OOM sweep @ {args.oom_resolution}px ===")
+    print(f"\n=== OOM sweep @ {args.oom_resolution}px (cap={args.oom_cap}) ===")
     for config in args.configs:
         max_n = _find_max_frames(args.encoder, ckpt, config,
-                                  resolution=args.oom_resolution, device=device)
+                                  resolution=args.oom_resolution, device=device,
+                                  cap=args.oom_cap)
         results["oom_sweep"].append({
             "config": config, "resolution": args.oom_resolution,
             "max_frames": max_n,
