@@ -133,6 +133,22 @@ class ScalarRoundQuantizer(nn.Module):
         return f"bits={self.bits}, symmetric={self.symmetric}"
 
 
+def _absorb_and_pad(x: torch.Tensor, k: int):
+    """If the last dim is smaller than / not a multiple of k, merge the
+    preceding sequence dim into it, then zero-pad to a multiple of k.
+    Same rule as LatticeBW16Quantizer.forward.  Returns (x, pad_len)."""
+    pad_len = 0
+    if x.shape[-1] < k or x.shape[-1] % k != 0:
+        if x.ndim >= 2:
+            x = x.reshape(*x.shape[:-2], x.shape[-2] * x.shape[-1])
+        pad_len = (-x.shape[-1]) % k
+        if pad_len > 0:
+            pad_shape = list(x.shape)
+            pad_shape[-1] = pad_len
+            x = torch.cat([x, torch.zeros(*pad_shape, dtype=x.dtype, device=x.device)], dim=-1)
+    return x, pad_len
+
+
 class ScalarGroupQuantizer(nn.Module):
     """
     Group-wise scalar round-to-nearest quantizer (fair KIVI-style KV-cache
@@ -191,8 +207,9 @@ class ScalarGroupQuantizer(nn.Module):
             (x_quant, info_dict)
         """
         orig_shape = x.shape
-        d = x.shape[-1]
         k = self.group_size
+        x, pad_len = _absorb_and_pad(x, k)
+        d = x.shape[-1]
         assert d % k == 0, (
             f"Feature dim {d} must be divisible by group_size {k}"
         )
@@ -215,7 +232,10 @@ class ScalarGroupQuantizer(nn.Module):
         x_int = (x_grouped / scale).round().clamp(
             -self.half_levels, self.half_levels - 1
         )
-        x_quant = (x_int * scale).reshape(orig_shape)
+        x_quant = (x_int * scale).reshape(x.shape)
+        if pad_len > 0:
+            x_quant = x_quant[..., :x.shape[-1] - pad_len]
+        x_quant = x_quant.reshape(orig_shape)
 
         info = {
             'scale': scale.squeeze(-1),
@@ -585,8 +605,9 @@ class LatticeE8Quantizer(nn.Module):
             (x_quant, info_dict)
         """
         orig_shape = x.shape
-        d = x.shape[-1]
         k = self.group_size
+        x, pad_len = _absorb_and_pad(x, k)
+        d = x.shape[-1]
         assert d % k == 0, (
             f"Feature dim {d} must be divisible by scale group_size {k}"
         )
@@ -626,7 +647,10 @@ class LatticeE8Quantizer(nn.Module):
         x_lattice = torch.where(use_half, z_half, z_int)
 
         # Dequantize: fold back to scale groups so `scale` broadcasts correctly.
-        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(orig_shape)
+        x_quant = (x_lattice.reshape(*x.shape[:-1], d // k, k) * scale).reshape(x.shape)
+        if pad_len > 0:
+            x_quant = x_quant[..., :x.shape[-1] - pad_len]
+        x_quant = x_quant.reshape(orig_shape)
 
         info = {
             'scale': scale.squeeze(-1),
@@ -681,6 +705,8 @@ class LatticeBW16Quantizer(nn.Module):
             classification", IEEE T-IT 1988.
     """
 
+    SEARCH_CHUNK_ROWS = 1 << 16
+
     def __init__(self, bits: int = 4, group_size: int = 16, scale_bits: int = 16):
         super().__init__()
         assert group_size % 16 == 0 and group_size >= 16, (
@@ -707,6 +733,17 @@ class LatticeBW16Quantizer(nn.Module):
         y = 2 * z + c. Then pick the codeword whose point is closest.
         """
         assert x_scaled.shape[-1] == 16, x_scaled.shape
+        # The 32-candidate search below materialises (rows, 32, 16) tensors;
+        # process rows in chunks so peak memory stays bounded. Rows are
+        # independent, so the result is identical to the unchunked search.
+        rows = x_scaled.numel() // 16
+        if rows > self.SEARCH_CHUNK_ROWS:
+            flat = x_scaled.reshape(-1, 16)
+            out = torch.empty_like(flat)
+            for i in range(0, rows, self.SEARCH_CHUNK_ROWS):
+                out[i:i + self.SEARCH_CHUNK_ROWS] = self._nearest_bw16_point(
+                    flat[i:i + self.SEARCH_CHUNK_ROWS], lo, hi)
+            return out.reshape(x_scaled.shape)
         # Codewords: shape (32, 16).
         C = rm14_codewords_torch(device=x_scaled.device, dtype=x_scaled.dtype)
 
