@@ -1,0 +1,89 @@
+{
+  "args": {
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "frames": 50,
+    "warmup": 5,
+    "size": 518,
+    "height": 518,
+    "width": 518,
+    "video": null,
+    "seed": 0,
+    "configs": "fp32,fp32-kv,fp16-kv,bw16-kv:4,bw16-kv:3,bw16:3",
+    "out": "outputs/stream/vits_518_kv.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "weights_mb": 111.26171875,
+      "cache_mb": 269.021484375,
+      "cache_entries": 42,
+      "peak_mb": 770.39111328125,
+      "steady_alloc_mb": 419.9189453125,
+      "step_ms_median": 109.26900000777096,
+      "depth_rel_l1_mean": 0.0,
+      "depth_rel_l1_max": 0.0
+    },
+    {
+      "mode": "fp32-kv",
+      "bits": null,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 538.04296875,
+      "cache_entries": 42,
+      "peak_mb": 1045.8427734375,
+      "steady_alloc_mb": 706.18310546875,
+      "step_ms_median": 110.24819999875035,
+      "depth_rel_l1_mean": 7.610688044223934e-05,
+      "depth_rel_l1_max": 8.680845348862931e-05
+    },
+    {
+      "mode": "fp16-kv",
+      "bits": null,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 269.021484375,
+      "cache_entries": 42,
+      "peak_mb": 731.29248046875,
+      "steady_alloc_mb": 389.2021484375,
+      "step_ms_median": 111.51010000321548,
+      "depth_rel_l1_mean": 7.610688044223934e-05,
+      "depth_rel_l1_max": 8.680845348862931e-05
+    },
+    {
+      "mode": "bw16-kv",
+      "bits": 4,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 67.2579345703125,
+      "cache_entries": 42,
+      "peak_mb": 590.201171875,
+      "steady_alloc_mb": 201.1826171875,
+      "step_ms_median": 256.162999998196,
+      "depth_rel_l1_mean": 0.0017196800140663981,
+      "depth_rel_l1_max": 0.002510064048692584
+    },
+    {
+      "mode": "bw16-kv",
+      "bits": 3,
+      "weights_mb": 120.05908203125,
+      "cache_mb": 50.444091796875,
+      "cache_entries": 42,
+      "peak_mb": 570.12109375,
+      "steady_alloc_mb": 181.462890625,
+      "step_ms_median": 236.69130000052974,
+      "depth_rel_l1_mean": 0.008837101077660918,
+      "depth_rel_l1_max": 0.015319565311074257
+    },
+    {
+      "mode": "bw16",
+      "bits": 3,
+      "weights_mb": 120.05908203125,
+      "cache_mb": 25.2220458984375,
+      "cache_entries": 42,
+      "peak_mb": 511.88525390625,
+      "steady_alloc_mb": 145.345703125,
+      "step_ms_median": 158.28679999685846,
+      "depth_rel_l1_mean": 0.008218040019273757,
+      "depth_rel_l1_max": 0.011168329045176506
+    }
+  ]
+}

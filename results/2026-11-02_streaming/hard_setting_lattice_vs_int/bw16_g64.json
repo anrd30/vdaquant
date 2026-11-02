@@ -1,0 +1,72 @@
+{
+  "eval_mode": "temporal",
+  "encoder": "vits",
+  "results": {
+    "sintel": {
+      "FP32_Baseline": {
+        "abs_rel": 0.2793,
+        "rmse": 6.6291,
+        "delta1": 0.6876,
+        "delta2": 0.8761,
+        "delta3": 0.9317,
+        "tae_percent": 123.487114,
+        "tae_median_percent": 10.060675,
+        "tae_covis_percent": 8.564436,
+        "tae_covis_median_percent": 3.344532,
+        "covis_fraction": 0.82282,
+        "tae_covis_tau": 0.05,
+        "temporal_n_pairs": 316,
+        "n_images": 324,
+        "n_skipped_frames": 0,
+        "n_skipped_scenes_tae": 0,
+        "per_scene_tae": {
+          "alley_1": 7.254,
+          "alley_2": 1.611,
+          "ambush_2": 902.841,
+          "ambush_4": 38.559,
+          "ambush_5": 12.867,
+          "ambush_6": 20.571,
+          "ambush_7": 1.02,
+          "bamboo_1": 3.173
+        },
+        "mem_savings_x": 1.0,
+        "mem_savings_fp16_x": 0.5,
+        "nominal_savings_x": 1.0,
+        "effective_bits_per_scalar": 32.0
+      },
+      "3bit": {
+        "abs_rel": 0.3292,
+        "rmse": 6.7414,
+        "delta1": 0.6225,
+        "delta2": 0.8016,
+        "delta3": 0.8921,
+        "tae_percent": 106.112386,
+        "tae_median_percent": 8.740503,
+        "tae_covis_percent": 52.693435,
+        "tae_covis_median_percent": 5.092853,
+        "covis_fraction": 0.82282,
+        "tae_covis_tau": 0.05,
+        "temporal_n_pairs": 316,
+        "n_images": 324,
+        "n_skipped_frames": 0,
+        "n_skipped_scenes_tae": 0,
+        "per_scene_tae": {
+          "alley_1": 8.351,
+          "alley_2": 3.983,
+          "ambush_2": 777.169,
+          "ambush_4": 28.028,
+          "ambush_5": 9.13,
+          "ambush_6": 18.399,
+          "ambush_7": 0.836,
+          "bamboo_1": 3.002
+        },
+        "mem_savings_x": 10.2,
+        "mem_savings_fp16_x": 5.1,
+        "nominal_savings_x": 10.7,
+        "effective_bits_per_scalar": 3.125,
+        "total_bits_per_vec": 200.0
+      }
+    }
+  },
+  "note": "TEMPORAL: accuracy metrics are measured on REAL consecutive-frame video windows (video_length=32, not independent static clips). tae_percent is VDA-protocol geometric-reprojection temporal consistency (ported from Video-Depth-Anything/benchmark/eval/eval_tae.py; lower is more consistent), using real camera poses \u2014 directly comparable to VDA's own published TAE tables. docs/optimization_ledger.md T9. effective_bits_per_scalar is the ALL-INCLUSIVE rate: payload bits + per-group scale metadata + QJL side-channel (see compute_real_bit_accounting). mem_savings_x is real compression vs FP32; mem_savings_fp16_x is real compression vs FP16 (the realistic deployment baseline); nominal_savings_x reports raw quantizer payload compression only, ignoring all metadata. Unverified literature baseline numbers are intentionally NOT included here \u2014 see docs/unverified_baselines.md (quarantined, uncited, do not use in publications) and docs/optimization_ledger.md F2."
+}

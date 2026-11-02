@@ -1,0 +1,186 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "configs": "fp32,fp16,int8-g64,int4-g64-asym,int4-g16,int4-g16-rht,int3-g16-rht,int2-g16-rht,bw16:4,bw16:3,bw16:2",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1000,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/bonn_vits_baselines.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "delta1": 0.987844661644951,
+      "abs_rel": 0.04418758998371335,
+      "tae_percent": 2.8314193333333333,
+      "tae_covis_percent": 1.7107076666666667,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1003.3359375,
+      "cache_mb": 355.892578125,
+      "minutes": 12.095625058809917,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852633789954338,
+          "tae": 2.317956,
+          "tae_covis": 1.58765,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9822913074433657,
+          "tae": 4.055213,
+          "tae_covis": 2.053432,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935995297891842,
+          "tae": 2.121089,
+          "tae_covis": 1.491041,
+          "n": 1091
+        }
+      }
+    },
+    {
+      "mode": "fp16",
+      "bits": null,
+      "delta1": 0.9878448672638436,
+      "abs_rel": 0.04418749185667752,
+      "tae_percent": 2.831448,
+      "tae_covis_percent": 1.7107416666666666,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 547.58154296875,
+      "cache_mb": 177.9462890625,
+      "minutes": 9.802254807949065,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852634908675798,
+          "tae": 2.317985,
+          "tae_covis": 1.587684,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9822916062567421,
+          "tae": 4.055242,
+          "tae_covis": 2.053467,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.993599693858845,
+          "tae": 2.121117,
+          "tae_covis": 1.491074,
+          "n": 1091
+        }
+      }
+    },
+    {
+      "mode": "int8-g64",
+      "bits": null,
+      "delta1": 0.9878449425895766,
+      "abs_rel": 0.04418754315960912,
+      "tae_percent": 2.8314206666666664,
+      "tae_covis_percent": 1.710714,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 464.27880859375,
+      "cache_mb": 91.75355529785156,
+      "minutes": 9.992032667001089,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852638287671234,
+          "tae": 2.317965,
+          "tae_covis": 1.587657,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9822919298813376,
+          "tae": 4.055192,
+          "tae_covis": 2.053425,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935994527956004,
+          "tae": 2.121105,
+          "tae_covis": 1.49106,
+          "n": 1091
+        }
+      }
+    },
+    {
+      "mode": "int4-g64-asym",
+      "bits": null,
+      "delta1": 0.9878387992671012,
+      "abs_rel": 0.044200056596091206,
+      "tae_percent": 2.8294270000000004,
+      "tae_covis_percent": 1.7088086666666664,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 469.93896484375,
+      "cache_mb": 50.047393798828125,
+      "minutes": 10.047427507241567,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852656872146119,
+          "tae": 2.31639,
+          "tae_covis": 1.585878,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9822792804746494,
+          "tae": 4.053054,
+          "tae_covis": 2.051744,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935956251145738,
+          "tae": 2.118837,
+          "tae_covis": 1.488804,
+          "n": 1091
+        }
+      }
+    },
+    {
+      "mode": "int4-g16",
+      "bits": null,
+      "delta1": 0.9878405382736157,
+      "abs_rel": 0.04420046986970684,
+      "tae_percent": 2.8296326666666665,
+      "tae_covis_percent": 1.708855,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 480.93115234375,
+      "cache_mb": 50.047393798828125,
+      "minutes": 10.116705536842346,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.985255198630137,
+          "tae": 2.316501,
+          "tae_covis": 1.586131,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9822847562028046,
+          "tae": 4.053475,
+          "tae_covis": 2.051591,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935990980751603,
+          "tae": 2.118922,
+          "tae_covis": 1.488843,
+          "n": 1091
+        }
+      }
+    }
+  ]
+}

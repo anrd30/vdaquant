@@ -1,0 +1,69 @@
+{
+  "args": {
+    "encoder": "vitl",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vitl.pth",
+    "frames": 50,
+    "warmup": 5,
+    "size": 518,
+    "height": 518,
+    "width": 518,
+    "video": null,
+    "seed": 0,
+    "configs": "fp32,fp16,int2-g16,int3-g16::d8:bin-g16",
+    "out": "outputs/stream/mem_vitl_518.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "weights_mb": 1468.435546875,
+      "cache_mb": 1129.16015625,
+      "cache_entries": 42,
+      "peak_mb": 4150.1708984375,
+      "steady_alloc_mb": 2636.6708984375,
+      "step_ms_median": 300.590299999385,
+      "config": "fp32",
+      "depth_rel_l1_mean": 0.0,
+      "depth_rel_l1_max": 0.0
+    },
+    {
+      "mode": "fp16",
+      "bits": null,
+      "weights_mb": 1476.435546875,
+      "cache_mb": 564.580078125,
+      "cache_entries": 42,
+      "peak_mb": 2896.72314453125,
+      "steady_alloc_mb": 2046.09326171875,
+      "step_ms_median": 302.9489000000467,
+      "config": "fp16",
+      "depth_rel_l1_mean": 6.120937716332264e-05,
+      "depth_rel_l1_max": 6.826675235060975e-05
+    },
+    {
+      "mode": "int2-g16",
+      "bits": null,
+      "weights_mb": 1476.435546875,
+      "cache_mb": 88.21563720703125,
+      "cache_entries": 42,
+      "peak_mb": 2690.46435546875,
+      "steady_alloc_mb": 1841.44775390625,
+      "step_ms_median": 321.0206999992806,
+      "config": "int2-g16",
+      "depth_rel_l1_mean": 0.03253131406381726,
+      "depth_rel_l1_max": 0.08120131492614746
+    },
+    {
+      "mode": "int3-g16",
+      "bits": null,
+      "weights_mb": 1476.435546875,
+      "cache_mb": 65.95169067382812,
+      "cache_entries": 42,
+      "peak_mb": 2857.19580078125,
+      "steady_alloc_mb": 1880.81005859375,
+      "step_ms_median": 12960.11869999893,
+      "config": "int3-g16::d8:bin-g16",
+      "depth_rel_l1_mean": 0.007081255943048746,
+      "depth_rel_l1_max": 0.030700940638780594
+    }
+  ]
+}

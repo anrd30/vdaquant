@@ -1,0 +1,65 @@
+{
+  "args": {
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "frames": 50,
+    "warmup": 5,
+    "size": 518,
+    "height": 518,
+    "width": 518,
+    "video": null,
+    "seed": 0,
+    "configs": "fp32,fp16,bw16:4,bw16:3",
+    "out": "outputs/stream/vits_518.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "weights_mb": 111.26171875,
+      "cache_mb": 269.021484375,
+      "cache_entries": 42,
+      "peak_mb": 770.39111328125,
+      "steady_alloc_mb": 419.9189453125,
+      "step_ms_median": 73.02070000150707,
+      "depth_rel_l1_mean": 0.0,
+      "depth_rel_l1_max": 0.0
+    },
+    {
+      "mode": "fp16",
+      "bits": null,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 134.5107421875,
+      "cache_entries": 42,
+      "peak_mb": 446.345703125,
+      "steady_alloc_mb": 254.6298828125,
+      "step_ms_median": 70.16289999592118,
+      "depth_rel_l1_mean": 7.237188881845214e-05,
+      "depth_rel_l1_max": 7.714563253102824e-05
+    },
+    {
+      "mode": "bw16",
+      "bits": 4,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 33.62896728515625,
+      "cache_entries": 42,
+      "peak_mb": 345.4853515625,
+      "steady_alloc_mb": 153.76953125,
+      "step_ms_median": 106.3910999946529,
+      "depth_rel_l1_mean": 0.003602352407760918,
+      "depth_rel_l1_max": 0.004546972457319498
+    },
+    {
+      "mode": "bw16",
+      "bits": 3,
+      "weights_mb": 120.07470703125,
+      "cache_mb": 25.2220458984375,
+      "cache_entries": 42,
+      "peak_mb": 337.0927734375,
+      "steady_alloc_mb": 145.376953125,
+      "step_ms_median": 106.72959999646991,
+      "depth_rel_l1_mean": 0.008198928041383623,
+      "depth_rel_l1_max": 0.011117702350020409
+    }
+  ]
+}

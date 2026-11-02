@@ -1,0 +1,95 @@
+{
+  "args": {
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "frames": 60,
+    "warmup": 5,
+    "size": 518,
+    "height": 518,
+    "width": 518,
+    "video": null,
+    "seed": 0,
+    "configs": "fp32,fp32::d8,bw16:3,bw16:3:d8,bw16:2,bw16:2:d8",
+    "out": "outputs/stream/vits_518_delta_synth.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "weights_mb": 111.26171875,
+      "cache_mb": 269.021484375,
+      "cache_entries": 42,
+      "peak_mb": 770.54931640625,
+      "steady_alloc_mb": 418.189453125,
+      "step_ms_median": 131.8602999963332,
+      "config": "fp32",
+      "depth_rel_l1_mean": 0.0,
+      "depth_rel_l1_max": 0.0
+    },
+    {
+      "mode": "fp32",
+      "bits": null,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 288.2373046875,
+      "cache_entries": 42,
+      "peak_mb": 707.25390625,
+      "steady_alloc_mb": 464.84423828125,
+      "step_ms_median": 171.68200000014622,
+      "config": "fp32::d8",
+      "depth_rel_l1_mean": 6.143483672834311e-05,
+      "depth_rel_l1_max": 6.652827869402245e-05
+    },
+    {
+      "mode": "bw16",
+      "bits": 3,
+      "weights_mb": 120.05712890625,
+      "cache_mb": 25.2220458984375,
+      "cache_entries": 42,
+      "peak_mb": 337.0771484375,
+      "steady_alloc_mb": 145.361328125,
+      "step_ms_median": 194.26360000215936,
+      "config": "bw16:3",
+      "depth_rel_l1_mean": 0.008459827156427006,
+      "depth_rel_l1_max": 0.011250174604356289
+    },
+    {
+      "mode": "bw16",
+      "bits": 3,
+      "weights_mb": 120.07470703125,
+      "cache_mb": 27.02362060546875,
+      "cache_entries": 42,
+      "peak_mb": 373.5361328125,
+      "steady_alloc_mb": 153.92431640625,
+      "step_ms_median": 256.30909999017604,
+      "config": "bw16:3:d8",
+      "depth_rel_l1_mean": 0.0026872274039002756,
+      "depth_rel_l1_max": 0.0077942535281181335
+    },
+    {
+      "mode": "bw16",
+      "bits": 2,
+      "weights_mb": 120.09033203125,
+      "cache_mb": 16.81512451171875,
+      "cache_entries": 42,
+      "peak_mb": 328.7001953125,
+      "steady_alloc_mb": 136.984375,
+      "step_ms_median": 191.27630000002682,
+      "config": "bw16:2",
+      "depth_rel_l1_mean": 0.07064458743358652,
+      "depth_rel_l1_max": 0.10165910422801971
+    },
+    {
+      "mode": "bw16",
+      "bits": 2,
+      "weights_mb": 120.10595703125,
+      "cache_mb": 18.016204833984375,
+      "cache_entries": 42,
+      "peak_mb": 363.7578125,
+      "steady_alloc_mb": 144.94677734375,
+      "step_ms_median": 247.90249999205116,
+      "config": "bw16:2:d8",
+      "depth_rel_l1_mean": 0.08962376999358336,
+      "depth_rel_l1_max": 0.14307667315006256
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "configs": "int3-g16,int2-g16,int2-g16::d8,int3-gT",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1000,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/bonn_vits_part3.json"
+  },
+  "results": [
+    {
+      "mode": "int3-g16",
+      "bits": null,
+      "delta1": 0.9878267923452768,
+      "abs_rel": 0.04424701669381107,
+      "tae_percent": 2.82367,
+      "tae_covis_percent": 1.7027793333333332,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 479.9716796875,
+      "cache_mb": 38.925750732421875,
+      "minutes": 6.816378164291382,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852745776255707,
+          "tae": 2.31337,
+          "tae_covis": 1.582438,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9822414012944986,
+          "tae": 4.046471,
+          "tae_covis": 2.045074,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935972117323557,
+          "tae": 2.111169,
+          "tae_covis": 1.480826,
+          "n": 1091
+        }
+      },
+      "config": "int3-g16"
+    },
+    {
+      "mode": "int2-g16",
+      "bits": null,
+      "delta1": 0.9876664580618891,
+      "abs_rel": 0.04492569625407167,
+      "tae_percent": 2.8893156666666666,
+      "tae_covis_percent": 1.7597676666666668,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 480.93115234375,
+      "cache_mb": 27.804107666015625,
+      "minutes": 6.861966931819916,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9850386552511416,
+          "tae": 2.381813,
+          "tae_covis": 1.642105,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9817319503775619,
+          "tae": 4.076973,
+          "tae_covis": 2.078831,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.9937638606782767,
+          "tae": 2.209161,
+          "tae_covis": 1.558367,
+          "n": 1091
+        }
+      },
+      "config": "int2-g16"
+    },
+    {
+      "mode": "int2-g16",
+      "bits": null,
+      "delta1": 0.9877864116449512,
+      "abs_rel": 0.04433623086319218,
+      "tae_percent": 2.841441,
+      "tae_covis_percent": 1.7226959999999998,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 538.025390625,
+      "cache_mb": 31.776123046875,
+      "minutes": 7.927336271603902,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852034748858447,
+          "tae": 2.329501,
+          "tae_covis": 1.598291,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9821488834951456,
+          "tae": 4.050272,
+          "tae_covis": 2.058725,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.993613464711274,
+          "tae": 2.14455,
+          "tae_covis": 1.511072,
+          "n": 1091
+        }
+      },
+      "config": "int2-g16::d8"
+    },
+    {
+      "mode": "int3-gT",
+      "bits": null,
+      "delta1": 0.9877085325732898,
+      "abs_rel": 0.04438497109120521,
+      "tae_percent": 2.824837666666667,
+      "tae_covis_percent": 1.707052,
+      "covis_fraction": 0.7849493333333334,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 458.78271484375,
+      "cache_mb": 33.365570068359375,
+      "minutes": 6.734086072444915,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.985273997716895,
+          "tae": 2.325984,
+          "tae_covis": 1.592206,
+          "n": 438
+        },
+        "crowd": {
+          "delta1": 0.9820870679611651,
+          "tae": 4.038502,
+          "tae_covis": 2.04836,
+          "n": 927
+        },
+        "kidnapping_box": {
+          "delta1": 0.993462358386801,
+          "tae": 2.110027,
+          "tae_covis": 1.48059,
+          "n": 1091
+        }
+      },
+      "config": "int3-gT"
+    }
+  ]
+}

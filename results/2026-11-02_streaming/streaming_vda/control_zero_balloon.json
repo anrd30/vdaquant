@@ -1,0 +1,62 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "configs": "fp32,zero",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/control_zero_balloon.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "delta1": 0.9852633789954338,
+      "abs_rel": 0.04145181278538813,
+      "tae_percent": 2.317956,
+      "tae_covis_percent": 1.58765,
+      "covis_fraction": 0.794375,
+      "n_frames": 438,
+      "n_skipped_frames": 0,
+      "peak_mb": 998.28662109375,
+      "cache_mb": 355.892578125,
+      "minutes": 2.305457623799642,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852633789954338,
+          "tae": 2.317956,
+          "tae_covis": 1.58765,
+          "n": 438
+        }
+      },
+      "config": "fp32"
+    },
+    {
+      "mode": "zero",
+      "bits": null,
+      "delta1": 0.9851323127853883,
+      "abs_rel": 0.04358789497716895,
+      "tae_percent": 2.906359,
+      "tae_covis_percent": 2.185703,
+      "covis_fraction": 0.794375,
+      "n_frames": 438,
+      "n_skipped_frames": 0,
+      "peak_mb": 369.57373046875,
+      "cache_mb": 0.0,
+      "minutes": 2.901114503542582,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9851323127853883,
+          "tae": 2.906359,
+          "tae_covis": 2.185703,
+          "n": 438
+        }
+      },
+      "config": "zero"
+    }
+  ]
+}
