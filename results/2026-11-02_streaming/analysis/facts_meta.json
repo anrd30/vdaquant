@@ -1,0 +1,8167 @@
+{
+ "bonn.vits.1sc.fp32.absrel": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.fp32.bits": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 2
+ },
+ "bonn.vits.1sc.fp32.cache_mb": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.fp32.covis_fraction": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 3
+ },
+ "bonn.vits.1sc.fp32.covtae": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 3
+ },
+ "bonn.vits.1sc.fp32.delta1": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.fp32.peak_mb": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.fp32.tae": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 3
+ },
+ "bonn.vits.1sc.n_frames": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 0
+ },
+ "bonn.vits.1sc.n_scenes": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 0
+ },
+ "bonn.vits.1sc.zero.absrel": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.zero.absrel_diff": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.zero.bits": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 2
+ },
+ "bonn.vits.1sc.zero.cache_mb": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.zero.covis_fraction": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 3
+ },
+ "bonn.vits.1sc.zero.covtae": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 3
+ },
+ "bonn.vits.1sc.zero.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.zero.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.zero.delta1": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.zero.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.zero.delta1_diff": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.zero.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 4
+ },
+ "bonn.vits.1sc.zero.peak_mb": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.zero.tae": {
+  "kind": "json",
+  "source": "control_zero_balloon",
+  "decimals": 3
+ },
+ "bonn.vits.1sc.zero.tae_rel_pct": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.1sc.zero.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "control_zero_balloon",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 2
+ },
+ "bonn.vits.bin_g16.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.bin_g16.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.bin_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.bin_g16.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.tae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.bin_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.bin_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int2_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int2_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int2_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int2_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int2_rht_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int2_rht_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int2_rht_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int2_rht_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int3_bin_K16.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K16.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.tae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_bin_K16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int3_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_bin_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_bin_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int3_int2_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_int2_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_int2_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_int2_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int3_rht_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int3_rht_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int3_rht_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int3_rht_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 2
+ },
+ "bonn.vits.delta_int4_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 4
+ },
+ "bonn.vits.delta_int4_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 3
+ },
+ "bonn.vits.delta_int4_bin_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_int4_bin_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_delta_mixed",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.delta_lam16_b2_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b2_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b2_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.delta_lam16_b3_K8.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.delta_lam16_b3_K8.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.delta_lam16_b3_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 2
+ },
+ "bonn.vits.fp16.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.fp16.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.fp16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp16.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.tae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.fp16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp32.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp32.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 2
+ },
+ "bonn.vits.fp32.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp32.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.fp32.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.fp32.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.fp32.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.fp32.tae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 2
+ },
+ "bonn.vits.int2_g16.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.int2_g16_rht.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16_rht.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16_rht.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int2_g16_rht.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int2_g16_rht.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int2_g16_rht.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 2
+ },
+ "bonn.vits.int3_g16.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int3_g16.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int3_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int3_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.int3_g16_rht.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int3_g16_rht.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int3_g16_rht.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int3_g16_rht.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int3_g16_rht.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_g16_rht.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 2
+ },
+ "bonn.vits.int3_gT.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int3_gT.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int3_gT.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 4
+ },
+ "bonn.vits.int3_gT.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part3",
+  "decimals": 3
+ },
+ "bonn.vits.int3_gT.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int3_gT.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part3",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 2
+ },
+ "bonn.vits.int4_g16.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g16.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.tae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.int4_g16_rht.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g16_rht.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g16_rht.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g16_rht.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g16_rht.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g16_rht.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 2
+ },
+ "bonn.vits.int4_g64_asym.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g64_asym.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g64_asym.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int4_g64_asym.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.tae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int4_g64_asym.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int4_g64_asym.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 2
+ },
+ "bonn.vits.int8_g64.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int8_g64.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int8_g64.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 4
+ },
+ "bonn.vits.int8_g64.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.tae": {
+  "kind": "json",
+  "source": "bonn_vits_baselines",
+  "decimals": 3
+ },
+ "bonn.vits.int8_g64.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.int8_g64.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_baselines",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.lam16_b2.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b2.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b2.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b2.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b2.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b2.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.lam16_b3.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b3.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b3.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b3.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b3.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b3.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.lam16_b4.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b4.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b4.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.lam16_b4.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.lam16_b4.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.lam16_b4.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.n_frames": {
+  "kind": "json",
+  "source": "bonn_vits_baselines,bonn_vits_delta_mixed,bonn_vits_part2,bonn_vits_part3",
+  "decimals": 0
+ },
+ "bonn.vits.n_scenes": {
+  "kind": "json",
+  "source": "bonn_vits_baselines,bonn_vits_delta_mixed,bonn_vits_part2,bonn_vits_part3",
+  "decimals": 0
+ },
+ "bonn.vits.zero.absrel": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.absrel_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.bits": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 2
+ },
+ "bonn.vits.zero.cache_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.covis_fraction": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.zero.covtae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.zero.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.delta1": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_diff": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 4
+ },
+ "bonn.vits.zero.peak_mb": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.tae": {
+  "kind": "json",
+  "source": "bonn_vits_part2",
+  "decimals": 3
+ },
+ "bonn.vits.zero.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "bonn.vits.zero.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bonn_vits_part2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.absrel": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b2.absrel_diff": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b2.bits": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 2
+ },
+ "hard.sintel.vits.e8_g16_b2.covis_fraction": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b2.covtae": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b2.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.delta1": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b2.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b2.tae": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b2.tae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b2.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.absrel": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b3.absrel_diff": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b3.bits": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 2
+ },
+ "hard.sintel.vits.e8_g16_b3.bits_inventory": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b3.covis_fraction": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b3.covtae": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b3.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.delta1": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b3.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g16_b3.tae": {
+  "kind": "json",
+  "source": "e8_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g16_b3.tae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g16_b3.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.absrel": {
+  "kind": "json",
+  "source": "e8_g32",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g32_b3.absrel_diff": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g32_b3.bits": {
+  "kind": "json",
+  "source": "e8_g32",
+  "decimals": 2
+ },
+ "hard.sintel.vits.e8_g32_b3.bits_inventory": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g32_b3.covis_fraction": {
+  "kind": "json",
+  "source": "e8_g32",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g32_b3.covtae": {
+  "kind": "json",
+  "source": "e8_g32",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g32_b3.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.delta1": {
+  "kind": "json",
+  "source": "e8_g32",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g32_b3.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g32_b3.tae": {
+  "kind": "json",
+  "source": "e8_g32",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g32_b3.tae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g32_b3.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g32",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.absrel": {
+  "kind": "json",
+  "source": "e8_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b2.absrel_diff": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b2.bits": {
+  "kind": "json",
+  "source": "e8_g64b2",
+  "decimals": 2
+ },
+ "hard.sintel.vits.e8_g64_b2.bits_inventory": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b2.covis_fraction": {
+  "kind": "json",
+  "source": "e8_g64b2",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b2.covtae": {
+  "kind": "json",
+  "source": "e8_g64b2",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b2.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.delta1": {
+  "kind": "json",
+  "source": "e8_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b2.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b2.tae": {
+  "kind": "json",
+  "source": "e8_g64b2",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b2.tae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b2.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.absrel": {
+  "kind": "json",
+  "source": "e8_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b3.absrel_diff": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b3.bits": {
+  "kind": "json",
+  "source": "e8_g64",
+  "decimals": 2
+ },
+ "hard.sintel.vits.e8_g64_b3.bits_inventory": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b3.covis_fraction": {
+  "kind": "json",
+  "source": "e8_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b3.covtae": {
+  "kind": "json",
+  "source": "e8_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b3.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.delta1": {
+  "kind": "json",
+  "source": "e8_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b3.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.e8_g64_b3.tae": {
+  "kind": "json",
+  "source": "e8_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.e8_g64_b3.tae_rel_pct": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.e8_g64_b3.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "e8_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.fp32.absrel": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.fp32.bits": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 2
+ },
+ "hard.sintel.vits.fp32.covis_fraction": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.fp32.covtae": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.fp32.delta1": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.fp32.tae": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g16.absrel": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g16.bits": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int2_g16.covis_fraction": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g16.covtae": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g16.delta1": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g16.tae": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.absrel": {
+  "kind": "json",
+  "source": "int_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g64.absrel_diff": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g64.bits": {
+  "kind": "json",
+  "source": "int_g64b2",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int2_g64.covis_fraction": {
+  "kind": "json",
+  "source": "int_g64b2",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g64.covtae": {
+  "kind": "json",
+  "source": "int_g64b2",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g64.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.delta1": {
+  "kind": "json",
+  "source": "int_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g64.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int2_g64.tae": {
+  "kind": "json",
+  "source": "int_g64b2",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int2_g64.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int2_g64.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_g64b2",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.absrel": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g16.bits": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int3_g16.covis_fraction": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_g16.covtae": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.delta1": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g16.tae": {
+  "kind": "json",
+  "source": "int_g16",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_g16",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.absrel": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g64.absrel_diff": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g64.bits": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int3_g64.covis_fraction": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_g64.covtae": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_g64.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.delta1": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g64.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_g64.tae": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_g64.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_g64.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.absrel": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_tensor.absrel_diff": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_tensor.bits": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int3_tensor.covis_fraction": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_tensor.covtae": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_tensor.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.delta1": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_tensor.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int3_tensor.tae": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int3_tensor.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int3_tensor.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.absrel": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_g64.absrel_diff": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_g64.bits": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int4_g64.covis_fraction": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int4_g64.covtae": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int4_g64.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.delta1": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_g64.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_g64.tae": {
+  "kind": "json",
+  "source": "int_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int4_g64.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_g64.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.absrel": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_tensor.absrel_diff": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_tensor.bits": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 2
+ },
+ "hard.sintel.vits.int4_tensor.covis_fraction": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int4_tensor.covtae": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int4_tensor.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.delta1": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_tensor.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 4
+ },
+ "hard.sintel.vits.int4_tensor.tae": {
+  "kind": "json",
+  "source": "int_tensor",
+  "decimals": 3
+ },
+ "hard.sintel.vits.int4_tensor.tae_rel_pct": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.int4_tensor.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "int_tensor",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.absrel": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.lam16_g64_b3.absrel_diff": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.lam16_g64_b3.bits": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 2
+ },
+ "hard.sintel.vits.lam16_g64_b3.bits_inventory": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "hard.sintel.vits.lam16_g64_b3.covis_fraction": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.lam16_g64_b3.covtae": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.lam16_g64_b3.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.delta1": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.lam16_g64_b3.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 4
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae": {
+  "kind": "json",
+  "source": "bw16_g64",
+  "decimals": 3
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae_rel_pct": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.lam16_g64_b3.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "bw16_g64",
+  "decimals": 1
+ },
+ "hard.sintel.vits.n_frames": {
+  "kind": "json",
+  "source": "bw16_g64,e8_g16,e8_g32,e8_g64,e8_g64b2,int_g16,int_g64,int_g64b2,int_tensor",
+  "decimals": 0
+ },
+ "hard.sintel.vits.n_scenes": {
+  "kind": "json",
+  "source": "bw16_g64,e8_g16,e8_g32,e8_g64,e8_g64b2,int_g16,int_g64,int_g64b2,int_tensor",
+  "decimals": 0
+ },
+ "mem.vitb.delta_cache_ratio": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitb.delta_int3_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.delta_int3_bin_K8.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitb.delta_int3_bin_K8.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.delta_int3_bin_K8.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.delta_int3_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.delta_int3_bin_K8.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vitb.delta_int3_bin_K8.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.delta_int3_bin_K8.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.delta_int3_bin_K8.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.fp16.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.fp16.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitb.fp16.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.fp16.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.fp16.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.fp16.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vitb.fp16.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.fp16.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.fp16.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.fp32.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.fp32.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.fp32.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.fp32.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.fp32.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.fp32.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.fp32.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.int2_g16.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.int2_g16.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitb.int2_g16.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.int2_g16.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 4
+ },
+ "mem.vitb.int2_g16.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.int2_g16.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vitb.int2_g16.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 0
+ },
+ "mem.vitb.int2_g16.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitb.int2_g16.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitb_518",
+  "decimals": 1
+ },
+ "mem.vitl.delta_cache_ratio": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitl.delta_int3_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.delta_int3_bin_K8.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitl.delta_int3_bin_K8.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.delta_int3_bin_K8.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.delta_int3_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.delta_int3_bin_K8.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vitl.delta_int3_bin_K8.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.delta_int3_bin_K8.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.delta_int3_bin_K8.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.fp16.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.fp16.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitl.fp16.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.fp16.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.fp16.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.fp16.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vitl.fp16.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.fp16.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.fp16.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.fp32.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.fp32.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.fp32.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.fp32.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.fp32.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.fp32.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.fp32.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.int2_g16.cache_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.int2_g16.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vitl.int2_g16.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.int2_g16.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 4
+ },
+ "mem.vitl.int2_g16.peak_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.int2_g16.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vitl.int2_g16.steady_alloc_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 0
+ },
+ "mem.vitl.int2_g16.step_ms_median": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vitl.int2_g16.weights_mb": {
+  "kind": "json",
+  "source": "mem_vitl_518",
+  "decimals": 1
+ },
+ "mem.vits.delta_fp32_K8.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_fp32_K8.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.delta_fp32_K8.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.delta_fp32_K8.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.delta_fp32_K8.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.delta_fp32_K8.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.delta_fp32_K8.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.delta_fp32_K8.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_fp32_K8.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b2_K8.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b2_K8.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b2_K8.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.delta_lam16_b2_K8.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.delta_lam16_b2_K8.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.delta_lam16_b2_K8.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.delta_lam16_b2_K8.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.delta_lam16_b2_K8.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b2_K8.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b3_K8.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b3_K8.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b3_K8.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.delta_lam16_b3_K8.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.delta_lam16_b3_K8.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.delta_lam16_b3_K8.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.delta_lam16_b3_K8.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.delta_lam16_b3_K8.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.delta_lam16_b3_K8.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.fp16.cache_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.fp16.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.fp16.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.fp16.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.fp16.peak_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.fp16.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.fp16.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.fp16.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.fp16.weights_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.fp16_kv.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.fp16_kv.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.fp16_kv.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.fp16_kv.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.fp16_kv.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.fp16_kv.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.fp16_kv.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.fp16_kv.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.fp16_kv.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.fp32.cache_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.fp32.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.fp32.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.fp32.peak_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.fp32.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.fp32.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.fp32.weights_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.fp32_kv.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.fp32_kv.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.fp32_kv.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.fp32_kv.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.fp32_kv.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.fp32_kv.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.fp32_kv.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.fp32_kv.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.fp32_kv.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b2.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b2.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b2.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.lam16_b2.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 4
+ },
+ "mem.vits.lam16_b2.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.lam16_b2.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.lam16_b2.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 0
+ },
+ "mem.vits.lam16_b2.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b2.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_delta_synth",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b3.cache_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b3.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b3.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.lam16_b3.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.lam16_b3.peak_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.lam16_b3.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.lam16_b3.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.lam16_b3.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b3.weights_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b4.cache_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b4.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b4.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.lam16_b4.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 4
+ },
+ "mem.vits.lam16_b4.peak_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.lam16_b4.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.lam16_b4.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 0
+ },
+ "mem.vits.lam16_b4.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.lam16_b4.weights_mb": {
+  "kind": "json",
+  "source": "vits_518",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b3.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b3.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b3.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.lam16_kv_b3.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.lam16_kv_b3.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.lam16_kv_b3.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.lam16_kv_b3.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.lam16_kv_b3.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b3.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b4.cache_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b4.cache_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b4.depth_rel_l1_max": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.lam16_kv_b4.depth_rel_l1_mean": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 4
+ },
+ "mem.vits.lam16_kv_b4.peak_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.lam16_kv_b4.peak_ratio_vs_fp32": {
+  "kind": "derived",
+  "source": "mem",
+  "decimals": 2
+ },
+ "mem.vits.lam16_kv_b4.steady_alloc_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 0
+ },
+ "mem.vits.lam16_kv_b4.step_ms_median": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "mem.vits.lam16_kv_b4.weights_mb": {
+  "kind": "json",
+  "source": "vits_518_kv",
+  "decimals": 1
+ },
+ "probe.bonn.bits_saving_max": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 1
+ },
+ "probe.bonn.bits_saving_min": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 1
+ },
+ "probe.bonn.frames_per_scene": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 0
+ },
+ "probe.bonn.residual_var_ratio_max": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "probe.bonn.residual_var_ratio_min": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "probe.bonn.residual_var_ratio_weighted_max": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "probe.bonn.residual_var_ratio_weighted_min": {
+  "kind": "manual",
+  "source": "docs/results_inventory.md (no json source)",
+  "decimals": 3
+ },
+ "sintel.vitb.delta_int3_bin_K8.absrel": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.bits": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 2
+ },
+ "sintel.vitb.delta_int3_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.delta_int3_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.delta_int3_bin_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.fp32.absrel": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.fp32.bits": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 2
+ },
+ "sintel.vitb.fp32.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.fp32.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.fp32.covtae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.fp32.delta1": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.fp32.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.fp32.tae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.int2_g16.absrel": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.bits": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 2
+ },
+ "sintel.vitb.int2_g16.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.int2_g16.covtae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.int2_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.delta1": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.int2_g16.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.tae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.int2_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.int2_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.n_frames": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 0
+ },
+ "sintel.vitb.n_scenes": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 0
+ },
+ "sintel.vitb.zero.absrel": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.bits": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 2
+ },
+ "sintel.vitb.zero.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.zero.covtae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.zero.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.delta1": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 4
+ },
+ "sintel.vitb.zero.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.tae": {
+  "kind": "json",
+  "source": "sintel_vitb",
+  "decimals": 3
+ },
+ "sintel.vitb.zero.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitb.zero.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitb",
+  "decimals": 1
+ },
+ "sintel.vitl.fp32.absrel": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.fp32.bits": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 2
+ },
+ "sintel.vitl.fp32.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.fp32.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.fp32.covtae": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.fp32.delta1": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.fp32.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.fp32.tae": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.int2_g16.absrel": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.bits": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 2
+ },
+ "sintel.vitl.int2_g16.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.int2_g16.covtae": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.int2_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.delta1": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.int2_g16.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.tae": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.int2_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.int2_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.n_frames": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 0
+ },
+ "sintel.vitl.n_scenes": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 0
+ },
+ "sintel.vitl.zero.absrel": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.bits": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 2
+ },
+ "sintel.vitl.zero.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.zero.covtae": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.zero.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.delta1": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 4
+ },
+ "sintel.vitl.zero.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.tae": {
+  "kind": "json",
+  "source": "sintel_vitl",
+  "decimals": 3
+ },
+ "sintel.vitl.zero.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vitl.zero.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vitl",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.absrel": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.bits": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 2
+ },
+ "sintel.vits.bin_g16.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.bin_g16.covtae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.bin_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.delta1": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.bin_g16.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.tae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.bin_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.bin_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.delta_int2_K8.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int2_K8.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int2_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int2_K8.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int2_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int2_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.absrel": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.bits": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 2
+ },
+ "sintel.vits.delta_int3_bin_K16.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K16.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.tae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_bin_K16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.absrel": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.bits": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 2
+ },
+ "sintel.vits.delta_int3_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.tae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_bin_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_bin_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.absrel": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.bits": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 2
+ },
+ "sintel.vits.delta_int3_int2_K8.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int3_int2_K8.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.tae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int3_int2_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int3_int2_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.absrel": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.bits": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 2
+ },
+ "sintel.vits.delta_int4_bin_K8.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 4
+ },
+ "sintel.vits.delta_int4_bin_K8.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.tae": {
+  "kind": "json",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 3
+ },
+ "sintel.vits.delta_int4_bin_K8.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.delta_int4_bin_K8.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits_delta_mixed",
+  "decimals": 1
+ },
+ "sintel.vits.fp32.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.fp32.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.fp32.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.fp32.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.fp32.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.fp32.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.fp32.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.fp32.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.int2_g16.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.int2_g16_rht.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16_rht.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16_rht.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int2_g16_rht.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int2_g16_rht.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int2_g16_rht.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.int3_g16.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int3_g16.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int3_g16.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_g16.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int3_g16.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_g16.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.int3_gT.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int3_gT.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int3_gT.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.int3_gT.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.int3_gT.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.int3_gT.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.lam16_b2.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.lam16_b2.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.lam16_b2.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b2.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.lam16_b2.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b2.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.lam16_b3.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.lam16_b3.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.lam16_b3.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.lam16_b3.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.lam16_b3.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.lam16_b3.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.n_frames": {
+  "kind": "json",
+  "source": "sintel_vits,sintel_vits_delta_mixed",
+  "decimals": 0
+ },
+ "sintel.vits.n_scenes": {
+  "kind": "json",
+  "source": "sintel_vits,sintel_vits_delta_mixed",
+  "decimals": 0
+ },
+ "sintel.vits.zero.absrel": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.absrel_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.bits": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 2
+ },
+ "sintel.vits.zero.cache_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.covis_fraction": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.zero.covtae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.zero.covtae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.covtae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.covtae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.covtae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.covtae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.covtae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.delta1": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_agg_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_diff": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_diff_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_diff_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_diff_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_diff_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.delta1_diff_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 4
+ },
+ "sintel.vits.zero.peak_mb": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.tae": {
+  "kind": "json",
+  "source": "sintel_vits",
+  "decimals": 3
+ },
+ "sintel.vits.zero.tae_rel_pct": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.tae_rel_pct_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.tae_rel_pct_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.tae_rel_pct_fw": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.tae_rel_pct_fw_ci_hi": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ },
+ "sintel.vits.zero.tae_rel_pct_fw_ci_lo": {
+  "kind": "derived",
+  "source": "sintel_vits",
+  "decimals": 1
+ }
+}

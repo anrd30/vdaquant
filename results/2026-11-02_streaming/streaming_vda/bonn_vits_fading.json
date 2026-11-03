@@ -1,0 +1,764 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "configs": "fp32,age:anchor=zero,age:oldest=zero,age:old=zero,age:mid=zero,age:recent=zero,age:anchor=bin-g16,age:oldest=bin-g16,age:old=bin-g16,age:mid=bin-g16,age:recent=bin-g16,age:recent=int4-g16+mid=int2-g16+old=bin-g16+oldest=bin-g16+anchor=int4-g16,age:s0=int4-g16+s1=int4-g16+s2=int4-g16+s3=int4-g16+s4=int4-g16+s5=int4-g16+s6=int4-g16+s7=int4-g16+s8=int4-g16+s9=int4-g16+s10=int2-g16+s11=int2-g16+s12=int2-g16+s13=int2-g16+s14=int2-g16+s15=int2-g16+s16=int2-g16+s17=int2-g16+s18=int2-g16+s19=int2-g16+s20=bin-g16+s21=bin-g16+s22=bin-g16+s23=bin-g16+s24=bin-g16+s25=bin-g16+s26=bin-g16+s27=bin-g16+s28=bin-g16+s29=bin-g16+s30=bin-g16,age:s0=int4-g16+s1=bin-g16+s2=bin-g16+s3=int2-g16+s4=int2-g16+s5=bin-g16+s6=bin-g16+s7=bin-g16+s8=int4-g16+s9=int4-g16+s10=int2-g16+s11=int2-g16+s12=int4-g16+s13=int4-g16+s14=bin-g16+s15=int2-g16+s16=bin-g16+s17=int4-g16+s18=bin-g16+s19=int2-g16+s20=int4-g16+s21=bin-g16+s22=int4-g16+s23=int2-g16+s24=int2-g16+s25=bin-g16+s26=bin-g16+s27=int2-g16+s28=int4-g16+s29=int2-g16+s30=int4-g16,age:s0=int4-g16+s1=int4-g16+s2=int2-g16+s3=int2-g16+s4=bin-g16+s5=int4-g16+s6=bin-g16+s7=bin-g16+s8=int4-g16+s9=bin-g16+s10=int2-g16+s11=bin-g16+s12=int4-g16+s13=int2-g16+s14=int2-g16+s15=bin-g16+s16=int2-g16+s17=int4-g16+s18=bin-g16+s19=int2-g16+s20=int4-g16+s21=int2-g16+s22=int2-g16+s23=bin-g16+s24=bin-g16+s25=bin-g16+s26=int4-g16+s27=int4-g16+s28=int4-g16+s29=int2-g16+s30=bin-g16,age:all=int2-g16,age:all=int3-g16",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1000,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/bonn_vits_fading.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "delta1": 0.987844661644951,
+      "abs_rel": 0.04418758998371335,
+      "tae_percent": 2.8314193333333333,
+      "tae_covis_percent": 1.7107076666666667,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": null,
+      "fid_flicker_pct": null,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1003.3359375,
+      "cache_mb": 355.892578125,
+      "minutes": 6.1040128866831465,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852633789954338,
+          "tae": 2.317956,
+          "tae_covis": 1.58765,
+          "n": 438,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "crowd": {
+          "delta1": 0.9822913074433657,
+          "tae": 4.055213,
+          "tae_covis": 2.053432,
+          "n": 927,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935995297891842,
+          "tae": 2.121089,
+          "tae_covis": 1.491041,
+          "n": 1091,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        }
+      },
+      "plan_bits": null,
+      "config": "fp32"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878804128664495,
+      "abs_rel": 0.04412038640065147,
+      "tae_percent": 2.834695,
+      "tae_covis_percent": 1.711029,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.1940425659219422,
+      "fid_flicker_pct": 0.1444896605486671,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1054.0712890625,
+      "cache_mb": 355.892578125,
+      "minutes": 6.450351480642954,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9853100319634703,
+          "tae": 2.327971,
+          "tae_covis": 1.59487,
+          "n": 438,
+          "fid_rel_dev": 1.9296249374747276,
+          "fid_flicker": 0.15723936958238482
+        },
+        "crowd": {
+          "delta1": 0.9823015005393743,
+          "tae": 4.057419,
+          "tae_covis": 2.050159,
+          "n": 927,
+          "fid_rel_dev": 1.9522640854120255,
+          "fid_flicker": 0.16215939540416002
+        },
+        "kidnapping_box": {
+          "delta1": 0.9936526205316225,
+          "tae": 2.118695,
+          "tae_covis": 1.488058,
+          "n": 1091,
+          "fid_rel_dev": 2.700238674879074,
+          "fid_flicker": 0.11407021665945649
+        }
+      },
+      "plan_bits": 30.967741935483872,
+      "config": "age:anchor=zero"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878463945439739,
+      "abs_rel": 0.04422462703583062,
+      "tae_percent": 2.838302666666667,
+      "tae_covis_percent": 1.7145863333333333,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 1.7765313076476257,
+      "fid_flicker_pct": 0.178980998074015,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1054.0712890625,
+      "cache_mb": 355.892578125,
+      "minutes": 6.508793493111928,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852859337899544,
+          "tae": 2.324629,
+          "tae_covis": 1.592558,
+          "n": 438,
+          "fid_rel_dev": 1.8627937883138657,
+          "fid_flicker": 0.18598214956000447
+        },
+        "crowd": {
+          "delta1": 0.9822978834951457,
+          "tae": 4.065618,
+          "tae_covis": 2.057858,
+          "n": 927,
+          "fid_rel_dev": 1.4725086279213428,
+          "fid_flicker": 0.20314299035817385
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935887882676444,
+          "tae": 2.124661,
+          "tae_covis": 1.493343,
+          "n": 1091,
+          "fid_rel_dev": 1.9942915067076683,
+          "fid_flicker": 0.14781785430386662
+        }
+      },
+      "plan_bits": 30.967741935483872,
+      "config": "age:oldest=zero"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9877543469055373,
+      "abs_rel": 0.04424663925081433,
+      "tae_percent": 2.849339666666667,
+      "tae_covis_percent": 1.7234319999999999,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 13.445285459359487,
+      "fid_flicker_pct": 0.679334532469511,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1054.0712890625,
+      "cache_mb": 355.892578125,
+      "minutes": 6.524622595310211,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852916757990867,
+          "tae": 2.365076,
+          "tae_covis": 1.626286,
+          "n": 438,
+          "fid_rel_dev": 14.35176432132721,
+          "fid_flicker": 0.7172889076173306
+        },
+        "crowd": {
+          "delta1": 0.9822054746494067,
+          "tae": 4.065101,
+          "tae_covis": 2.04798,
+          "n": 927,
+          "fid_rel_dev": 12.056472897529602,
+          "fid_flicker": 0.8455377072095871
+        },
+        "kidnapping_box": {
+          "delta1": 0.9934577882676443,
+          "tae": 2.117842,
+          "tae_covis": 1.49603,
+          "n": 1091,
+          "fid_rel_dev": 13.92761915922165,
+          "fid_flicker": 0.47517698258161545
+        }
+      },
+      "plan_bits": 21.677419354838708,
+      "config": "age:old=zero"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878110354234528,
+      "abs_rel": 0.044288430374592826,
+      "tae_percent": 2.841032666666667,
+      "tae_covis_percent": 1.7253783333333335,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 11.449090391397476,
+      "fid_flicker_pct": 0.641188770532608,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1054.0712890625,
+      "cache_mb": 355.892578125,
+      "minutes": 6.601960428555807,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9853341255707764,
+          "tae": 2.359824,
+          "tae_covis": 1.62383,
+          "n": 438,
+          "fid_rel_dev": 12.448392808437347,
+          "fid_flicker": 0.6850758567452431
+        },
+        "crowd": {
+          "delta1": 0.9823170291262135,
+          "tae": 4.05615,
+          "tae_covis": 2.05953,
+          "n": 927,
+          "fid_rel_dev": 10.086116939783096,
+          "fid_flicker": 0.7789670489728451
+        },
+        "kidnapping_box": {
+          "delta1": 0.9934735747021082,
+          "tae": 2.107124,
+          "tae_covis": 1.492775,
+          "n": 1091,
+          "fid_rel_dev": 11.812761425971985,
+          "fid_flicker": 0.45952340587973595
+        }
+      },
+      "plan_bits": 21.677419354838708,
+      "config": "age:mid=zero"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9868096962540716,
+      "abs_rel": 0.04629706555374593,
+      "tae_percent": 3.230905,
+      "tae_covis_percent": 2.1400900000000003,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 7.42744505405426,
+      "fid_flicker_pct": 1.94937102496624,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1054.0712890625,
+      "cache_mb": 355.892578125,
+      "minutes": 6.611533172925314,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9845646118721462,
+          "tae": 2.734379,
+          "tae_covis": 1.996929,
+          "n": 438,
+          "fid_rel_dev": 7.802603393793106,
+          "fid_flicker": 1.832079142332077
+        },
+        "crowd": {
+          "delta1": 0.9802659600862998,
+          "tae": 4.341505,
+          "tae_covis": 2.426574,
+          "n": 927,
+          "fid_rel_dev": 7.358928769826889,
+          "fid_flicker": 2.203837037086487
+        },
+        "kidnapping_box": {
+          "delta1": 0.9932710989917508,
+          "tae": 2.616831,
+          "tae_covis": 1.996767,
+          "n": 1091,
+          "fid_rel_dev": 7.120802998542786,
+          "fid_flicker": 1.812196895480156
+        }
+      },
+      "plan_bits": 22.70967741935484,
+      "config": "age:recent=zero"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878850508957656,
+      "abs_rel": 0.04410756026058632,
+      "tae_percent": 2.8311946666666667,
+      "tae_covis_percent": 1.7094663333333333,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 0.5907685883964101,
+      "fid_flicker_pct": 0.05930590171677371,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1054.15478515625,
+      "cache_mb": 355.892578125,
+      "minutes": 7.474452559153239,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.985298196347032,
+          "tae": 2.319839,
+          "tae_covis": 1.588654,
+          "n": 438,
+          "fid_rel_dev": 0.38565497379750013,
+          "fid_flicker": 0.05876958020962775
+        },
+        "crowd": {
+          "delta1": 0.9823152837108954,
+          "tae": 4.055555,
+          "tae_covis": 2.051522,
+          "n": 927,
+          "fid_rel_dev": 0.5553686525672674,
+          "fid_flicker": 0.06293977494351566
+        },
+        "kidnapping_box": {
+          "delta1": 0.9936561017415214,
+          "tae": 2.11819,
+          "tae_covis": 1.488223,
+          "n": 1091,
+          "fid_rel_dev": 0.8312821388244629,
+          "fid_flicker": 0.05620834999717772
+        }
+      },
+      "plan_bits": 31.016129032258064,
+      "config": "age:anchor=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878672589576548,
+      "abs_rel": 0.044193259364820846,
+      "tae_percent": 2.8340840000000003,
+      "tae_covis_percent": 1.712546,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 0.4453546678026517,
+      "fid_flicker_pct": 0.10123928853621085,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.3125,
+      "cache_mb": 355.892578125,
+      "minutes": 7.419861388206482,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852768082191781,
+          "tae": 2.317945,
+          "tae_covis": 1.587844,
+          "n": 438,
+          "fid_rel_dev": 0.33153281547129154,
+          "fid_flicker": 0.09717028588056564
+        },
+        "crowd": {
+          "delta1": 0.9823148985976268,
+          "tae": 4.06092,
+          "tae_covis": 2.056952,
+          "n": 927,
+          "fid_rel_dev": 0.5880630575120449,
+          "fid_flicker": 0.11941976845264435
+        },
+        "kidnapping_box": {
+          "delta1": 0.9936249633363887,
+          "tae": 2.123387,
+          "tae_covis": 1.492842,
+          "n": 1091,
+          "fid_rel_dev": 0.4164681304246187,
+          "fid_flicker": 0.08712781127542257
+        }
+      },
+      "plan_bits": 31.016129032258064,
+      "config": "age:oldest=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878415374592835,
+      "abs_rel": 0.044137816368078175,
+      "tae_percent": 2.8433803333333336,
+      "tae_covis_percent": 1.7198183333333334,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 3.250868245959282,
+      "fid_flicker_pct": 0.23741162149235606,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.3125,
+      "cache_mb": 355.892578125,
+      "minutes": 13.809720357259115,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852899885844748,
+          "tae": 2.332267,
+          "tae_covis": 1.600095,
+          "n": 438,
+          "fid_rel_dev": 3.2560791820287704,
+          "fid_flicker": 0.23591627832502127
+        },
+        "crowd": {
+          "delta1": 0.9822752524271845,
+          "tae": 4.068362,
+          "tae_covis": 2.058863,
+          "n": 927,
+          "fid_rel_dev": 2.9946085065603256,
+          "fid_flicker": 0.3069583559408784
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935954555453711,
+          "tae": 2.129512,
+          "tae_covis": 1.500497,
+          "n": 1091,
+          "fid_rel_dev": 3.5019170492887497,
+          "fid_flicker": 0.16936023021116853
+        }
+      },
+      "plan_bits": 22.161290322580644,
+      "config": "age:old=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878894360749184,
+      "abs_rel": 0.044037778908794796,
+      "tae_percent": 2.847270333333334,
+      "tae_covis_percent": 1.728122,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.5828848282496133,
+      "fid_flicker_pct": 0.2521925722248852,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.3125,
+      "cache_mb": 355.892578125,
+      "minutes": 14.036674356460571,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.985356303652968,
+          "tae": 2.33406,
+          "tae_covis": 1.603623,
+          "n": 438,
+          "fid_rel_dev": 2.6050064712762833,
+          "fid_flicker": 0.2513519488275051
+        },
+        "crowd": {
+          "delta1": 0.9823630755124058,
+          "tae": 4.071493,
+          "tae_covis": 2.070959,
+          "n": 927,
+          "fid_rel_dev": 2.360798418521881,
+          "fid_flicker": 0.3116012318059802
+        },
+        "kidnapping_box": {
+          "delta1": 0.9936020375802017,
+          "tae": 2.136258,
+          "tae_covis": 1.509784,
+          "n": 1091,
+          "fid_rel_dev": 2.782849594950676,
+          "fid_flicker": 0.19362453604117036
+        }
+      },
+      "plan_bits": 22.161290322580644,
+      "config": "age:mid=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9874056844462541,
+      "abs_rel": 0.04488018770358306,
+      "tae_percent": 3.203749666666667,
+      "tae_covis_percent": 2.0998823333333334,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.2218385711312294,
+      "fid_flicker_pct": 1.6628135927021503,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.3125,
+      "cache_mb": 355.892578125,
+      "minutes": 13.19348740975062,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9848584452054795,
+          "tae": 2.655946,
+          "tae_covis": 1.926582,
+          "n": 438,
+          "fid_rel_dev": 2.1512629464268684,
+          "fid_flicker": 1.5620472840964794
+        },
+        "crowd": {
+          "delta1": 0.9814613333333333,
+          "tae": 4.369132,
+          "tae_covis": 2.407765,
+          "n": 927,
+          "fid_rel_dev": 2.6382630690932274,
+          "fid_flicker": 1.7880165949463844
+        },
+        "kidnapping_box": {
+          "delta1": 0.9934791072410633,
+          "tae": 2.586171,
+          "tae_covis": 1.9653,
+          "n": 1091,
+          "fid_rel_dev": 1.8759896978735924,
+          "fid_flicker": 1.6383768990635872
+        }
+      },
+      "plan_bits": 23.14516129032258,
+      "config": "age:recent=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878504063517916,
+      "abs_rel": 0.044394491042345274,
+      "tae_percent": 2.850861666666667,
+      "tae_covis_percent": 1.724697,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 3.382517211139202,
+      "fid_flicker_pct": 0.3139176405966282,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.478515625,
+      "cache_mb": 355.892578125,
+      "minutes": 25.501502760251363,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852279292237442,
+          "tae": 2.338387,
+          "tae_covis": 1.604494,
+          "n": 438,
+          "fid_rel_dev": 3.1231382861733437,
+          "fid_flicker": 0.3095713909715414
+        },
+        "crowd": {
+          "delta1": 0.982184501618123,
+          "tae": 4.065205,
+          "tae_covis": 2.056444,
+          "n": 927,
+          "fid_rel_dev": 3.6576077342033386,
+          "fid_flicker": 0.3932511433959007
+        },
+        "kidnapping_box": {
+          "delta1": 0.9937174445462877,
+          "tae": 2.148993,
+          "tae_covis": 1.513153,
+          "n": 1091,
+          "fid_rel_dev": 3.366805613040924,
+          "fid_flicker": 0.23893038742244244
+        }
+      },
+      "plan_bits": 2.7903225806451615,
+      "config": "age:recent=int4-g16+mid=int2-g16+old=bin-g16+oldest=bin-g16+anchor=int4-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9874140769543973,
+      "abs_rel": 0.045071223127035834,
+      "tae_percent": 3.224626333333333,
+      "tae_covis_percent": 2.121469,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.6223049188653627,
+      "fid_flicker_pct": 1.7098750919103622,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.3125,
+      "cache_mb": 355.892578125,
+      "minutes": 25.477098751068116,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9848272716894977,
+          "tae": 2.67481,
+          "tae_covis": 1.945243,
+          "n": 438,
+          "fid_rel_dev": 2.461717091500759,
+          "fid_flicker": 1.6093770042061806
+        },
+        "crowd": {
+          "delta1": 0.9814404692556634,
+          "tae": 4.370577,
+          "tae_covis": 2.415607,
+          "n": 927,
+          "fid_rel_dev": 3.3891137689352036,
+          "fid_flicker": 1.8228741362690926
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935282428964254,
+          "tae": 2.628492,
+          "tae_covis": 2.003557,
+          "n": 1091,
+          "fid_rel_dev": 2.0160838961601257,
+          "fid_flicker": 1.6973741352558136
+        }
+      },
+      "plan_bits": 2.7903225806451615,
+      "config": "age:s0=int4-g16+s1=int4-g16+s2=int4-g16+s3=int4-g16+s4=int4-g16+s5=int4-g16+s6=int4-g16+s7=int4-g16+s8=int4-g16+s9=int4-g16+s10=int2-g16+s11=int2-g16+s12=int2-g16+s13=int2-g16+s14=int2-g16+s15=int2-g16+s16=int2-g16+s17=int2-g16+s18=int2-g16+s19=int2-g16+s20=bin-g16+s21=bin-g16+s22=bin-g16+s23=bin-g16+s24=bin-g16+s25=bin-g16+s26=bin-g16+s27=bin-g16+s28=bin-g16+s29=bin-g16+s30=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878489849348536,
+      "abs_rel": 0.04455326669381107,
+      "tae_percent": 2.877969666666667,
+      "tae_covis_percent": 1.7549266666666667,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.740073079864184,
+      "fid_flicker_pct": 0.5048916054268678,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.478515625,
+      "cache_mb": 355.892578125,
+      "minutes": 25.86503802537918,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9851973561643835,
+          "tae": 2.369924,
+          "tae_covis": 1.636081,
+          "n": 438,
+          "fid_rel_dev": 2.6376016438007355,
+          "fid_flicker": 0.5030781496316195
+        },
+        "crowd": {
+          "delta1": 0.9822589935275081,
+          "tae": 4.079626,
+          "tae_covis": 2.082774,
+          "n": 927,
+          "fid_rel_dev": 3.137023374438286,
+          "fid_flicker": 0.568384351208806
+        },
+        "kidnapping_box": {
+          "delta1": 0.9936632245646195,
+          "tae": 2.184359,
+          "tae_covis": 1.545925,
+          "n": 1091,
+          "fid_rel_dev": 2.445594221353531,
+          "fid_flicker": 0.4432123154401779
+        }
+      },
+      "plan_bits": 2.7903225806451615,
+      "config": "age:s0=int4-g16+s1=bin-g16+s2=bin-g16+s3=int2-g16+s4=int2-g16+s5=bin-g16+s6=bin-g16+s7=bin-g16+s8=int4-g16+s9=int4-g16+s10=int2-g16+s11=int2-g16+s12=int4-g16+s13=int4-g16+s14=bin-g16+s15=int2-g16+s16=bin-g16+s17=int4-g16+s18=bin-g16+s19=int2-g16+s20=int4-g16+s21=bin-g16+s22=int4-g16+s23=int2-g16+s24=int2-g16+s25=bin-g16+s26=bin-g16+s27=int2-g16+s28=int4-g16+s29=int2-g16+s30=int4-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9876239710912054,
+      "abs_rel": 0.044767613599348534,
+      "tae_percent": 2.978885,
+      "tae_covis_percent": 1.865591,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.6915392527977624,
+      "fid_flicker_pct": 1.0101781226694584,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.3125,
+      "cache_mb": 355.892578125,
+      "minutes": 25.512699608008067,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9850829771689498,
+          "tae": 2.466014,
+          "tae_covis": 1.735896,
+          "n": 438,
+          "fid_rel_dev": 2.6157092303037643,
+          "fid_flicker": 0.9816775098443031
+        },
+        "crowd": {
+          "delta1": 0.9818322362459546,
+          "tae": 4.148467,
+          "tae_covis": 2.169719,
+          "n": 927,
+          "fid_rel_dev": 3.127497434616089,
+          "fid_flicker": 1.0662921704351902
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935652117323557,
+          "tae": 2.322174,
+          "tae_covis": 1.691158,
+          "n": 1091,
+          "fid_rel_dev": 2.3314110934734344,
+          "fid_flicker": 0.9825646877288818
+        }
+      },
+      "plan_bits": 2.7903225806451615,
+      "config": "age:s0=int4-g16+s1=int4-g16+s2=int2-g16+s3=int2-g16+s4=bin-g16+s5=int4-g16+s6=bin-g16+s7=bin-g16+s8=int4-g16+s9=bin-g16+s10=int2-g16+s11=bin-g16+s12=int4-g16+s13=int2-g16+s14=int2-g16+s15=bin-g16+s16=int2-g16+s17=int4-g16+s18=bin-g16+s19=int2-g16+s20=int4-g16+s21=int2-g16+s22=int2-g16+s23=bin-g16+s24=bin-g16+s25=bin-g16+s26=int4-g16+s27=int4-g16+s28=int4-g16+s29=int2-g16+s30=bin-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9876664580618891,
+      "abs_rel": 0.04492569625407167,
+      "tae_percent": 2.8893156666666666,
+      "tae_covis_percent": 1.7597676666666668,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.1768717716137567,
+      "fid_flicker_pct": 0.5631346100320419,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.36767578125,
+      "cache_mb": 355.892578125,
+      "minutes": 24.81869488954544,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9850386552511416,
+          "tae": 2.381813,
+          "tae_covis": 1.642105,
+          "n": 438,
+          "fid_rel_dev": 2.011622302234173,
+          "fid_flicker": 0.5686768796294928
+        },
+        "crowd": {
+          "delta1": 0.9817319503775619,
+          "tae": 4.076973,
+          "tae_covis": 2.078831,
+          "n": 927,
+          "fid_rel_dev": 2.1120941266417503,
+          "fid_flicker": 0.6549184210598469
+        },
+        "kidnapping_box": {
+          "delta1": 0.9937638606782767,
+          "tae": 2.209161,
+          "tae_covis": 1.558367,
+          "n": 1091,
+          "fid_rel_dev": 2.4068988859653473,
+          "fid_flicker": 0.46580852940678596
+        }
+      },
+      "plan_bits": 2.5,
+      "config": "age:all=int2-g16"
+    },
+    {
+      "mode": "age",
+      "bits": null,
+      "delta1": 0.9878267923452768,
+      "abs_rel": 0.04424701669381107,
+      "tae_percent": 2.82367,
+      "tae_covis_percent": 1.7027793333333332,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 0.3098661080002785,
+      "fid_flicker_pct": 0.15409220941364765,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1060.478515625,
+      "cache_mb": 355.892578125,
+      "minutes": 20.5273570338885,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852745776255707,
+          "tae": 2.31337,
+          "tae_covis": 1.582438,
+          "n": 438,
+          "fid_rel_dev": 0.336112012155354,
+          "fid_flicker": 0.15459476271644235
+        },
+        "crowd": {
+          "delta1": 0.9822414012944986,
+          "tae": 4.046471,
+          "tae_covis": 2.045074,
+          "n": 927,
+          "fid_rel_dev": 0.32823928631842136,
+          "fid_flicker": 0.17674844712018967
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935972117323557,
+          "tae": 2.111169,
+          "tae_covis": 1.480826,
+          "n": 1091,
+          "fid_rel_dev": 0.26524702552706003,
+          "fid_flicker": 0.13093341840431094
+        }
+      },
+      "plan_bits": 3.5,
+      "config": "age:all=int3-g16"
+    }
+  ]
+}

@@ -51,7 +51,7 @@ def make_frames(n, h, w, video=None):
     return [np.ascontiguousarray(base[:, 4 * i:4 * i + w]) for i in range(n)]
 
 
-def run(args, mode, bits, frames, kv=False, delta=0):
+def run(args, mode, bits, frames, kv=False, delta=0, residual_mode=None):
     gc.collect()
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
@@ -60,7 +60,8 @@ def run(args, mode, bits, frames, kv=False, delta=0):
     model = model.cuda().eval()
     torch.cuda.synchronize()
     weights = torch.cuda.memory_allocated()
-    model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, kv=kv, delta=delta)
+    model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, kv=kv, delta=delta,
+                                    residual_mode=residual_mode)
 
     depths, peaks, times = [], [], []
     for f in frames:
@@ -109,8 +110,9 @@ def main():
         mode, kv = parts[0], parts[0].endswith('-kv')
         mode = mode[:-3] if kv else mode
         bits = int(parts[1]) if len(parts) > 1 and parts[1] else 3
-        dk = int(parts[2][1:]) if len(parts) > 2 else 0
-        res, depths = run(args, mode, bits, frames, kv=kv, delta=dk)
+        dk = int(parts[2][1:]) if len(parts) > 2 and parts[2] else 0
+        rmode = parts[3] if len(parts) > 3 else None
+        res, depths = run(args, mode, bits, frames, kv=kv, delta=dk, residual_mode=rmode)
         res['config'] = cfg
         if ref is None:
             ref = depths

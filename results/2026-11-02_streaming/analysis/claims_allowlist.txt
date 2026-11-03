@@ -1,0 +1,7 @@
+# Allowlist for scripts/check_claims.py (one entry per line).
+#   num <token>   exact printed token       re <regex>  regex on the token
+#   ctx <regex>   regex on the source line  line <lo>-<hi>  source line range
+# Keep this list SHORT and specific: every entry is a number the checker will no longer verify.
+
+# co-visibility tolerance tau = 0.05 is a hyper-parameter, not a result (x5c = literal backslash)
+ctx \x5ctau

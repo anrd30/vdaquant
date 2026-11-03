@@ -1,0 +1,15 @@
+\documentclass{article}
+\begin{document}
+\section{Results}
+On Bonn, FP32 cov-TAE is $1.711$ % fact: bonn.vits.fp32.covtae
+and delta coding at $2.05$ bits per scalar % fact: bonn.vits.delta_int3_bin_K8.bits
+raises it by $+0.6\%$. % fact: bonn.vits.delta_int3_bin_K8.covtae_rel_pct
+On Sintel the same config is $+0.1\%$ [$-3.7$, $+5.2$] % fact: sintel.vits.delta_int3_bin_K8.covtae_rel_pct, sintel.vits.delta_int3_bin_K8.covtae_rel_pct_ci_lo, sintel.vits.delta_int3_bin_K8.covtae_rel_pct_ci_hi
+\begin{tabular}{lrr}
+\toprule
+$\Lambda_{16}$ b3 & 3.0 & $+0.2\%$ \ % fact: bonn.vits.lam16_b3.bits, bonn.vits.lam16_b3.covtae_rel_pct
+\bottomrule
+\end{tabular}
+Co-visibility tolerance $\tau = 0.05$ (hyper-parameter, allowlisted).
+\includegraphics[width=0.9\linewidth]{fig.pdf} Spacing 1.5pt and \cite{x2024} are not claims.
+\end{document}

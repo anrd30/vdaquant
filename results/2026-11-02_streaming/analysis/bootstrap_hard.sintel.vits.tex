@@ -1,0 +1,26 @@
+\begin{table}[t]
+\centering
+\small
+\caption{hard.sintel.vits: backbone and temporal cache quantized (offline, T=32). Raw-TAE change vs.\ FP32 with paired bootstrap 95\% CI over 8 scenes; cov-TAE has no per-scene data.}
+\label{tab:boot_hard_sintel_vits}
+\begin{tabular}{lrrrrl}
+\toprule
+Config & bits & $\delta_1$ & AbsRel & cov-TAE & raw TAE chg (\%) \\
+\midrule
+\texttt{fp32} & 32.00 & 0.6876 & 0.2793 & 8.56 & ref \\
+\texttt{int4\_g64} & 4.125 & 0.6879 & 0.2801 & 9.68 & $+0.3$ [$-2.5$, $+3.6$] \\
+\texttt{int4\_tensor} & 4.125 & 0.6314 & 0.3106 & 14.49 & $-14.5$ [$-21.6$, $-6.6$] \\
+\texttt{e8\_g16\_b3} & 3.500 & 0.6836 & 0.2870 & 12.06 & $-1.4$ [$-5.5$, $+3.5$] \\
+\texttt{int3\_g16} & 3.500 & 0.6869 & 0.2730 & 11.08 & $+0.4$ [$-3.9$, $+4.0$] \\
+\texttt{e8\_g32\_b3} & 3.250 & 0.6775 & 0.2847 & 12.44 & $-0.2$ [$-8.8$, $+6.8$] \\
+\texttt{lam16\_g64\_b3} & 3.125 & 0.6225 & 0.3292 & 52.69 & $-14.1$ [$-23.1$, $-0.5$] \\
+\texttt{e8\_g64\_b3} & 3.125 & 0.6836 & 0.2824 & 14.97 & $-1.4$ [$-6.2$, $+6.0$] \\
+\texttt{int3\_g64} & 3.125 & 0.6938 & 0.2617 & 14.03 & $-3.4$ [$-12.8$, $-0.9$] \\
+\texttt{int3\_tensor} & 3.125 & 0.4509 & 0.4360 & 63.88$^\ast$ & $-45.1$ [$-64.5$, $+7.7$] \\
+\texttt{e8\_g16\_b2} & 2.500 & 0.4886 & 0.4724 & 28.92$^\ast$ & $-71.5$ [$-74.6$, $+17.2$] \\
+\texttt{int2\_g16} & 2.500 & 0.4187 & 0.4633 & 6.38$^\ast$ & $-94.8$ [$-98.7$, $+0.3$] \\
+\texttt{e8\_g64\_b2} & 2.125 & 0.4252 & 0.4396 & 7.61$^\ast$ & $-93.7$ [$-97.6$, $+10.5$] \\
+\texttt{int2\_g64} & 2.125 & 0.4069 & 0.4661 & 5.96$^\ast$ & $-95.1$ [$-98.5$, $+10.0$] \\
+\bottomrule
+\end{tabular}
+\end{table}

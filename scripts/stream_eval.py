@@ -67,6 +67,29 @@ CFGS = {
 }
 
 
+# FP32 predictions per scene (fp16 copies), filled by the first 'fp32' config of
+# this process and used for ground-truth-free fidelity metrics of later configs.
+_REF = {}
+
+
+def fidelity(preds, ref):
+    """Fidelity of a compressed run to the uncompressed (FP32-cache) run.
+    rel_dev  : mean_t  mean|d_t - r_t| / mean|r_t|
+    flicker  : mean_t  mean|(d_t - d_{t-1}) - (r_t - r_{t-1})| / mean|r_t|
+    Both in %, no ground truth and no alignment (same model, same output scale)."""
+    dev, flick = [], []
+    prev_d = prev_r = None
+    for d, r in zip(preds, ref):
+        d = d.numpy().astype(np.float32)
+        r = r.astype(np.float32)
+        denom = np.abs(r).mean() + 1e-8
+        dev.append(np.abs(d - r).mean() / denom)
+        if prev_d is not None:
+            flick.append(np.abs((d - prev_d) - (r - prev_r)).mean() / denom)
+        prev_d, prev_r = d, r
+    return 100 * float(np.mean(dev)), 100 * float(np.mean(flick)) if flick else 0.0
+
+
 def reset_stream(model):
     model.transform = None
     model.frame_id_list = []
@@ -74,16 +97,26 @@ def reset_stream(model):
     model.id = -1
 
 
-def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None):
+def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, age_spec=None,
+               predictor='prev'):
     gc.collect()
     torch.cuda.empty_cache()
     model = VideoDepthAnything(**CFGS[args.encoder])
     model.load_state_dict(torch.load(args.ckpt, map_location='cpu'), strict=True)
     model = model.cuda().eval()
-    model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, delta=delta,
-                                    residual_mode=residual_mode)
+    if age_spec:
+        from research.models.stream_age import enable_age_quant, parse_age_spec, plan_bits
+        plan = parse_age_spec(age_spec)
+        model = enable_age_quant(model, plan)
+        mode = 'age'
+    else:
+        model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, delta=delta,
+                                        residual_mode=residual_mode,
+                                        **({'predictor': predictor} if delta else {}))
 
     acc, tae, tae_cov, cov_frac, per_scene = [], [], [], [], {}
+    is_ref = mode == 'fp32' and not delta
+    fid_dev, fid_flk = [], []
     n_skip, peak, cache_mb, t0 = 0, 0, 0.0, time.time()
     for name, frames in scenes.items():
         reset_stream(model)
@@ -94,6 +127,12 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None):
             preds.append(torch.from_numpy(np.ascontiguousarray(d)).float())
         peak = max(peak, torch.cuda.max_memory_allocated())
         cache_mb = max(cache_mb, cache_nbytes(model) / 2 ** 20)
+        if is_ref:
+            _REF[name] = [p.numpy().astype(np.float16) for p in preds]
+        fid = fidelity(preds, _REF[name]) if (name in _REF and not is_ref) else None
+        if fid:
+            fid_dev.append(fid[0])
+            fid_flk.append(fid[1])
         gts = [f['depth'] for f in frames]
         scene_acc = []
         for pred, gt in zip(preds, gts):
@@ -114,7 +153,8 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None):
             cov_frac.append(r['covis_fraction'])
             per_scene[name] = {
                 'delta1': float(np.mean([m['delta1'] for m in scene_acc])) if scene_acc else None,
-                'tae': r['tae_percent'], 'tae_covis': r['tae_covis_percent'], 'n': len(frames)}
+                'tae': r['tae_percent'], 'tae_covis': r['tae_covis_percent'], 'n': len(frames),
+                'fid_rel_dev': fid[0] if fid else None, 'fid_flicker': fid[1] if fid else None}
         except ValueError:
             per_scene[name] = {'delta1': None, 'tae': None, 'tae_covis': None, 'n': len(frames)}
         print(f"    {name:24s} n={len(frames):3d} d1={per_scene[name]['delta1']}", flush=True)
@@ -126,9 +166,12 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None):
         'tae_percent': float(np.mean(tae)) if tae else None,
         'tae_covis_percent': float(np.mean(tae_cov)) if tae_cov else None,
         'covis_fraction': float(np.mean(cov_frac)) if cov_frac else None,
+        'fid_rel_dev_pct': float(np.mean(fid_dev)) if fid_dev else None,
+        'fid_flicker_pct': float(np.mean(fid_flk)) if fid_flk else None,
         'n_frames': len(acc), 'n_skipped_frames': n_skip,
         'peak_mb': peak / 2 ** 20, 'cache_mb': cache_mb,
         'minutes': (time.time() - t0) / 60, 'per_scene': per_scene,
+        'plan_bits': plan_bits(plan) if age_spec else None,
     }
     del model
     gc.collect()
@@ -160,13 +203,25 @@ def main():
 
     results = []
     for cfg in args.configs.split(','):
+        if cfg.startswith('age:'):
+            print(f"  config {cfg}", flush=True)
+            r = run_config(args, 'age', 3, scenes, gt_range, age_spec=cfg)
+            r['config'] = cfg
+            results.append(r)
+            print(json.dumps({k: v for k, v in r.items() if k != 'per_scene'}), flush=True)
+            if args.out:
+                Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+                with open(args.out, 'w') as fh:
+                    json.dump({'args': vars(args), 'results': results}, fh, indent=2)
+            continue
         parts = cfg.split(':')
         mode = parts[0]
         b = int(parts[1]) if len(parts) > 1 and parts[1] else 3
         dk = int(parts[2][1:]) if len(parts) > 2 and parts[2] else 0
-        rmode = parts[3] if len(parts) > 3 else None
+        rmode = parts[3] if len(parts) > 3 and parts[3] else None
+        pred = parts[4] if len(parts) > 4 else 'prev'        # predictor: prev|none|extrap2
         print(f"  config {cfg}", flush=True)
-        r = run_config(args, mode, b, scenes, gt_range, delta=dk, residual_mode=rmode)
+        r = run_config(args, mode, b, scenes, gt_range, delta=dk, residual_mode=rmode, predictor=pred)
         r['config'] = cfg
         results.append(r)
         print(json.dumps({k: v for k, v in r.items() if k != 'per_scene'}), flush=True)
@@ -180,7 +235,8 @@ def main():
     for r in results:
         name = r.get('config', r['mode'])
         print(f"{name:14s} {r['delta1']:7.4f} {r['abs_rel']:7.4f} {r['tae_percent'] or 0:7.2f} "
-              f"{r['tae_covis_percent'] or 0:7.2f} {r['cache_mb']:8.1f} {r['peak_mb']:7.1f}")
+              f"{r['tae_covis_percent'] or 0:7.2f} {r['cache_mb']:8.1f} {r['peak_mb']:7.1f} "
+              f"fid_dev={r.get('fid_rel_dev_pct') or 0:.3f}% fid_flicker={r.get('fid_flicker_pct') or 0:.3f}%")
 
 
 if __name__ == '__main__':

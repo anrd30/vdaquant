@@ -1,0 +1,14 @@
+\begin{table}[t]
+\centering
+\small
+\caption{bonn.vits.1sc: change vs.\ FP32 (paired bootstrap 95\% CI over 1 scenes, frame-weighted aggregation). TAE: relative change in \%; $\delta_1$: absolute difference.}
+\label{tab:boot_bonn_vits_1sc_fw}
+\begin{tabular}{lrrlll}
+\toprule
+Config & bits & cov-TAE & cov-TAE chg (\%) & raw TAE chg (\%) & $\delta_1$ chg \\
+\midrule
+\texttt{fp32} & 32.00 & 1.588 & ref & ref & ref \\
+\texttt{zero} & 0.00 & 2.186 & $+37.7$ [n/a] & $+25.4$ [n/a] & $-0.0001$ [n/a] \\
+\bottomrule
+\end{tabular}
+\end{table}

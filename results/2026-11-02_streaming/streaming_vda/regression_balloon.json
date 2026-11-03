@@ -1,0 +1,43 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "configs": "int3-g16::d8:bin-g16",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/regression_balloon.json"
+  },
+  "results": [
+    {
+      "mode": "int3-g16",
+      "bits": null,
+      "delta1": 0.9852666415525114,
+      "abs_rel": 0.0415407397260274,
+      "tae_percent": 2.324442,
+      "tae_covis_percent": 1.600284,
+      "covis_fraction": 0.794375,
+      "fid_rel_dev_pct": null,
+      "fid_flicker_pct": null,
+      "n_frames": 438,
+      "n_skipped_frames": 0,
+      "peak_mb": 443.2890625,
+      "cache_mb": 24.230728149414062,
+      "minutes": 3.7794654885927836,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852666415525114,
+          "tae": 2.324442,
+          "tae_covis": 1.600284,
+          "n": 438,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        }
+      },
+      "config": "int3-g16::d8:bin-g16"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\small
+\caption{sintel.vitl: change vs.\ FP32 (paired bootstrap 95\% CI over 23 scenes, frame-weighted aggregation). TAE: relative change in \%; $\delta_1$: absolute difference.}
+\label{tab:boot_sintel_vitl_fw}
+\begin{tabular}{lrrlll}
+\toprule
+Config & bits & cov-TAE & cov-TAE chg (\%) & raw TAE chg (\%) & $\delta_1$ chg \\
+\midrule
+\texttt{fp32} & 32.00 & 6.663 & ref & ref & ref \\
+\texttt{int2\_g16} & 2.50 & 6.881 & $+7.0$ [$+0.1$, $+15.9$] & $+0.7$ [$-1.2$, $+7.1$] & $-0.0018$ [$-0.0055$, $+0.0015$] \\
+\texttt{zero} & 0.00 & 8.833 & $+47.4$ [$+18.1$, $+87.4$] & $+12.8$ [$-1.0$, $+69.3$] & $+0.0001$ [$-0.0088$, $+0.0086$] \\
+\bottomrule
+\end{tabular}
+\end{table}

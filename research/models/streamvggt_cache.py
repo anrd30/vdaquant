@@ -209,7 +209,8 @@ def total_cache_bytes() -> int:
 
 
 def parse(spec: str) -> Optional[dict]:
-    """'none' | 'fp16' | 'plain:int2' | 'delta:int3:bin:8'"""
+    """'none' | 'fp16' | 'plain:int2' | 'delta:int3:bin:8' |
+    'xstream:2048:4:4' | 'xstream+delta:2048:int3:bin:8'"""
     p = spec.split(':')
     if p[0] == 'none':
         return None
@@ -219,6 +220,12 @@ def parse(spec: str) -> Optional[dict]:
         return {'mode': 'plain', 'key': p[1]}
     if p[0] == 'delta':
         return {'mode': 'delta', 'key': p[1], 'res': p[2], 'K': int(p[3])}
+    if p[0] == 'xstream':          # xstream:<budget>:<kbits>:<vbits>[:<group>[:<pool>]]
+        from research.models.xstream_baseline import parse_xstream
+        return parse_xstream(p)
+    if p[0] == 'xstream+delta':    # xstream+delta:<budget>:<keykind>:<reskind>:<K>
+        from research.models.xstream_baseline import parse_xstream_delta
+        return parse_xstream_delta(p)
     raise ValueError(spec)
 
 
@@ -230,6 +237,9 @@ def _patched_forward(self, x, pos=None, attn_mask=None, past_key_values=None, us
     if cfg is None or not use_cache:
         return self._orig_forward(x, pos=pos, attn_mask=attn_mask,
                                   past_key_values=past_key_values, use_cache=use_cache)
+    if cfg['mode'] in ('xstream', 'xstream+delta'):
+        from research.models.xstream_baseline import xstream_forward
+        return xstream_forward(self, x, pos, attn_mask, past_key_values, cfg)
     B, N, C = x.shape
     qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
     q, k, v = qkv.unbind(0)

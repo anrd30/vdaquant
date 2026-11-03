@@ -1,0 +1,16 @@
+mem.vits.fp32.peak_mb: kept 770.39111328125 from vits_518, ignored 770.54931640625 from vits_518_delta_synth
+mem.vits.fp32.steady_alloc_mb: kept 419.9189453125 from vits_518, ignored 418.189453125 from vits_518_delta_synth
+mem.vits.fp32.step_ms_median: kept 73.02070000150707 from vits_518, ignored 131.8602999963332 from vits_518_delta_synth
+mem.vits.lam16_b3.peak_mb: kept 337.0927734375 from vits_518, ignored 337.0771484375 from vits_518_delta_synth
+mem.vits.lam16_b3.steady_alloc_mb: kept 145.376953125 from vits_518, ignored 145.361328125 from vits_518_delta_synth
+mem.vits.lam16_b3.weights_mb: kept 120.07470703125 from vits_518, ignored 120.05712890625 from vits_518_delta_synth
+mem.vits.lam16_b3.step_ms_median: kept 106.72959999646991 from vits_518, ignored 194.26360000215936 from vits_518_delta_synth
+mem.vits.lam16_b3.depth_rel_l1_mean: kept 0.008198928041383623 from vits_518, ignored 0.008459827156427006 from vits_518_delta_synth
+mem.vits.lam16_b3.depth_rel_l1_max: kept 0.011117702350020409 from vits_518, ignored 0.011250174604356289 from vits_518_delta_synth
+mem.vits.fp32.step_ms_median: kept 73.02070000150707 from vits_518, ignored 109.26900000777096 from vits_518_kv
+mem.vits.lam16_b3.peak_mb: kept 337.0927734375 from vits_518, ignored 511.88525390625 from vits_518_kv
+mem.vits.lam16_b3.steady_alloc_mb: kept 145.376953125 from vits_518, ignored 145.345703125 from vits_518_kv
+mem.vits.lam16_b3.weights_mb: kept 120.07470703125 from vits_518, ignored 120.05908203125 from vits_518_kv
+mem.vits.lam16_b3.step_ms_median: kept 106.72959999646991 from vits_518, ignored 158.28679999685846 from vits_518_kv
+mem.vits.lam16_b3.depth_rel_l1_mean: kept 0.008198928041383623 from vits_518, ignored 0.008218040019273757 from vits_518_kv
+mem.vits.lam16_b3.depth_rel_l1_max: kept 0.011117702350020409 from vits_518, ignored 0.011168329045176506 from vits_518_kv

@@ -104,7 +104,13 @@ Cache MB is the packed size; peak MB in the VDA path still stores codes as
   2x cache -> dropped (`vits_518_kv.json`).
 
 ## Hard setting: backbone + temporal quantized, offline T=32, Sintel first 8 scenes, RHT on
-(`hard_setting_lattice_vs_int/*.json`). FP32 δ1 0.6876, cov-TAE 8.56. Real packed bits.
+(`hard_setting_lattice_vs_int/*.json`). FP32 δ1 0.6876, cov-TAE 8.56.
+CAUTION (found by the bootstrap/facts audit): the JSON `effective_bits_per_scalar`
+is the table rate b + 8/g for every row. The "packed bits" below are ANALYTIC for
+the lattice rows: E8 codeword = 4 + 8(b-1) bits per 8 scalars (Construction-A
+index), Λ16 = 5 + 16(b-1) bits per 16 (implemented for Λ16 in packed_bw16.py, NOT
+implemented for E8). INT rows are b + 8/g (achievable). So "E8 needs ~0.5 fewer
+bits" assumes an E8 index packing that does not exist in the code yet.
 
 | Config | packed bits | δ1 | cov-TAE |
 |---|---|---|---|
@@ -120,10 +126,57 @@ Cache MB is the packed size; peak MB in the VDA path still stores codes as
 | int3/int4 one scale per tensor | 3.125 / 4.125 | 0.4509 / 0.6314 | 63.88 / 14.49 |
 
 *cov-TAE drops below FP32 when the output collapses to a flat map: report with δ1.
-E8 matches fair INT with ~0.5 fewer bits; Λ16 is worse than E8. Explains the old
+E8 matches fair INT with ~0.5 fewer (analytic) bits; Λ16 is worse than E8. Explains the old
 "INT collapses" result: one-scale-per-tensor INT + backbone outliers.
 
+## Statistics (scripts/bootstrap_ci.py -> results/2026-11-02_streaming/analysis/)
+Paired bootstrap over scenes (10k resamples, seed 0), scene-mean weighting.
+- Sintel ViT-S: delta int3+bin K8 cov-TAE +0.1% [-3.7, +5.2] (not distinguishable
+  from FP32); int2-g16 -0.3% [-4.2, +5.2] (also not distinguishable on cov-TAE, but
+  δ1 -0.006 [-0.015, +0.000], AbsRel +0.0046).
+- Bonn ViT-S (3 scenes only -> coarse CIs): delta +0.6% [+0.4, +0.8] vs int2 +2.9% [+1.2, +4.5].
+- Sintel ViT-B: delta +3.3% [+2.0, +5.4] vs int2 +7.2% [+4.6, +12.6]; zero +43.9%.
+- Weighting matters (frame-weighted Sintel zero +73.0% vs scene-mean +60.1%): state it.
+- Sintel: 1064 frames for TAE, 1045 for δ1/AbsRel (19 frames without in-range GT).
+
+
+## Overnight 2026-11-03 (laptop; `streaming_vda/*_fidelity|*_fading|*_ablation|age_attention_*|bonn_vitb_key.json`)
+Fidelity-to-FP32 (GT-free): fid = mean |d - d_fp32| / mean |d_fp32| (%); flk = same on frame-to-frame changes.
+Bits = allocated (INT3/INT4 keyframes stored as 4-bit nibbles since the bit-packing port).
+
+| Setting | bits | cov-TAE vs FP32 | fid | flk | δ1 chg | AbsRel chg |
+|---|---|---|---|---|---|---|
+| Sintel ViT-S zero | 0 | +60.1% | 31.4% | 8.68% | -0.0031 | -0.0068 |
+| Sintel ViT-S int2-g16 | 2.50 | -0.3% | 2.75% | 1.24% | -0.0070 | +0.0046 |
+| Sintel ViT-S delta int3 key + bin, K8 | 2.04 | +0.1% | 1.46% | 1.24% | -0.0006 | -0.0001 |
+| Sintel ViT-S delta int4 key + bin, K8 | 2.04 | +1.0% | 1.40% | 1.21% | -0.0008 | -0.0001 |
+| Bonn ViT-S zero | 0 | +35.5% | 24.1% | 2.43% | -0.0008 | +0.0019 |
+| Bonn ViT-S int2-g16 | 2.50 | +2.9% | 2.18% | 0.56% | -0.0002 | +0.0007 |
+| Bonn ViT-S delta int3/int4 key + bin, K8 | 2.21 | +0.6% | 0.46-0.48% | 0.38% | -0.0001 | +0.0002 |
+| Bonn ViT-B zero | 0 | +13.6% | 38.0% | 1.74% | +0.0003 | -0.0003 |
+| Bonn ViT-B int2-g16 | 2.50 | +8.7% | 6.38% | 0.62% | -0.0001 | +0.0007 |
+| Bonn ViT-B delta int4 key + bin, K8 | 2.21 | +0.6% | 0.39% | 0.30% | -0.0001 | +0.0001 |
+
+Sintel ViT-S delta ablations (int4 key + bin residual unless stated):
+K=4 2.39 b fid 1.14%; K=8 2.04 b 1.40%; K=16 2.07 b 1.54% (anchor overhead, no saving);
+K=32 1.93 b 1.58%; int8 key 2.70 b 1.39%; int2 residual 2.89 b 0.61%;
+predictor none: cov-TAE +19.4%, fid 6.97% (prediction is the source of the gain);
+predictor extrap2: cov -2.8%, fid 2.83% (worse fidelity than 'prev' 1.40%).
+Bonn ablation failed with a transient CUDA "unknown error" (rerun pending).
+
+Age analysis (VDA window, 31 cached slots; ages: recent 1-9, mid 10-19, old 20-29):
+- Attention mass per slot vs uniform: recent 1.35-1.99x, old 0.24-0.52x, all 8 layers, both datasets.
+- Causal: zeroing only recent frames cov-TAE +28.5% (Sintel) / +25.1% (Bonn); only old +3.7% / +0.7%.
+  1-bit only recent +20.6% / +22.7%; only old +1.3% / +0.5%.
+- Equal memory 2.79 b: fading (recent 4b, mid 2b, old 1b) cov +1.0% / +0.8%, fid 3.2% / 3.4%;
+  reversed +23.1% / +24.0%; shuffled +3.1-8.7% / +2.6-9.1%. Uniform int2 (2.5 b) fid 2.7% / 2.2%.
+  -> age matters strongly, but fading alone is dominated by delta coding (~2.0-2.2 b, fid 0.5-1.5%).
+
+Codec probes (skip blocks, motion compensation): skippable groups at tau=0.1 0-41% per layer
+(0% in the 192-ch layers); best-shift residual 73-100% of zero-shift -> small gains (~0.2-0.3 b).
+Regression: refactored delta code reproduces Bonn balloon exactly (diff 0).
+
 ## Pending
-- Sintel ViT-B / ViT-L streaming accuracy (running).
+- Sintel ViT-L streaming accuracy (running).
 - StreamVGGT official video-depth eval + frames-until-OOM (rented GPU).
 - Paper-grade timing and VDA peak memory with bit-packing.

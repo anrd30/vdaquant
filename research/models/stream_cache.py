@@ -14,6 +14,8 @@ Modes
 -----
 fp32  : unchanged (reference).
 fp16  : entries stored as fp16.
+intN/bin : scalar quantizers ('int4-g16', 'bin-g16', ...), codes bit-packed
+        (1-bit 8/byte, INT2 4/byte, INT3/INT4 in 4-bit nibbles).
 bw16  : block-randomized-Hadamard (block 64 over channels) + Λ16 lattice
         (Construction A over RM(1,4)), groups of 16, 8-bit per-group scale
         stored as one uint8 index plus one fp32 step per tensor.
@@ -185,18 +187,79 @@ def compress_frame(tensors: List[torch.Tensor], bits: int,
     return out
 
 
+def _code_bits(bits: int, binary: bool) -> int:
+    """Bits per stored code: 1-bit and INT1 -> 1, INT2 -> 2, INT3/INT4 -> 4 (nibbles)."""
+    if binary or bits == 1:
+        return 1
+    if bits == 2:
+        return 2
+    return 4 if bits <= 4 else 8
+
+
+def pack_codes(codes: torch.Tensor, nb: int) -> torch.Tensor:
+    """Unsigned codes in [0, 2**nb) -> flat uint8, ``8 // nb`` codes per byte.
+
+    Code k of a byte occupies bits [nb*k, nb*(k+1)).  The tail is zero padded.
+    """
+    flat = codes.reshape(-1).to(torch.uint8)
+    if nb == 8:
+        return flat.contiguous()
+    per = 8 // nb
+    pad = (-flat.numel()) % per
+    if pad:
+        flat = torch.cat([flat, flat.new_zeros(pad)])
+    flat = flat.reshape(-1, per)
+    out = flat[:, 0].clone()
+    for k in range(1, per):
+        out |= flat[:, k] << (nb * k)
+    return out
+
+
+def unpack_codes(packed: torch.Tensor, nb: int, n: int) -> torch.Tensor:
+    """Inverse of :func:`pack_codes`: flat uint8 of ``n`` codes."""
+    if nb == 8:
+        return packed
+    per, mask = 8 // nb, (1 << nb) - 1
+    out = torch.empty(packed.numel(), per, dtype=torch.uint8, device=packed.device)
+    for k in range(per):
+        out[:, k] = (packed >> (nb * k)) & mask
+    return out.reshape(-1)[:n]
+
+
 @dataclass
 class _ScalarTensor:
-    q: torch.Tensor                 # int8/uint8 codes (G, g)
-    scale: torch.Tensor             # fp32 (G, 1), already rounded to stored precision
-    zero: Optional[torch.Tensor]    # fp32 (G, 1) for asymmetric, else None
+    """Scalar-quantized tensor with bit-packed codes.
+
+    q      : uint8 (n_bytes,), codes packed ``8 // nbits`` per byte.
+    scale  : g16 -> uint8 index (G,) with one fp32 ``step`` per tensor
+             (scale = index * step); otherwise fp16 (G,).
+    zero   : fp16 (G,) for asymmetric, else None.
+    kind   : 'bin' (code 1 -> +1, 0 -> -1), 'sym' (value = code - off),
+             'asym' (value = code).
+    """
+    q: torch.Tensor
+    scale: torch.Tensor
+    zero: Optional[torch.Tensor]
+    step: Optional[float]
+    kind: str
+    off: int
+    nbits: int
+    gshape: Tuple[int, int]         # (G, group size) of the unpacked codes
     shape: Tuple[int, ...]
     dtype: torch.dtype
     rot: bool
-    stored_bytes: int               # bytes a bit-packed layout would use
 
     def nbytes(self) -> int:
-        return self.stored_bytes
+        """Allocated bytes of the stored tensors (+4 for the fp32 step)."""
+        n = self.q.numel() * self.q.element_size()
+        n += self.scale.numel() * self.scale.element_size()
+        if self.zero is not None:
+            n += self.zero.numel() * self.zero.element_size()
+        return n + (4 if self.step is not None else 0)
+
+    @property
+    def stored_bytes(self) -> int:
+        return self.nbytes()
 
 
 def parse_scalar_spec(mode: str):
@@ -204,6 +267,8 @@ def parse_scalar_spec(mode: str):
 
     g16 variants use the same 8-bit per-group scale as the lattice;
     g64 variants use an fp16 scale (and fp16 zero-point if -asym), KIVI-style.
+    Codes are bit-packed: 1-bit 8/byte, INT2 4/byte, INT3 and INT4 in 4-bit
+    nibbles (2/byte; INT3 therefore costs 4 stored bits per code).
     """
     parts = mode.split('-')
     bits = 1 if parts[0] == 'bin' else int(parts[0][3:])
@@ -222,43 +287,57 @@ def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor) -> _ScalarT
         x = rht(x.reshape(-1, C // RHT_BLOCK, RHT_BLOCK), signs).reshape(-1, C)
     xg = x.reshape(1, -1) if g == 0 else x.reshape(-1, g)
     G = xg.shape[0]
+    step, zero, off = None, None, 0
     if mode.startswith('bin'):
         # 1-bit: x_hat = s * sign(x); s = mean|x| minimises ||x - s*sign(x)||^2
+        kind, nb = 'bin', 1
         scale = xg.abs().mean(-1, keepdim=True).clamp(min=1e-12)
         if g == 16:
-            step = scale.max().clamp(min=1e-12) / 255.0
-            scale = (scale / step).round().clamp(0, 255) * step
-            meta = G * 1
+            step_t = scale.max().clamp(min=1e-12) / 255.0
+            idx = (scale / step_t).round().clamp(0, 255)
+            scale_st, step = idx.to(torch.uint8).reshape(-1), float(step_t)
         else:
-            scale = scale.half().float()
-            meta = G * 2
-        q = torch.where(xg >= 0, 1, -1).to(torch.int8)
-        stored = (xg.numel() + 7) // 8 + meta
-        return _ScalarTensor(q, scale, None, shape, t.dtype, rot, stored)
-    if asym:
+            scale_st = scale.half().reshape(-1)
+        codes = (xg >= 0).to(torch.uint8)
+    elif asym:
+        kind, nb = 'asym', _code_bits(bits, False)
         mn, mx = xg.amin(-1, keepdim=True), xg.amax(-1, keepdim=True)
         scale = ((mx - mn) / (2 ** bits - 1)).clamp(min=1e-8).half().float()
-        zero = mn.half().float()
-        q = ((xg - zero) / scale).round().clamp(0, 2 ** bits - 1).to(torch.uint8)
-        meta = G * 4                                            # fp16 scale + fp16 zero
+        zero_f = mn.half().float()
+        codes = ((xg - zero_f) / scale).round().clamp(0, 2 ** bits - 1).to(torch.uint8)
+        scale_st, zero = scale.half().reshape(-1), zero_f.half().reshape(-1)
     else:
+        kind, nb = 'sym', _code_bits(bits, False)
         h = 2 ** (bits - 1)
         scale = xg.abs().amax(-1, keepdim=True).clamp(min=1e-8) / max(h - 1, 1)
         if g == 16:                                             # 8-bit scale, as the lattice
-            step = scale.max().clamp(min=1e-8) / 255.0
-            scale = (scale / step).round().clamp(0, 255) * step
-            meta = G * 1
+            step_t = scale.max().clamp(min=1e-8) / 255.0
+            idx = (scale / step_t).round().clamp(0, 255)
+            scale = idx * step_t
+            scale_st, step = idx.to(torch.uint8).reshape(-1), float(step_t)
         else:
             scale = scale.half().float()
-            meta = G * 2
-        zero = None
-        q = (xg / scale.clamp(min=1e-12)).round().clamp(-h, h - 1).to(torch.int8)
-    stored = (xg.numel() * bits + 7) // 8 + meta
-    return _ScalarTensor(q, scale, zero, shape, t.dtype, rot, stored)
+            scale_st = scale.half().reshape(-1)
+        off = h
+        codes = ((xg / scale.clamp(min=1e-12)).round().clamp(-h, h - 1) + h).to(torch.uint8)
+    return _ScalarTensor(pack_codes(codes, nb), scale_st, zero, step, kind, off, nb,
+                         (G, xg.shape[1]), shape, t.dtype, rot)
 
 
 def scalar_decompress(p: _ScalarTensor, signs: torch.Tensor) -> torch.Tensor:
-    x = p.q.float() * p.scale + (p.zero if p.zero is not None else 0.0)
+    G, g = p.gshape
+    codes = unpack_codes(p.q, p.nbits, G * g).reshape(G, g)
+    if p.kind == 'bin':
+        q = codes.float() * 2.0 - 1.0
+    elif p.kind == 'sym':
+        q = (codes.to(torch.int16) - p.off).float()
+    else:
+        q = codes.float()
+    scale = p.scale.float().unsqueeze(1)
+    if p.step is not None:
+        scale = scale * p.step
+    zero = p.zero.float().unsqueeze(1) if p.zero is not None else 0.0
+    x = q * scale + zero
     C = p.shape[-1]
     x = x.reshape(-1, C)
     if p.rot:
@@ -386,26 +465,148 @@ def _patch_lazy(attn):
     attn.forward = forward
 
 
+PREDICTORS = ('prev', 'none', 'extrap2', 'linfit')
+
+
+def _predict(predictor: str, r1: torch.Tensor, r2: Optional[torch.Tensor], params=None):
+    """Prediction of the next frame from the latest reconstructions.
+
+    r1 = rec[t-1], r2 = rec[t-2] (None when t-1 starts a keyframe segment).
+    Returns None for a zero prediction.  Encoder and decoder both call this
+    function (same op order, elementwise only), so their reconstructions are
+    bit-identical whatever the tensor layout.
+    """
+    if predictor == 'prev':
+        return r1
+    if predictor == 'none':
+        return None
+    if r2 is None:
+        return r1
+    if predictor == 'extrap2':
+        return 2.0 * r1 - r2
+    a, b, c = params                                    # linfit: (C,) each
+    return (a * r1 + b * r2) + c
+
+
+def _params_on(params, device):
+    return None if params is None else tuple(
+        torch.as_tensor(x).to(device=device, dtype=torch.float32) for x in params)
+
+
+def fit_linear_predictor(cache_sequences, ridge: float = 1e-3):
+    """Fit per-layer, per-channel linear temporal predictors.
+
+    ``cache_sequences``: list (over frames) of lists (over layers) of tensors
+    (N, 1, C) from an uncompressed run.  For every layer and channel,
+        rec_hat[t] = a * rec[t-1] + b * rec[t-2] + c
+    is fitted over all positions N and all t >= 2.  The regression is on the
+    residual from persistence, ``x[t]-x[t-1] ~ (a-1) x[t-1] + b x[t-2] + c``,
+    with a relative ridge ``ridge * diag(Gram)`` so that the penalty shrinks
+    towards the 'prev' predictor (a=1, b=0, c=0) independently of data scale.
+    Returns a list over layers of (a, b, c) float32 CPU tensors of shape (C,),
+    to be passed to ``enable_compressed_cache(..., predictor_params=...)``.
+    """
+    T, L = len(cache_sequences), len(cache_sequences[0])
+    assert T >= 4, "need at least 4 calibration frames"
+    out = []
+    for l in range(L):
+        C = cache_sequences[0][l].shape[-1]
+        X = [cache_sequences[t][l].detach().double().reshape(-1, C) for t in range(T)]
+        gram = torch.zeros(C, 3, 3, dtype=torch.float64, device=X[0].device)
+        rhs = torch.zeros(C, 3, dtype=torch.float64, device=X[0].device)
+        n = 0
+        for t in range(2, T):
+            x1, x2, y = X[t - 1], X[t - 2], X[t] - X[t - 1]
+            f = torch.stack([x1, x2, torch.ones_like(x1)])          # (3, N, C)
+            gram += torch.einsum('knc,lnc->ckl', f, f)
+            rhs += torch.einsum('knc,nc->ck', f, y)
+            n += x1.shape[0]
+        gram, rhs = gram / n, rhs / n
+        d = torch.diagonal(gram, dim1=-2, dim2=-1)                  # (C, 3)
+        gram = gram + torch.diag_embed(ridge * d + 1e-12)
+        w = torch.linalg.solve(gram, rhs.unsqueeze(-1)).squeeze(-1)  # (C, 3)
+        out.append(((1.0 + w[:, 0]).float().cpu(), w[:, 1].float().cpu(),
+                    w[:, 2].float().cpu()))
+    return out
+
+
 class DeltaLazyLayer(LazyLayer):
     """Layer cache under closed-loop delta coding.
 
     ``chain`` = hidden anchor prefix + frame_cache_list[1:], i.e. consecutive
     frames starting at an intra entry.  Residual entries are added to the
-    previous reconstruction; intra entries reset it.  The decoder repeats the
+    prediction made from the previous reconstruction(s) (see ``_predict``);
+    intra entries reset it and the predictor history.  The decoder repeats the
     encoder's operations, so reconstructions match exactly.
     """
 
-    def __init__(self, first, chain, pos1, n_last, i):
+    def __init__(self, first, chain, pos1, n_last, i, predictor: str = 'prev',
+                 params=None):
         self.first, self.chain, self.pos1, self.n_last, self.i = first, chain, pos1, n_last, i
+        self.predictor, self.params = predictor, params
 
     def materialize(self) -> torch.Tensor:
         assert getattr(self.chain[0], 'intra', True)
         vals = read_layer(self.chain, self.i).float()        # (N, len(chain), C)
+        params = _params_on(self.params, vals.device)
         rec = torch.empty_like(vals)
+        prev_intra = True
         for j, e in enumerate(self.chain):
-            rec[:, j] = vals[:, j] if getattr(e, 'intra', True) else rec[:, j - 1] + vals[:, j]
+            if getattr(e, 'intra', True):
+                rec[:, j] = vals[:, j]
+                prev_intra = True
+                continue
+            r2 = None if prev_intra or j < 2 else rec[:, j - 2]
+            pred = _predict(self.predictor, rec[:, j - 1], r2, params)
+            rec[:, j] = vals[:, j] if pred is None else pred + vals[:, j]
+            prev_intra = False
         f0 = self.first[self.i].float()
         return torch.cat([f0, rec[:, self.pos1:self.pos1 + 1], rec[:, -self.n_last:]], dim=1)
+
+
+class _DeltaEncoder:
+    """Closed-loop encoder state for delta coding (one per streaming model).
+
+    Keeps the last two reconstructions of every layer (``h1`` = rec[t-1],
+    ``h2`` = rec[t-2] within the current keyframe segment, else None).
+    """
+
+    def __init__(self, delta: int, mode: str, residual_mode: str, bits: int,
+                 predictor: str = 'prev', params=None):
+        assert predictor in PREDICTORS, predictor
+        assert predictor != 'linfit' or params is not None, "linfit needs predictor_params"
+        self.delta, self.mode, self.residual_mode, self.bits = delta, mode, residual_mode, bits
+        self.predictor, self.params = predictor, params
+        self.reset()
+
+    def reset(self):
+        self.h1, self.h2, self.since_intra = None, None, 0
+
+    def encode(self, cache_list, signs) -> CompressedEntry:
+        cur = [t.float() for t in cache_list]
+        intra = self.h1 is None or self.since_intra >= self.delta - 1
+        if intra:
+            payload, pred = cur, None
+        else:
+            if self.params is not None:
+                assert len(self.params) == len(cur), "predictor_params: one entry per layer"
+            h2 = self.h2 if self.h2 is not None else [None] * len(cur)
+            pred = [_predict(self.predictor, r1, r2,
+                             None if self.params is None
+                             else _params_on(self.params[i], r1.device))
+                    for i, (r1, r2) in enumerate(zip(self.h1, h2))]
+            payload = [c if p is None else c - p for c, p in zip(cur, pred)]
+        e = CompressedEntry(payload, self.mode if intra else self.residual_mode,
+                            self.bits, signs)
+        e.intra = intra
+        dec = [e[i].float() for i in range(len(e))]
+        if intra:
+            rec, self.h2, self.since_intra = dec, None, 0
+        else:
+            rec = [d if p is None else p + d for p, d in zip(pred, dec)]
+            self.h2, self.since_intra = self.h1, self.since_intra + 1
+        self.h1 = rec
+        return e
 
 
 class KVPair:
@@ -456,15 +657,26 @@ def _patch_temporal_attention(attn):
 
 def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int = 0,
                             kv: bool = False, lazy: bool = True, delta: int = 0,
-                            residual_mode: Optional[str] = None):
+                            residual_mode: Optional[str] = None,
+                            predictor: str = 'prev', predictor_params=None):
     """Patch a streaming VideoDepthAnything so its frame cache is compressed.
 
     Frame 0 runs VDA's own code (it reads no cache).  Later frames run a copy
     of VDA's streaming step whose only change is how the cache is read
     (batched decompression) and stored (compressed on insertion).
 
-    delta=K>0 stores each frame as the quantized residual from the previous
-    frame's reconstruction (closed loop), with an intra frame every K frames.
+    delta=K>0 stores each frame as the quantized residual from a prediction
+    built from previous reconstructions (closed loop), with an intra frame
+    every K frames.  ``predictor`` selects the prediction:
+      'prev'    rec[t-1] (default);
+      'none'    0, i.e. every frame coded on its own (with ``residual_mode``)
+                but through the delta path (ablation);
+      'extrap2' 2*rec[t-1] - rec[t-2] (rec[t-1] right after a keyframe);
+      'linfit'  per-layer, per-channel a*rec[t-1] + b*rec[t-2] + c with
+                ``predictor_params`` = ``fit_linear_predictor(...)`` output
+                (rec[t-1] right after a keyframe).
+    The decoder (``DeltaLazyLayer``) applies the same predictor to its own
+    reconstructions; keyframes reset the history.
 
     kv=False caches each frame's attention input h (VDA's design: K/V of all
     31 cached frames are recomputed every frame).  kv=True caches the
@@ -473,6 +685,10 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
     if mode == 'fp32' and not kv and not delta:
         return model
     assert not (kv and delta), "delta coding is implemented for the h cache only"
+    assert predictor in PREDICTORS, predictor
+    assert predictor == 'prev' or delta, "predictor != 'prev' needs delta > 0"
+    assert predictor != 'linfit' or predictor_params is not None, \
+        "predictor='linfit' needs predictor_params (see fit_linear_predictor)"
     assert mode in ('fp32', 'fp16', 'bw16', 'zero') or mode.startswith(('int', 'bin')), mode
     residual_mode = residual_mode or mode
     import torch.nn.functional as F
@@ -480,7 +696,9 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
     INFER_LEN = vds.INFER_LEN
 
     original = model.infer_video_depth_one
-    state = {'signs': None, 'prev': None, 'since_intra': 0}
+    state = {'signs': None}
+    enc = (_DeltaEncoder(delta, mode, residual_mode, bits, predictor, predictor_params)
+           if delta else None)
     model._delta_hidden = []
     attns = [m for m in model.head.modules() if type(m).__name__ == 'TemporalAttention']
     if kv:
@@ -501,15 +719,7 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
             cache_list = flat
         if not delta:
             return CompressedEntry(list(cache_list), mode, bits, state['signs'])
-        cur = [t.float() for t in cache_list]
-        intra = state['prev'] is None or state['since_intra'] >= delta - 1
-        payload = cur if intra else [c - p for c, p in zip(cur, state['prev'])]
-        e = CompressedEntry(payload, mode if intra else residual_mode, bits, state['signs'])
-        e.intra = intra
-        dec = [e[i].float() for i in range(len(e))]
-        state['prev'] = dec if intra else [p + d for p, d in zip(state['prev'], dec)]
-        state['since_intra'] = 0 if intra else state['since_intra'] + 1
-        return e
+        return enc.encode(cache_list, state['signs'])
 
     def read(cur_list):
         n = len(cur_list[0])
@@ -519,7 +729,9 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
         if delta:
             L, H = model.frame_cache_list, model._delta_hidden
             chain = list(H) + list(L[1:])
-            return [DeltaLazyLayer(L[0], chain, len(H), INFER_LEN - 3, i) for i in range(n)]
+            return [DeltaLazyLayer(L[0], chain, len(H), INFER_LEN - 3, i, predictor,
+                                   None if predictor_params is None else predictor_params[i])
+                    for i in range(n)]
         if lazy:
             return [LazyLayer(cur_list, i) for i in range(n)]
         return [read_layer(cur_list, i) for i in range(n)]
@@ -527,8 +739,8 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
     def infer_video_depth_one(self, frame, input_size=518, device='cuda', fp32=False):
         if state['signs'] is None:
             state['signs'] = _signs(seed, next(self.parameters()).device)
-        if self.transform is None:
-            state['prev'], state['since_intra'] = None, 0
+        if self.transform is None and enc is not None:
+            enc.reset()
         if self.transform is None:  # first frame: VDA's own path, then compress
             out = original(frame, input_size=input_size, device=device, fp32=fp32)
             with torch.no_grad():

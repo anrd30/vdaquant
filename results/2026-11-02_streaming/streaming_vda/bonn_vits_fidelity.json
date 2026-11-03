@@ -1,0 +1,236 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vits",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vits.pth",
+    "configs": "fp32,zero,int2-g16,int3-g16::d8:bin-g16,int4-g16::d8:bin-g16",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1000,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/bonn_vits_fidelity.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "delta1": 0.987844661644951,
+      "abs_rel": 0.04418758998371335,
+      "tae_percent": 2.8314193333333333,
+      "tae_covis_percent": 1.7107076666666667,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": null,
+      "fid_flicker_pct": null,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 1003.3359375,
+      "cache_mb": 355.892578125,
+      "minutes": 6.238879930973053,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852633789954338,
+          "tae": 2.317956,
+          "tae_covis": 1.58765,
+          "n": 438,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "crowd": {
+          "delta1": 0.9822913074433657,
+          "tae": 4.055213,
+          "tae_covis": 2.053432,
+          "n": 927,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935995297891842,
+          "tae": 2.121089,
+          "tae_covis": 1.491041,
+          "n": 1091,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        }
+      },
+      "plan_bits": null,
+      "config": "fp32"
+    },
+    {
+      "mode": "zero",
+      "bits": null,
+      "delta1": 0.9870454564332246,
+      "abs_rel": 0.0460445924267101,
+      "tae_percent": 3.3507003333333336,
+      "tae_covis_percent": 2.3178300000000003,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 24.119084080060322,
+      "fid_flicker_pct": 2.4248041212558746,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 369.57373046875,
+      "cache_mb": 0.0,
+      "minutes": 6.489870659510294,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9851323127853883,
+          "tae": 2.906359,
+          "tae_covis": 2.185703,
+          "n": 438,
+          "fid_rel_dev": 23.14113676548004,
+          "fid_flicker": 2.347186766564846
+        },
+        "crowd": {
+          "delta1": 0.9800181941747572,
+          "tae": 4.325883,
+          "tae_covis": 2.544643,
+          "n": 927,
+          "fid_rel_dev": 23.43517243862152,
+          "fid_flicker": 2.793961763381958
+        },
+        "kidnapping_box": {
+          "delta1": 0.9937844381301556,
+          "tae": 2.819859,
+          "tae_covis": 2.223144,
+          "n": 1091,
+          "fid_rel_dev": 25.780943036079407,
+          "fid_flicker": 2.13326383382082
+        }
+      },
+      "plan_bits": null,
+      "config": "zero"
+    },
+    {
+      "mode": "int2-g16",
+      "bits": null,
+      "delta1": 0.9876664580618891,
+      "abs_rel": 0.04492569625407167,
+      "tae_percent": 2.8893156666666666,
+      "tae_covis_percent": 1.7597676666666668,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 2.1768717716137567,
+      "fid_flicker_pct": 0.5631346100320419,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 397.54638671875,
+      "cache_mb": 27.805389404296875,
+      "minutes": 12.279083720842998,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9850386552511416,
+          "tae": 2.381813,
+          "tae_covis": 1.642105,
+          "n": 438,
+          "fid_rel_dev": 2.011622302234173,
+          "fid_flicker": 0.5686768796294928
+        },
+        "crowd": {
+          "delta1": 0.9817319503775619,
+          "tae": 4.076973,
+          "tae_covis": 2.078831,
+          "n": 927,
+          "fid_rel_dev": 2.1120941266417503,
+          "fid_flicker": 0.6549184210598469
+        },
+        "kidnapping_box": {
+          "delta1": 0.9937638606782767,
+          "tae": 2.209161,
+          "tae_covis": 1.558367,
+          "n": 1091,
+          "fid_rel_dev": 2.4068988859653473,
+          "fid_flicker": 0.46580852940678596
+        }
+      },
+      "plan_bits": null,
+      "config": "int2-g16"
+    },
+    {
+      "mode": "int3-g16",
+      "bits": null,
+      "delta1": 0.9877368855863191,
+      "abs_rel": 0.044359769136807815,
+      "tae_percent": 2.831745666666667,
+      "tae_covis_percent": 1.7203540000000002,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 0.47787539660930634,
+      "fid_flicker_pct": 0.38750201153258484,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 445.16943359375,
+      "cache_mb": 24.627960205078125,
+      "minutes": 21.09870853026708,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852666415525114,
+          "tae": 2.324442,
+          "tae_covis": 1.600284,
+          "n": 438,
+          "fid_rel_dev": 0.42862668633461,
+          "fid_flicker": 0.3649536520242691
+        },
+        "crowd": {
+          "delta1": 0.982020170442287,
+          "tae": 4.050861,
+          "tae_covis": 2.064158,
+          "n": 927,
+          "fid_rel_dev": 0.6201919168233871,
+          "fid_flicker": 0.4871523007750511
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935859798350138,
+          "tae": 2.119934,
+          "tae_covis": 1.49662,
+          "n": 1091,
+          "fid_rel_dev": 0.3848075866699219,
+          "fid_flicker": 0.31040008179843426
+        }
+      },
+      "plan_bits": null,
+      "config": "int3-g16::d8:bin-g16"
+    },
+    {
+      "mode": "int4-g16",
+      "bits": null,
+      "delta1": 0.987750884771987,
+      "abs_rel": 0.044351389250814326,
+      "tae_percent": 2.832691,
+      "tae_covis_percent": 1.7209766666666668,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 0.4603757755830884,
+      "fid_flicker_pct": 0.3765835193917155,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 445.16943359375,
+      "cache_mb": 24.627960205078125,
+      "minutes": 21.010345073541007,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9852745410958904,
+          "tae": 2.324594,
+          "tae_covis": 1.600208,
+          "n": 438,
+          "fid_rel_dev": 0.41506956331431866,
+          "fid_flicker": 0.3526711370795965
+        },
+        "crowd": {
+          "delta1": 0.9820565631067961,
+          "tae": 4.05319,
+          "tae_covis": 2.065338,
+          "n": 927,
+          "fid_rel_dev": 0.6011647172272205,
+          "fid_flicker": 0.4752731882035732
+        },
+        "kidnapping_box": {
+          "delta1": 0.9935834005499543,
+          "tae": 2.120289,
+          "tae_covis": 1.497384,
+          "n": 1091,
+          "fid_rel_dev": 0.364893046207726,
+          "fid_flicker": 0.30180623289197683
+        }
+      },
+      "plan_bits": null,
+      "config": "int4-g16::d8:bin-g16"
+    }
+  ]
+}

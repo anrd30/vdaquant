@@ -1,0 +1,1370 @@
+[
+ {
+  "key": "bonn.vits.fp32.delta1",
+  "claimed": 0.9878,
+  "decimals": 4,
+  "actual_raw": 0.987844661644951,
+  "actual_rounded": 0.9878,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp32.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.04418758998371335,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp32.tae",
+  "claimed": 2.831,
+  "decimals": 3,
+  "actual_raw": 2.8314193333333333,
+  "actual_rounded": 2.831,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp32.covtae",
+  "claimed": 1.711,
+  "decimals": 3,
+  "actual_raw": 1.7107076666666667,
+  "actual_rounded": 1.711,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp32.cache_mb",
+  "claimed": 355.9,
+  "decimals": 1,
+  "actual_raw": 355.892578125,
+  "actual_rounded": 355.9,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp16.bits",
+  "claimed": 16,
+  "decimals": 0,
+  "actual_raw": 16.0,
+  "actual_rounded": 16,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp16.covtae_rel_pct",
+  "claimed": 0.0,
+  "decimals": 1,
+  "actual_raw": 0.0019874815938791812,
+  "actual_rounded": 0.0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.fp16.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.04418749185667752,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int8_g64.bits",
+  "claimed": 8.25,
+  "decimals": 2,
+  "actual_raw": 8.25,
+  "actual_rounded": 8.25,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int8_g64.covtae_rel_pct",
+  "claimed": 0.0,
+  "decimals": 1,
+  "actual_raw": 0.0003702171596398074,
+  "actual_rounded": 0.0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int8_g64.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.04418754315960912,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g16.bits",
+  "claimed": 4.5,
+  "decimals": 1,
+  "actual_raw": 4.5,
+  "actual_rounded": 4.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g16.covtae_rel_pct",
+  "claimed": -0.1,
+  "decimals": 1,
+  "actual_raw": -0.10829826175249302,
+  "actual_rounded": -0.1,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g16.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.04420046986970684,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g64_asym.bits",
+  "claimed": 4.5,
+  "decimals": 1,
+  "actual_raw": 4.5,
+  "actual_rounded": 4.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g64_asym.covtae_rel_pct",
+  "claimed": -0.1,
+  "decimals": 1,
+  "actual_raw": -0.11100669255199591,
+  "actual_rounded": -0.1,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g64_asym.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.044200056596091206,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g16_rht.bits",
+  "claimed": 4.5,
+  "decimals": 1,
+  "actual_raw": 4.5,
+  "actual_rounded": 4.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g16_rht.covtae_rel_pct",
+  "claimed": -0.1,
+  "decimals": 1,
+  "actual_raw": -0.09993914799002468,
+  "actual_rounded": -0.1,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int4_g16_rht.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.044197140472312706,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_g16.bits",
+  "claimed": 3.5,
+  "decimals": 1,
+  "actual_raw": 3.5,
+  "actual_rounded": 3.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_g16.covtae_rel_pct",
+  "claimed": -0.5,
+  "decimals": 1,
+  "actual_raw": -0.463453428532401,
+  "actual_rounded": -0.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_g16.absrel",
+  "claimed": 0.0442,
+  "decimals": 4,
+  "actual_raw": 0.04424701669381107,
+  "actual_rounded": 0.0442,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_g16_rht.bits",
+  "claimed": 3.5,
+  "decimals": 1,
+  "actual_raw": 3.5,
+  "actual_rounded": 3.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_g16_rht.covtae_rel_pct",
+  "claimed": -0.5,
+  "decimals": 1,
+  "actual_raw": -0.45904979284402403,
+  "actual_rounded": -0.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_g16_rht.absrel",
+  "claimed": 0.0443,
+  "decimals": 4,
+  "actual_raw": 0.044308166938110745,
+  "actual_rounded": 0.0443,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_gT.bits",
+  "claimed": 3.0,
+  "decimals": 1,
+  "actual_raw": 3.0000576236026277,
+  "actual_rounded": 3.0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_gT.covtae_rel_pct",
+  "claimed": -0.2,
+  "decimals": 1,
+  "actual_raw": -0.2136932415688353,
+  "actual_rounded": -0.2,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int3_gT.absrel",
+  "claimed": 0.0444,
+  "decimals": 4,
+  "actual_raw": 0.04438497109120521,
+  "actual_rounded": 0.0444,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int2_g16.bits",
+  "claimed": 2.5,
+  "decimals": 1,
+  "actual_raw": 2.5,
+  "actual_rounded": 2.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int2_g16.covtae_rel_pct",
+  "claimed": 2.9,
+  "decimals": 1,
+  "actual_raw": 2.8678190292789285,
+  "actual_rounded": 2.9,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int2_g16.absrel",
+  "claimed": 0.0449,
+  "decimals": 4,
+  "actual_raw": 0.04492569625407167,
+  "actual_rounded": 0.0449,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int2_g16_rht.bits",
+  "claimed": 2.5,
+  "decimals": 1,
+  "actual_raw": 2.5,
+  "actual_rounded": 2.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int2_g16_rht.covtae_rel_pct",
+  "claimed": 0.8,
+  "decimals": 1,
+  "actual_raw": 0.8148479683748766,
+  "actual_rounded": 0.8,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.int2_g16_rht.absrel",
+  "claimed": 0.0445,
+  "decimals": 4,
+  "actual_raw": 0.04454241734527687,
+  "actual_rounded": 0.0445,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.bin_g16.bits",
+  "claimed": 1.5,
+  "decimals": 1,
+  "actual_raw": 1.5,
+  "actual_rounded": 1.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.bin_g16.covtae_rel_pct",
+  "claimed": 35.9,
+  "decimals": 1,
+  "actual_raw": 35.935070145434935,
+  "actual_rounded": 35.9,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.bin_g16.absrel",
+  "claimed": 0.0447,
+  "decimals": 4,
+  "actual_raw": 0.04465810586319218,
+  "actual_rounded": 0.0447,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int3_bin_K8.bits",
+  "claimed": 2.05,
+  "decimals": 2,
+  "actual_raw": 2.0476190476190474,
+  "actual_rounded": 2.05,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int3_bin_K8.covtae_rel_pct",
+  "claimed": 0.6,
+  "decimals": 1,
+  "actual_raw": 0.5638797043640675,
+  "actual_rounded": 0.6,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int3_bin_K8.absrel",
+  "claimed": 0.0444,
+  "decimals": 4,
+  "actual_raw": 0.044359769136807815,
+  "actual_rounded": 0.0444,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int3_bin_K16.bits",
+  "claimed": 2.2,
+  "decimals": 2,
+  "actual_raw": 2.2023809523809526,
+  "actual_rounded": 2.2,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int3_bin_K16.covtae_rel_pct",
+  "claimed": 0.8,
+  "decimals": 1,
+  "actual_raw": 0.765258354096332,
+  "actual_rounded": 0.8,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int3_bin_K16.absrel",
+  "claimed": 0.0444,
+  "decimals": 4,
+  "actual_raw": 0.044384802524429966,
+  "actual_rounded": 0.0444,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int4_bin_K8.bits",
+  "claimed": 2.21,
+  "decimals": 2,
+  "actual_raw": 2.2142857142857144,
+  "actual_rounded": 2.21,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int4_bin_K8.covtae_rel_pct",
+  "claimed": 0.6,
+  "decimals": 1,
+  "actual_raw": 0.6002778966911038,
+  "actual_rounded": 0.6,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.delta_int4_bin_K8.absrel",
+  "claimed": 0.0444,
+  "decimals": 4,
+  "actual_raw": 0.044351389250814326,
+  "actual_rounded": 0.0444,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.lam16_b3.bits",
+  "claimed": 3.0,
+  "decimals": 1,
+  "actual_raw": 3.0001152472052555,
+  "actual_rounded": 3.0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.lam16_b3.covtae_rel_pct",
+  "claimed": 0.2,
+  "decimals": 1,
+  "actual_raw": 0.17339802650870872,
+  "actual_rounded": 0.2,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.lam16_b3.absrel",
+  "claimed": 0.0443,
+  "decimals": 4,
+  "actual_raw": 0.04433267060260586,
+  "actual_rounded": 0.0443,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.lam16_b2.bits",
+  "claimed": 2.0,
+  "decimals": 1,
+  "actual_raw": 2.0001152472052555,
+  "actual_rounded": 2.0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.lam16_b2.covtae_rel_pct",
+  "claimed": 13.0,
+  "decimals": 1,
+  "actual_raw": 13.002221497808986,
+  "actual_rounded": 13.0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.lam16_b2.absrel",
+  "claimed": 0.0448,
+  "decimals": 4,
+  "actual_raw": 0.044845079804560255,
+  "actual_rounded": 0.0448,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.zero.bits",
+  "claimed": 0,
+  "decimals": 0,
+  "actual_raw": 0.0,
+  "actual_rounded": 0,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.zero.covtae_rel_pct",
+  "claimed": 35.5,
+  "decimals": 1,
+  "actual_raw": 35.48954302147476,
+  "actual_rounded": 35.5,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.zero.absrel",
+  "claimed": 0.046,
+  "decimals": 4,
+  "actual_raw": 0.0460445924267101,
+  "actual_rounded": 0.046,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.n_scenes",
+  "claimed": 3,
+  "decimals": 0,
+  "actual_raw": 3.0,
+  "actual_rounded": 3,
+  "status": "ok"
+ },
+ {
+  "key": "bonn.vits.n_frames",
+  "claimed": 2456,
+  "decimals": 0,
+  "actual_raw": 2456.0,
+  "actual_rounded": 2456,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.fp32.delta1",
+  "claimed": 0.7194,
+  "decimals": 4,
+  "actual_raw": 0.7193878822966506,
+  "actual_rounded": 0.7194,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.fp32.absrel",
+  "claimed": 0.2268,
+  "decimals": 4,
+  "actual_raw": 0.22681333779904309,
+  "actual_rounded": 0.2268,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.fp32.tae",
+  "claimed": 53.03,
+  "decimals": 2,
+  "actual_raw": 53.026742173913036,
+  "actual_rounded": 53.03,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.fp32.covtae",
+  "claimed": 6.848,
+  "decimals": 3,
+  "actual_raw": 6.848294347826086,
+  "actual_rounded": 6.848,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.fp32.cache_mb",
+  "claimed": 360.0,
+  "decimals": 1,
+  "actual_raw": 360.03515625,
+  "actual_rounded": 360.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_gT.bits",
+  "claimed": 3.0,
+  "decimals": 1,
+  "actual_raw": 3.0000569605832763,
+  "actual_rounded": 3.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_gT.covtae_rel_pct",
+  "claimed": -0.5,
+  "decimals": 1,
+  "actual_raw": -0.5295872783810274,
+  "actual_rounded": -0.5,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_gT.tae_rel_pct",
+  "claimed": -0.3,
+  "decimals": 1,
+  "actual_raw": -0.30167165776326943,
+  "actual_rounded": -0.3,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_gT.absrel",
+  "claimed": 0.2277,
+  "decimals": 4,
+  "actual_raw": 0.22774984114832536,
+  "actual_rounded": 0.2277,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_gT.delta1",
+  "claimed": 0.7184,
+  "decimals": 4,
+  "actual_raw": 0.7183769129186603,
+  "actual_rounded": 0.7184,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_g16.bits",
+  "claimed": 3.5,
+  "decimals": 1,
+  "actual_raw": 3.5,
+  "actual_rounded": 3.5,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_g16.covtae_rel_pct",
+  "claimed": -0.4,
+  "decimals": 1,
+  "actual_raw": -0.4379567187691058,
+  "actual_rounded": -0.4,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_g16.tae_rel_pct",
+  "claimed": -0.3,
+  "decimals": 1,
+  "actual_raw": -0.2883508974679927,
+  "actual_rounded": -0.3,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_g16.absrel",
+  "claimed": 0.2267,
+  "decimals": 4,
+  "actual_raw": 0.22666928038277515,
+  "actual_rounded": 0.2267,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int3_g16.delta1",
+  "claimed": 0.7196,
+  "decimals": 4,
+  "actual_raw": 0.7195647894736842,
+  "actual_rounded": 0.7196,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16.bits",
+  "claimed": 2.5,
+  "decimals": 1,
+  "actual_raw": 2.5,
+  "actual_rounded": 2.5,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16.covtae_rel_pct",
+  "claimed": -0.3,
+  "decimals": 1,
+  "actual_raw": -0.29173878078301296,
+  "actual_rounded": -0.3,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16.tae_rel_pct",
+  "claimed": 0.3,
+  "decimals": 1,
+  "actual_raw": 0.31585793704567156,
+  "actual_rounded": 0.3,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16.absrel",
+  "claimed": 0.2314,
+  "decimals": 4,
+  "actual_raw": 0.23139513301435408,
+  "actual_rounded": 0.2314,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16.delta1",
+  "claimed": 0.7124,
+  "decimals": 4,
+  "actual_raw": 0.7124074956937799,
+  "actual_rounded": 0.7124,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16_rht.bits",
+  "claimed": 2.5,
+  "decimals": 1,
+  "actual_raw": 2.5,
+  "actual_rounded": 2.5,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16_rht.covtae_rel_pct",
+  "claimed": 4.6,
+  "decimals": 1,
+  "actual_raw": 4.6186270310278,
+  "actual_rounded": 4.6,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16_rht.tae_rel_pct",
+  "claimed": 0.7,
+  "decimals": 1,
+  "actual_raw": 0.6832522166194899,
+  "actual_rounded": 0.7,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16_rht.absrel",
+  "claimed": 0.2224,
+  "decimals": 4,
+  "actual_raw": 0.22235024114832536,
+  "actual_rounded": 0.2224,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.int2_g16_rht.delta1",
+  "claimed": 0.7244,
+  "decimals": 4,
+  "actual_raw": 0.7244290038277512,
+  "actual_rounded": 0.7244,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.bin_g16.bits",
+  "claimed": 1.5,
+  "decimals": 1,
+  "actual_raw": 1.5,
+  "actual_rounded": 1.5,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.bin_g16.covtae_rel_pct",
+  "claimed": 35.6,
+  "decimals": 1,
+  "actual_raw": 35.603849184408176,
+  "actual_rounded": 35.6,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.bin_g16.absrel",
+  "claimed": 0.2223,
+  "decimals": 4,
+  "actual_raw": 0.22231314066985644,
+  "actual_rounded": 0.2223,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.bin_g16.delta1",
+  "claimed": 0.7197,
+  "decimals": 4,
+  "actual_raw": 0.7197089741626794,
+  "actual_rounded": 0.7197,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_bin_K8.bits",
+  "claimed": 1.87,
+  "decimals": 2,
+  "actual_raw": 1.869047619047619,
+  "actual_rounded": 1.87,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_bin_K8.covtae_rel_pct",
+  "claimed": 0.1,
+  "decimals": 1,
+  "actual_raw": 0.11107748378098581,
+  "actual_rounded": 0.1,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_bin_K8.absrel",
+  "claimed": 0.2267,
+  "decimals": 4,
+  "actual_raw": 0.2267069119617225,
+  "actual_rounded": 0.2267,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_bin_K8.delta1",
+  "claimed": 0.7188,
+  "decimals": 4,
+  "actual_raw": 0.7187890851674641,
+  "actual_rounded": 0.7188,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_int2_K8.bits",
+  "claimed": 2.73,
+  "decimals": 2,
+  "actual_raw": 2.7261904761904763,
+  "actual_rounded": 2.73,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_int2_K8.covtae_rel_pct",
+  "claimed": 0.0,
+  "decimals": 1,
+  "actual_raw": -0.003572454124867175,
+  "actual_rounded": -0.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_int2_K8.absrel",
+  "claimed": 0.2271,
+  "decimals": 4,
+  "actual_raw": 0.22709983444976078,
+  "actual_rounded": 0.2271,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.delta_int3_int2_K8.delta1",
+  "claimed": 0.7187,
+  "decimals": 4,
+  "actual_raw": 0.7187180028708134,
+  "actual_rounded": 0.7187,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b3.bits",
+  "claimed": 3.0,
+  "decimals": 1,
+  "actual_raw": 3.0001139211665526,
+  "actual_rounded": 3.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b3.covtae_rel_pct",
+  "claimed": 0.4,
+  "decimals": 1,
+  "actual_raw": 0.44080350822992553,
+  "actual_rounded": 0.4,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b3.tae_rel_pct",
+  "claimed": 0.0,
+  "decimals": 1,
+  "actual_raw": 0.028396172572708878,
+  "actual_rounded": 0.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b3.absrel",
+  "claimed": 0.2272,
+  "decimals": 4,
+  "actual_raw": 0.22720136650717704,
+  "actual_rounded": 0.2272,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b3.delta1",
+  "claimed": 0.7189,
+  "decimals": 4,
+  "actual_raw": 0.7188603110047846,
+  "actual_rounded": 0.7189,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b2.bits",
+  "claimed": 2.0,
+  "decimals": 1,
+  "actual_raw": 2.0001139211665526,
+  "actual_rounded": 2.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b2.covtae_rel_pct",
+  "claimed": 14.5,
+  "decimals": 1,
+  "actual_raw": 14.547198264601224,
+  "actual_rounded": 14.5,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b2.tae_rel_pct",
+  "claimed": 0.0,
+  "decimals": 1,
+  "actual_raw": -0.03218769672955757,
+  "actual_rounded": -0.0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b2.absrel",
+  "claimed": 0.2242,
+  "decimals": 4,
+  "actual_raw": 0.2241755033492823,
+  "actual_rounded": 0.2242,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.lam16_b2.delta1",
+  "claimed": 0.7157,
+  "decimals": 4,
+  "actual_raw": 0.7156542468899522,
+  "actual_rounded": 0.7157,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.zero.bits",
+  "claimed": 0,
+  "decimals": 0,
+  "actual_raw": 0.0,
+  "actual_rounded": 0,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.zero.covtae_rel_pct",
+  "claimed": 60.1,
+  "decimals": 1,
+  "actual_raw": 60.116940574920676,
+  "actual_rounded": 60.1,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.zero.tae_rel_pct",
+  "claimed": 2.9,
+  "decimals": 1,
+  "actual_raw": 2.8629938132857413,
+  "actual_rounded": 2.9,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.zero.absrel",
+  "claimed": 0.22,
+  "decimals": 4,
+  "actual_raw": 0.2200454775119617,
+  "actual_rounded": 0.22,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.zero.delta1",
+  "claimed": 0.7163,
+  "decimals": 4,
+  "actual_raw": 0.7162708727272727,
+  "actual_rounded": 0.7163,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.n_scenes",
+  "claimed": 23,
+  "decimals": 0,
+  "actual_raw": 23.0,
+  "actual_rounded": 23,
+  "status": "ok"
+ },
+ {
+  "key": "sintel.vits.n_frames",
+  "claimed": 1045,
+  "decimals": 0,
+  "actual_raw": 1045.0,
+  "actual_rounded": 1045,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vits.fp32.cache_mb",
+  "claimed": 269.0,
+  "decimals": 1,
+  "actual_raw": 269.021484375,
+  "actual_rounded": 269.0,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vits.lam16_b3.cache_mb",
+  "claimed": 25.2,
+  "decimals": 1,
+  "actual_raw": 25.2220458984375,
+  "actual_rounded": 25.2,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vits.fp32.peak_mb",
+  "claimed": 770,
+  "decimals": 0,
+  "actual_raw": 770.39111328125,
+  "actual_rounded": 770,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vits.lam16_b3.peak_mb",
+  "claimed": 337,
+  "decimals": 0,
+  "actual_raw": 337.0927734375,
+  "actual_rounded": 337,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.fp32.cache_mb",
+  "claimed": 538.0,
+  "decimals": 1,
+  "actual_raw": 538.04296875,
+  "actual_rounded": 538.0,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.delta_int3_bin_K8.cache_mb",
+  "claimed": 31.4,
+  "decimals": 1,
+  "actual_raw": 31.425872802734375,
+  "actual_rounded": 31.4,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.delta_cache_ratio",
+  "claimed": 17.1,
+  "decimals": 1,
+  "actual_raw": 17.121019108280255,
+  "actual_rounded": 17.1,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.fp32.peak_mb",
+  "claimed": 1786,
+  "decimals": 0,
+  "actual_raw": 1786.25439453125,
+  "actual_rounded": 1786,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.delta_int3_bin_K8.peak_mb",
+  "claimed": 1115,
+  "decimals": 0,
+  "actual_raw": 1115.0068359375,
+  "actual_rounded": 1115,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.int2_g16.depth_rel_l1_mean",
+  "claimed": 0.208,
+  "decimals": 3,
+  "actual_raw": 0.2077207922935486,
+  "actual_rounded": 0.208,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitb.delta_int3_bin_K8.depth_rel_l1_mean",
+  "claimed": 0.0048,
+  "decimals": 4,
+  "actual_raw": 0.0048176528466865425,
+  "actual_rounded": 0.0048,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.fp32.cache_mb",
+  "claimed": 1129.2,
+  "decimals": 1,
+  "actual_raw": 1129.16015625,
+  "actual_rounded": 1129.2,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.delta_int3_bin_K8.cache_mb",
+  "claimed": 66.0,
+  "decimals": 1,
+  "actual_raw": 65.95169067382812,
+  "actual_rounded": 66.0,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.delta_cache_ratio",
+  "claimed": 17.1,
+  "decimals": 1,
+  "actual_raw": 17.121019108280255,
+  "actual_rounded": 17.1,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.fp32.peak_mb",
+  "claimed": 4150,
+  "decimals": 0,
+  "actual_raw": 4150.1708984375,
+  "actual_rounded": 4150,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.delta_int3_bin_K8.peak_mb",
+  "claimed": 2857,
+  "decimals": 0,
+  "actual_raw": 2857.19580078125,
+  "actual_rounded": 2857,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.int2_g16.depth_rel_l1_mean",
+  "claimed": 0.033,
+  "decimals": 3,
+  "actual_raw": 0.03253131406381726,
+  "actual_rounded": 0.033,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vitl.delta_int3_bin_K8.depth_rel_l1_mean",
+  "claimed": 0.0071,
+  "decimals": 4,
+  "actual_raw": 0.007081255943048746,
+  "actual_rounded": 0.0071,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vits.fp32_kv.depth_rel_l1_mean",
+  "claimed": 0.0001,
+  "decimals": 4,
+  "actual_raw": 7.610688044223934e-05,
+  "actual_rounded": 0.0001,
+  "status": "ok"
+ },
+ {
+  "key": "mem.vits.fp32_kv.cache_mb",
+  "claimed": 538.0,
+  "decimals": 1,
+  "actual_raw": 538.04296875,
+  "actual_rounded": 538.0,
+  "status": "ok"
+ },
+ {
+  "key": "probe.bonn.residual_var_ratio_min",
+  "claimed": 0.013,
+  "decimals": 3,
+  "actual_raw": 0.013,
+  "actual_rounded": 0.013,
+  "status": "ok"
+ },
+ {
+  "key": "probe.bonn.residual_var_ratio_max",
+  "claimed": 0.255,
+  "decimals": 3,
+  "actual_raw": 0.255,
+  "actual_rounded": 0.255,
+  "status": "ok"
+ },
+ {
+  "key": "probe.bonn.residual_var_ratio_weighted_min",
+  "claimed": 0.111,
+  "decimals": 3,
+  "actual_raw": 0.111,
+  "actual_rounded": 0.111,
+  "status": "ok"
+ },
+ {
+  "key": "probe.bonn.residual_var_ratio_weighted_max",
+  "claimed": 0.133,
+  "decimals": 3,
+  "actual_raw": 0.133,
+  "actual_rounded": 0.133,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.fp32.delta1",
+  "claimed": 0.6876,
+  "decimals": 4,
+  "actual_raw": 0.6876,
+  "actual_rounded": 0.6876,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.fp32.covtae",
+  "claimed": 8.56,
+  "decimals": 2,
+  "actual_raw": 8.564436,
+  "actual_rounded": 8.56,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_g16.bits",
+  "claimed": 3.5,
+  "decimals": 3,
+  "actual_raw": 3.5,
+  "actual_rounded": 3.5,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_g16.delta1",
+  "claimed": 0.6869,
+  "decimals": 4,
+  "actual_raw": 0.6869,
+  "actual_rounded": 0.6869,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_g16.covtae",
+  "claimed": 11.08,
+  "decimals": 2,
+  "actual_raw": 11.076032,
+  "actual_rounded": 11.08,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_g64.bits",
+  "claimed": 3.125,
+  "decimals": 3,
+  "actual_raw": 3.125,
+  "actual_rounded": 3.125,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_g64.delta1",
+  "claimed": 0.6938,
+  "decimals": 4,
+  "actual_raw": 0.6938,
+  "actual_rounded": 0.6938,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_g64.covtae",
+  "claimed": 14.03,
+  "decimals": 2,
+  "actual_raw": 14.032199,
+  "actual_rounded": 14.03,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g16_b3.bits",
+  "claimed": 3.0,
+  "decimals": 3,
+  "actual_raw": 3.5,
+  "actual_rounded": 3.5,
+  "status": "MISMATCH"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g16_b3.delta1",
+  "claimed": 0.6836,
+  "decimals": 4,
+  "actual_raw": 0.6836,
+  "actual_rounded": 0.6836,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g16_b3.covtae",
+  "claimed": 12.06,
+  "decimals": 2,
+  "actual_raw": 12.058245,
+  "actual_rounded": 12.06,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g32_b3.bits",
+  "claimed": 2.75,
+  "decimals": 3,
+  "actual_raw": 3.25,
+  "actual_rounded": 3.25,
+  "status": "MISMATCH"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g32_b3.delta1",
+  "claimed": 0.6775,
+  "decimals": 4,
+  "actual_raw": 0.6775,
+  "actual_rounded": 0.6775,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g32_b3.covtae",
+  "claimed": 12.44,
+  "decimals": 2,
+  "actual_raw": 12.441076,
+  "actual_rounded": 12.44,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g64_b3.bits",
+  "claimed": 2.625,
+  "decimals": 3,
+  "actual_raw": 3.125,
+  "actual_rounded": 3.125,
+  "status": "MISMATCH"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g64_b3.delta1",
+  "claimed": 0.6836,
+  "decimals": 4,
+  "actual_raw": 0.6836,
+  "actual_rounded": 0.6836,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g64_b3.covtae",
+  "claimed": 14.97,
+  "decimals": 2,
+  "actual_raw": 14.966476,
+  "actual_rounded": 14.97,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.lam16_g64_b3.bits",
+  "claimed": 2.625,
+  "decimals": 3,
+  "actual_raw": 3.125,
+  "actual_rounded": 3.125,
+  "status": "MISMATCH"
+ },
+ {
+  "key": "hard.sintel.vits.lam16_g64_b3.delta1",
+  "claimed": 0.6225,
+  "decimals": 4,
+  "actual_raw": 0.6225,
+  "actual_rounded": 0.6225,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.lam16_g64_b3.covtae",
+  "claimed": 52.69,
+  "decimals": 2,
+  "actual_raw": 52.693435,
+  "actual_rounded": 52.69,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int2_g16.bits",
+  "claimed": 2.5,
+  "decimals": 3,
+  "actual_raw": 2.5,
+  "actual_rounded": 2.5,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int2_g16.delta1",
+  "claimed": 0.4187,
+  "decimals": 4,
+  "actual_raw": 0.4187,
+  "actual_rounded": 0.4187,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int2_g16.covtae",
+  "claimed": 6.38,
+  "decimals": 2,
+  "actual_raw": 6.379473,
+  "actual_rounded": 6.38,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int2_g64.bits",
+  "claimed": 2.125,
+  "decimals": 3,
+  "actual_raw": 2.125,
+  "actual_rounded": 2.125,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int2_g64.delta1",
+  "claimed": 0.4069,
+  "decimals": 4,
+  "actual_raw": 0.4069,
+  "actual_rounded": 0.4069,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int2_g64.covtae",
+  "claimed": 5.96,
+  "decimals": 2,
+  "actual_raw": 5.95868,
+  "actual_rounded": 5.96,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g64_b2.bits",
+  "claimed": 1.625,
+  "decimals": 3,
+  "actual_raw": 2.125,
+  "actual_rounded": 2.125,
+  "status": "MISMATCH"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g64_b2.delta1",
+  "claimed": 0.4252,
+  "decimals": 4,
+  "actual_raw": 0.4252,
+  "actual_rounded": 0.4252,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.e8_g64_b2.covtae",
+  "claimed": 7.61,
+  "decimals": 2,
+  "actual_raw": 7.608149,
+  "actual_rounded": 7.61,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_tensor.bits",
+  "claimed": 3.125,
+  "decimals": 3,
+  "actual_raw": 3.125,
+  "actual_rounded": 3.125,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_tensor.delta1",
+  "claimed": 0.4509,
+  "decimals": 4,
+  "actual_raw": 0.4509,
+  "actual_rounded": 0.4509,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int3_tensor.covtae",
+  "claimed": 63.88,
+  "decimals": 2,
+  "actual_raw": 63.876209,
+  "actual_rounded": 63.88,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int4_tensor.bits",
+  "claimed": 4.125,
+  "decimals": 3,
+  "actual_raw": 4.125,
+  "actual_rounded": 4.125,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int4_tensor.delta1",
+  "claimed": 0.6314,
+  "decimals": 4,
+  "actual_raw": 0.6314,
+  "actual_rounded": 0.6314,
+  "status": "ok"
+ },
+ {
+  "key": "hard.sintel.vits.int4_tensor.covtae",
+  "claimed": 14.49,
+  "decimals": 2,
+  "actual_raw": 14.486204,
+  "actual_rounded": 14.49,
+  "status": "ok"
+ }
+]
