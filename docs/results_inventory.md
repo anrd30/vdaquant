@@ -156,6 +156,11 @@ Bits = allocated (INT3/INT4 keyframes stored as 4-bit nibbles since the bit-pack
 | Bonn ViT-B zero | 0 | +13.6% | 38.0% | 1.74% | +0.0003 | -0.0003 |
 | Bonn ViT-B int2-g16 | 2.50 | +8.7% | 6.38% | 0.62% | -0.0001 | +0.0007 |
 | Bonn ViT-B delta int4 key + bin, K8 | 2.21 | +0.6% | 0.39% | 0.30% | -0.0001 | +0.0001 |
+| Bonn ViT-L zero | 0 | +17.7% | 29.6% | 1.92% | +0.0006 | -0.0006 |
+| Bonn ViT-L int2-g16 | 2.50 | +4.9% | 2.98% | 0.55% | -0.0001 | +0.0005 |
+| Bonn ViT-L delta int4 key + bin, K8 | 2.21 | +0.2% | 0.50% | 0.31% | +0.0000 | +0.0000 |
+
+Bonn ViT-L memory (real, bit-packed): FP32 cache 1494 MB, peak 4986 MB; delta cache 103.4 MB (14.5x), peak 2843 MB (-43%).
 
 Sintel ViT-S delta ablations (int4 key + bin residual unless stated):
 K=4 2.39 b fid 1.14%; K=8 2.04 b 1.40%; K=16 2.07 b 1.54% (anchor overhead, no saving);
