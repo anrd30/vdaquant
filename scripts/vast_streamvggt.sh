@@ -21,6 +21,7 @@
 # Finished runs are skipped, so any command can be restarted. The uncompressed
 # cache is 16-bit here: on Ampere the evaluator runs under bf16 autocast.
 set -eu
+export CUDA_DEVICE_ORDER=PCI_BUS_ID      # GPU numbers match nvidia-smi
 ROOT=${ROOT:-$HOME/work}
 SVG=$ROOT/StreamVGGT
 VDAQ=${VDAQ:-$ROOT/vdaquant}
@@ -63,8 +64,11 @@ PY
   cd "$MON/data"
   for d in sintel bonn kitti; do [ -e "$d" ] || bash "download_$d.sh"; done
   cd "$MON/datasets_preprocess"
-  ls -d "$MON"/data/bonn/rgbd_bonn_dataset/*/rgb_110 >/dev/null 2>&1 || python prepare_bonn.py
-  [ -d "$MON/data/kitti/depth_selection/val_selection_cropped/image_gathered" ] || python prepare_kitti.py
+  # A failure here only affects that dataset; the checks below report it.
+  ls -d "$MON"/data/bonn/rgbd_bonn_dataset/*/rgb_110 >/dev/null 2>&1 || python prepare_bonn.py \
+    || echo "WARNING: Bonn preparation failed"
+  [ -d "$MON/data/kitti/depth_selection/val_selection_cropped/image_gathered" ] || python prepare_kitti.py \
+    || echo "WARNING: KITTI preparation failed"
   mkdir -p "$SVG/data" && ln -sfn "$MON/data" "$SVG/data/eval"
   echo "== check these paths exist =="
   ls -d "$SVG/data/eval/sintel/training/final" "$SVG/data/eval/sintel/training/depth" \
