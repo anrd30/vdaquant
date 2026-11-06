@@ -1,0 +1,148 @@
+{
+  "args": {
+    "dataset": "bonn",
+    "encoder": "vitl",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vitl.pth",
+    "configs": "fp32,int2-g64-asym,int2-g32-asym",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1000,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/bonn_vitl_int2asym.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "delta1": 0.9873113477198697,
+      "abs_rel": 0.03865557206840391,
+      "tae_percent": 3.0600416666666668,
+      "tae_covis_percent": 1.7472769999999997,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": null,
+      "fid_flicker_pct": null,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 4985.9580078125,
+      "cache_mb": 1494.36328125,
+      "minutes": 75.02834047873814,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.984803105022831,
+          "tae": 2.274118,
+          "tae_covis": 1.510714,
+          "n": 438,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "crowd": {
+          "delta1": 0.980810028047465,
+          "tae": 4.500638,
+          "tae_covis": 2.137286,
+          "n": 927,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "kidnapping_box": {
+          "delta1": 0.9938423593033915,
+          "tae": 2.405369,
+          "tae_covis": 1.593831,
+          "n": 1091,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        }
+      },
+      "plan_bits": null,
+      "config": "fp32"
+    },
+    {
+      "mode": "int2-g64-asym",
+      "bits": null,
+      "delta1": 0.9871874991856677,
+      "abs_rel": 0.03910668200325733,
+      "tae_percent": 3.0627553333333335,
+      "tae_covis_percent": 1.7425093333333335,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 1.2758048561712105,
+      "fid_flicker_pct": 0.39139432677378255,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 2662.58984375,
+      "cache_mb": 116.74713134765625,
+      "minutes": 21.0009601354599,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9847021095890411,
+          "tae": 2.266851,
+          "tae_covis": 1.500712,
+          "n": 438,
+          "fid_rel_dev": 1.13209942355752,
+          "fid_flicker": 0.3849583910778165
+        },
+        "crowd": {
+          "delta1": 0.9807265350593312,
+          "tae": 4.528328,
+          "tae_covis": 2.148654,
+          "n": 927,
+          "fid_rel_dev": 1.5230953693389893,
+          "fid_flicker": 0.45886775478720665
+        },
+        "kidnapping_box": {
+          "delta1": 0.9936750467461044,
+          "tae": 2.393087,
+          "tae_covis": 1.578162,
+          "n": 1091,
+          "fid_rel_dev": 1.1722197756171227,
+          "fid_flicker": 0.3303568344563246
+        }
+      },
+      "plan_bits": null,
+      "config": "int2-g64-asym"
+    },
+    {
+      "mode": "int2-g32-asym",
+      "bits": null,
+      "delta1": 0.9872271160423453,
+      "abs_rel": 0.038883100570032574,
+      "tae_percent": 3.042877666666667,
+      "tae_covis_percent": 1.7339853333333333,
+      "covis_fraction": 0.7849493333333334,
+      "fid_rel_dev_pct": 0.8548198888699213,
+      "fid_flicker_pct": 0.33124600692341727,
+      "n_frames": 2456,
+      "n_skipped_frames": 0,
+      "peak_mb": 2683.77490234375,
+      "cache_mb": 140.0965576171875,
+      "minutes": 21.423332409063974,
+      "per_scene": {
+        "balloon": {
+          "delta1": 0.9847976757990866,
+          "tae": 2.260332,
+          "tae_covis": 1.498698,
+          "n": 438,
+          "fid_rel_dev": 0.8672265335917473,
+          "fid_flicker": 0.31449811067432165
+        },
+        "crowd": {
+          "delta1": 0.9806829859762677,
+          "tae": 4.478947,
+          "tae_covis": 2.124126,
+          "n": 927,
+          "fid_rel_dev": 0.8996930904686451,
+          "fid_flicker": 0.397192919626832
+        },
+        "kidnapping_box": {
+          "delta1": 0.9937628661778185,
+          "tae": 2.389354,
+          "tae_covis": 1.579132,
+          "n": 1091,
+          "fid_rel_dev": 0.7975400425493717,
+          "fid_flicker": 0.2820469904690981
+        }
+      },
+      "plan_bits": null,
+      "config": "int2-g32-asym"
+    }
+  ]
+}

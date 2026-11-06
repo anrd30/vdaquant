@@ -281,6 +281,8 @@ def parse_scalar_spec(mode: str):
 
 def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor) -> _ScalarTensor:
     bits, g, rot, asym = parse_scalar_spec(mode)
+    # 8-bit scale index (as g16) for any group size with '-s8', e.g. 'bin-g32-s8'
+    s8 = g == 16 or 's8' in mode.split('-')
     shape, C = tuple(t.shape), t.shape[-1]
     x = t.float().reshape(-1, C)
     if rot:
@@ -292,7 +294,7 @@ def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor) -> _ScalarT
         # 1-bit: x_hat = s * sign(x); s = mean|x| minimises ||x - s*sign(x)||^2
         kind, nb = 'bin', 1
         scale = xg.abs().mean(-1, keepdim=True).clamp(min=1e-12)
-        if g == 16:
+        if s8:
             step_t = scale.max().clamp(min=1e-12) / 255.0
             idx = (scale / step_t).round().clamp(0, 255)
             scale_st, step = idx.to(torch.uint8).reshape(-1), float(step_t)
@@ -310,7 +312,7 @@ def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor) -> _ScalarT
         kind, nb = 'sym', _code_bits(bits, False)
         h = 2 ** (bits - 1)
         scale = xg.abs().amax(-1, keepdim=True).clamp(min=1e-8) / max(h - 1, 1)
-        if g == 16:                                             # 8-bit scale, as the lattice
+        if s8:                                                  # 8-bit scale, as the lattice
             step_t = scale.max().clamp(min=1e-8) / 255.0
             idx = (scale / step_t).round().clamp(0, 255)
             scale = idx * step_t
@@ -404,6 +406,74 @@ def cache_nbytes(model) -> int:
     return total
 
 
+BATCHED_SCALAR_DECODE = True    # one unpack per layer and mode instead of one per entry (bit-identical)
+USE_TCC_KERNEL = True           # fused Triton decode of a whole chain per layer (bit-identical)
+try:
+    from kernels.triton_kernels.decode_tcc import TRITON_AVAILABLE as _TCC_OK, tcc_decode
+except Exception:               # pragma: no cover
+    _TCC_OK = False
+
+
+def _kernel_decode(entries, i: int, accumulate: bool, dst=None, n_slots=None):
+    """Float32 reconstruction of layer ``i`` with the fused kernel, or None if the
+    chain is not supported (mixed shapes, rotation, >2 modes ...).  Intra entries
+    restart the reconstruction; with ``accumulate`` the others add to it
+    (previous-frame predictor), otherwise they replace it.  Chain position j goes to
+    output slot ``dst[j]`` (-1: not stored); the result is (N, n_slots, C)."""
+    if not (USE_TCC_KERNEL and _TCC_OK):
+        return None
+    items = [e.items[i] for e in entries]
+    if not all(e.mode.startswith(('int', 'bin')) for e in entries):
+        return None
+    p0 = items[0]
+    if (not p0.q.is_cuda or any(p.rot or p.gshape[1] == 0 or p.nbits not in (1, 2, 4, 8)
+                                or tuple(p.shape) != tuple(p0.shape) for p in items)):
+        return None
+    intra = [getattr(e, 'intra', True) for e in entries]
+    modes_a = {e.mode for e, f in zip(entries, intra) if f}
+    modes_b = {e.mode for e, f in zip(entries, intra) if not f}
+    if len(modes_a) > 1 or len(modes_b) > 1 or not intra[0]:
+        return None
+    if dst is None:
+        dst, n_slots = list(range(len(items))), len(items)
+    C = p0.shape[-1]
+    return tcc_decode(items, [not f for f in intra], dst, n_slots, math.prod(p0.shape) // C, C, accumulate)
+
+
+def _read_scalar_batched(entries: List['CompressedEntry'], i: int) -> torch.Tensor:
+    """Layer ``i`` of scalar-coded entries (any mix of int*/bin* modes), decoded with
+    one unpack per mode.  Same arithmetic per element as ``scalar_decompress``."""
+    p0 = entries[0].items[i]
+    N_shape, C = p0.shape, p0.shape[-1]
+    Fn = len(entries)
+    out = torch.empty((Fn,) + tuple(N_shape), device=p0.q.device, dtype=p0.dtype)
+    groups = {}
+    for j, e in enumerate(entries):
+        groups.setdefault(e.mode, []).append(j)
+    for mode, idx in groups.items():
+        ps = [entries[j].items[i] for j in idx]
+        p = ps[0]
+        G, g = p.gshape
+        codes = unpack_codes(torch.cat([q.q for q in ps]), p.nbits, len(ps) * G * g).reshape(len(ps), G, g)
+        if p.kind == 'bin':
+            q = codes.float() * 2.0 - 1.0
+        elif p.kind == 'sym':
+            q = (codes.to(torch.int16) - p.off).float()
+        else:
+            q = codes.float()
+        scale = torch.stack([s.scale for s in ps]).float().unsqueeze(-1)            # (F, G, 1)
+        if p.step is not None:
+            steps = torch.tensor([s.step for s in ps], device=scale.device, dtype=torch.float32)
+            scale = scale * steps.view(-1, 1, 1)
+        if p.zero is not None:
+            x = q * scale + torch.stack([s.zero for s in ps]).float().unsqueeze(-1)
+        else:
+            x = q * scale + 0.0
+        out[idx] = x.reshape((len(ps),) + tuple(N_shape)).to(p.dtype)
+    # (F, N, 1, C) -> (N, F, C), as torch.cat([...], dim=1) of (N, 1, C) entries
+    return out.squeeze(2).transpose(0, 1) if out.dim() == 4 else out.transpose(0, 1)
+
+
 def read_layer(entries: List['CompressedEntry'], i: int) -> torch.Tensor:
     """Decompress layer ``i`` of several frames in one batch.
 
@@ -411,6 +481,14 @@ def read_layer(entries: List['CompressedEntry'], i: int) -> torch.Tensor:
     decode and one inverse rotation instead of one per frame.
     """
     first = entries[0]
+    if all(getattr(e, 'intra', True) for e in entries):
+        out = _kernel_decode(entries, i, accumulate=False)
+        if out is not None:
+            return out.to(first.items[i].dtype)
+    if (BATCHED_SCALAR_DECODE and all(e.mode.startswith(('int', 'bin')) for e in entries)
+            and not any(e.items[i].rot for e in entries)
+            and len({tuple(e.items[i].shape) for e in entries}) == 1):
+        return _read_scalar_batched(entries, i)
     if first.mode == 'zero' or any(e.mode != first.mode for e in entries):
         return torch.cat([e[i] for e in entries], dim=1)    # mixed modes: per-entry
     if first.mode.startswith(('int', 'bin')):
@@ -547,8 +625,24 @@ class DeltaLazyLayer(LazyLayer):
 
     def materialize(self) -> torch.Tensor:
         assert getattr(self.chain[0], 'intra', True)
+        if self.predictor in ('prev', 'none'):
+            # slots: 0 = first frame, 1 = oldest window frame, 2.. = the last n_last frames
+            n = len(self.chain)
+            if self.pos1 < n - self.n_last:
+                dst = [-1] * n
+                dst[self.pos1] = 1
+                dst[n - self.n_last:] = range(2, 2 + self.n_last)
+                out = _kernel_decode([self.first] + list(self.chain), self.i,
+                                     accumulate=self.predictor == 'prev',
+                                     dst=[0] + dst, n_slots=2 + self.n_last)
+                if out is not None:
+                    return out
         vals = read_layer(self.chain, self.i).float()        # (N, len(chain), C)
         params = _params_on(self.params, vals.device)
+        if BATCHED_SCALAR_DECODE and self.predictor in ('prev', 'none'):
+            rec = self._reconstruct_batched(vals)
+            f0 = self.first[self.i].float()
+            return torch.cat([f0, rec[:, self.pos1:self.pos1 + 1], rec[:, -self.n_last:]], dim=1)
         rec = torch.empty_like(vals)
         prev_intra = True
         for j, e in enumerate(self.chain):
@@ -562,6 +656,22 @@ class DeltaLazyLayer(LazyLayer):
             prev_intra = False
         f0 = self.first[self.i].float()
         return torch.cat([f0, rec[:, self.pos1:self.pos1 + 1], rec[:, -self.n_last:]], dim=1)
+
+    def _reconstruct_batched(self, vals: torch.Tensor) -> torch.Tensor:
+        """rec[j] = rec[j-1] + vals[j] inside each keyframe segment ('prev'), or
+        rec = vals ('none'): the same additions as the loop above, done for all
+        segments at once, one offset at a time."""
+        if self.predictor == 'none':
+            return vals.clone()
+        intra = [getattr(e, 'intra', True) for e in self.chain]
+        starts = [j for j, f in enumerate(intra) if f]
+        ends = starts[1:] + [len(intra)]
+        rec = vals.clone()
+        for k in range(1, max(e - s for s, e in zip(starts, ends))):
+            idx = [s + k for s, e in zip(starts, ends) if s + k < e]
+            ix = torch.tensor(idx, device=vals.device)
+            rec[:, ix] = rec[:, ix - 1] + vals[:, ix]
+        return rec
 
 
 class _DeltaEncoder:

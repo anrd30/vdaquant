@@ -81,8 +81,14 @@ def alias_of(label):
     """Short snake_case name for a stream_eval config label.
 
     'int3-g16::d8:bin-g16' -> delta_int3_bin_K8, 'bw16:3' -> lam16_b3, 'int3-gT' -> int3_gT.
-    Config grammar (stream_eval.py): mode[:bits][:dK][:residual_mode]."""
+    Config grammar (stream_eval.py): mode[:bits][:dK][:residual_mode][:predictor],
+    or an age plan 'age:<bucket>=<kind>+...'."""
+    if label.startswith('age:'):
+        return 'age_' + re.sub(r'[^0-9A-Za-z]+', '_', label[4:]).strip('_')
     parts = label.split(':')
+    pred = parts[4] if len(parts) > 4 and parts[4] else None
+    if pred:
+        return f'{alias_of(":".join(parts[:4]))}_{pred}'
     mode = parts[0]
     bits = int(parts[1]) if len(parts) > 1 and parts[1] else None
     dk = int(parts[2][1:]) if len(parts) > 2 and parts[2].startswith('d') else None
@@ -239,6 +245,7 @@ def analyse_stream_group(g, n_boot, seed):
                  cache_mb=row['cache_mb'], delta1=row['delta1'], abs_rel=row['abs_rel'],
                  tae=row['tae_percent'], covtae=row['tae_covis_percent'],
                  covis_fraction=row.get('covis_fraction'), peak_mb=row.get('peak_mb'),
+                 fid=row.get('fid_rel_dev_pct'), flicker=row.get('fid_flicker_pct'),
                  n_frames=row['n_frames'], abs_rel_diff=row['abs_rel'] - ref['abs_rel'],
                  delta1_agg_diff=row['delta1'] - ref['delta1'])
         c_cov = scene_arrays(row, scenes, 'tae_covis'); c_tae = scene_arrays(row, scenes, 'tae')

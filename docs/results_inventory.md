@@ -185,3 +185,13 @@ Regression: refactored delta code reproduces Bonn balloon exactly (diff 0).
 - Sintel ViT-L streaming accuracy (running).
 - StreamVGGT official video-depth eval + frames-until-OOM (rented GPU).
 - Paper-grade timing and VDA peak memory with bit-packing.
+
+## 2026-11-03 afternoon (streaming_vda/sintel_vitb_fidelity.json, sintel_vitl_fidelity.json, bonn_vits_ablation.json)
+Sintel ViT-B: FP32 cache 720 MB, peak 2184; ours 45.8 MB (15.7x), 2.04 b, peak 1136 (-48%), fid 1.13%, cov +3.3%, d1 +0.0000;
+  INT2 fid 4.18%, cov +7.2%; cache removed fid 18.15%, cov +43.9%, d1 -0.0060 (largest d1 change of any removal).
+Sintel ViT-L: FP32 cache 1516 MB, peak 5032; ours 96.4 MB (15.7x), 2.04 b, peak 2855 (-43%), fid 1.68%, cov -8.5%, d1 +0.0009;
+  INT2 fid 4.57%, cov +3.3%; cache removed fid 16.27%, cov +32.6%.
+Bonn ViT-S ablation (bits / cov / fid): K=4 2.43/+0.3/0.39; K=8 2.21/+0.6/0.46; K=16 2.32/+0.8/0.51; K=32 2.71/+1.0/0.53;
+  INT8 key 2.88/+0.6/0.46; int2 residual 3.19/-0.2/0.19; no prediction 2.21/+23.7/5.49; extrap2 2.21/+0.5/0.96.
+  On Bonn, K>8 increases size (anchor chain).
+Fact builder now extracts fidelity/flicker (build_facts.py, bootstrap_ci.py alias for age plans and predictors).

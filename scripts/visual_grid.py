@@ -29,11 +29,13 @@ from datasets_gt import compute_gt_depth_metrics, group_samples_by_scene, load_g
 CFG = dict(encoder='vits', features=64, out_channels=[48, 96, 192, 384])
 CKPT = REPO / 'checkpoints' / 'video_depth_anything_vits.pth'
 
-STREAM = [('FP32 cache', 'fp32'),
-          ('INT2, 2.5 b', 'int2-g16'),
-          ('Delta: INT3 key + 1-bit diff, ~1.75 b', 'int3-g16::d8:bin-g16'),
-          ('1-bit, no delta, 1.5 b', 'bin-g16'),
-          ('Cache wiped (control)', 'zero')]
+STREAM = [('FP32 cache (32 b)', 'fp32'),
+          ('INT2 asym. (2.5 b)', 'int2-g64-asym'),
+          ('TCC-1 (2.0 b)', 'int4-g16::d8:bin-g16'),
+          ('INT2 asym. (3.0 b)', 'int2-g32-asym'),
+          ('TCC-2 (2.9 b)', 'int4-g16::d8:int2-g64-asym'),
+          ('1-bit, no prediction', 'bin-g16'),
+          ('cache removed', 'zero')]
 OFFLINE = [('FP32', None),
            ('INT3 g64, 3.125 b', 'scalar_g8:64:3'),
            ('E8 g64, 2.625 b', 'lattice_e8:64:3'),
@@ -86,18 +88,91 @@ def align(pred, gt, gt_range):
     return s * pred + t, gd, valid
 
 
+def plot_stream_grid(results, settings, frames, idx, gt_range, out):
+    """Paper layout: one column per cache format; per frame a depth row and a
+    |difference to the FP32-cache output| row (first column: RGB and GT)."""
+    plt.rcParams.update({'font.family': 'serif', 'font.serif': ['Times New Roman', 'DejaVu Serif'],
+                         'font.size': 7.5, 'pdf.fonttype': 42})
+    ref_label = settings[0][0]
+    h, w = frames[idx[0]]['rgb'].shape[:2]
+    ncol, nrow = len(settings) + 1, 2 * len(idx)
+    cw = 6.9 / ncol
+    fig, axes = plt.subplots(nrow, ncol, figsize=(6.9, nrow * cw * h / w + 0.25), squeeze=False)
+    for j, i in enumerate(idx):
+        f = frames[i]
+        ref_al, gd, valid = align(results[ref_label][j], f['depth'], gt_range)
+        lo, hi = np.percentile(gd[valid], [2, 98])
+        rd, rf = 2 * j, 2 * j + 1
+        axes[rd, 0].imshow(f['rgb'])
+        axes[rd, 0].text(0.03, 0.06, f'frame {i}', transform=axes[rd, 0].transAxes, color='white',
+                         fontsize=6.5, fontweight='bold')
+        axes[rf, 0].imshow(np.where(valid, gd, np.nan), cmap='Spectral_r', vmin=lo, vmax=hi)
+        axes[rf, 0].text(0.03, 0.06, 'ground truth', transform=axes[rf, 0].transAxes, color='k', fontsize=6.5)
+        scale = np.abs(ref_al[valid]).mean()
+        for c, (label, _) in enumerate(settings, start=1):
+            al, _, _ = align(results[label][j], f['depth'], gt_range)
+            axes[rd, c].imshow(al, cmap='Spectral_r', vmin=lo, vmax=hi)
+            diff = np.abs(al - ref_al)
+            axes[rf, c].imshow(diff, cmap='magma', vmin=0, vmax=(hi - lo) * 0.25)
+            if c > 1:
+                axes[rf, c].text(0.97, 0.06, f'{100 * diff[valid].mean() / scale:.1f}%', ha='right',
+                                 transform=axes[rf, c].transAxes, color='white', fontsize=6.5,
+                                 fontweight='bold')
+            else:
+                axes[rf, c].text(0.5, 0.5, 'reference', ha='center', va='center',
+                                 transform=axes[rf, c].transAxes, color='0.6', fontsize=6.5)
+    for c, (label, _) in enumerate([('input / GT', None)] + list(settings)):
+        axes[0, c].set_title(label, fontsize=7.5, pad=2)
+    for a in axes.ravel():
+        a.set_xticks([]), a.set_yticks([])
+        for s in a.spines.values():
+            s.set_visible(False)
+    fig.subplots_adjust(left=0.003, right=0.997, top=0.93, bottom=0.003, wspace=0.02, hspace=0.04)
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=300)
+    print('saved', out)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--mode', choices=['stream', 'offline'], default='stream')
     ap.add_argument('--scene', default='bamboo_1')
     ap.add_argument('--frames', default='15,30,45')
     ap.add_argument('--out', required=True)
+    ap.add_argument('--dataset', default='sintel')
+    ap.add_argument('--preds', help='npz cache of predictions (stream mode): reused if present')
     args = ap.parse_args()
 
-    samples, gt_range = load_gt_dataset('sintel', REPO / 'benchmark_data', require_cam=True)
-    frames = group_samples_by_scene(samples)[args.scene]
+    samples, gt_range = load_gt_dataset(args.dataset, REPO / 'benchmark_data',
+                                        require_cam=(args.dataset == 'sintel'))
+    scenes = group_samples_by_scene(samples)
+    if args.scene not in scenes:
+        raise SystemExit(f'scene {args.scene} not in {sorted(scenes)}')
+    frames = scenes[args.scene]
     idx = [int(i) for i in args.frames.split(',')]
     settings = STREAM if args.mode == 'stream' else OFFLINE
+
+    if args.mode == 'stream':
+        cache = Path(args.preds) if args.preds else None
+        if cache and cache.exists():
+            z = np.load(cache)
+            results = {label: [z[f'{k}_{i}'] for i in idx] for k, (label, _) in enumerate(settings)}
+        else:
+            results = {}
+            for label, spec in settings:
+                print('running', label, flush=True)
+                with torch.no_grad():
+                    preds = stream_preds(spec, frames, max(idx))
+                results[label] = [preds[i] for i in idx]
+                del preds
+                gc.collect()
+                torch.cuda.empty_cache()
+            if cache:
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                np.savez_compressed(cache, **{f'{k}_{i}': results[label][j] for k, (label, _) in
+                                              enumerate(settings) for j, i in enumerate(idx)})
+        plot_stream_grid(results, settings, frames, idx, gt_range, args.out)
+        return
 
     results = {}
     for label, spec in settings:

@@ -1,0 +1,628 @@
+{
+  "args": {
+    "dataset": "sintel",
+    "encoder": "vitb",
+    "ckpt": "C:\\Users\\aniru\\vdaquant\\checkpoints\\video_depth_anything_vitb.pth",
+    "configs": "fp32,int2-g64-asym,int2-g32-asym",
+    "size": 518,
+    "covis_tau": 0.05,
+    "max_scenes": 1000,
+    "max_samples": null,
+    "seed": 0,
+    "out": "outputs/stream/sintel_vitb_int2asym.json"
+  },
+  "results": [
+    {
+      "mode": "fp32",
+      "bits": null,
+      "delta1": 0.7562837464114832,
+      "abs_rel": 0.2090301023923445,
+      "tae_percent": 55.495365521739124,
+      "tae_covis_percent": 6.526788652173913,
+      "covis_fraction": 0.8603617826086954,
+      "fid_rel_dev_pct": null,
+      "fid_flicker_pct": null,
+      "n_frames": 1045,
+      "n_skipped_frames": 19,
+      "peak_mb": 2184.10400390625,
+      "cache_mb": 720.0703125,
+      "minutes": 4.634533095359802,
+      "per_scene": {
+        "alley_1": {
+          "delta1": 0.8559317799999999,
+          "tae": 6.411726,
+          "tae_covis": 3.164491,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "alley_2": {
+          "delta1": 0.72718918,
+          "tae": 2.408684,
+          "tae_covis": 1.865373,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "ambush_2": {
+          "delta1": 0.608539,
+          "tae": 912.908152,
+          "tae_covis": 56.753478,
+          "n": 21,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "ambush_4": {
+          "delta1": 0.7258820303030303,
+          "tae": 42.482347,
+          "tae_covis": 6.521923,
+          "n": 33,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "ambush_5": {
+          "delta1": 0.4905905199999999,
+          "tae": 14.651751,
+          "tae_covis": 2.500394,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "ambush_6": {
+          "delta1": 0.8366198499999999,
+          "tae": 20.93688,
+          "tae_covis": 4.984331,
+          "n": 20,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "ambush_7": {
+          "delta1": 0.9997336200000001,
+          "tae": 0.954365,
+          "tae_covis": 0.487381,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "bamboo_1": {
+          "delta1": 0.77685714,
+          "tae": 3.149607,
+          "tae_covis": 2.697094,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "bamboo_2": {
+          "delta1": 0.60967098,
+          "tae": 6.369143,
+          "tae_covis": 3.994576,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "bandage_1": {
+          "delta1": 0.8390988,
+          "tae": 1.22353,
+          "tae_covis": 0.670133,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "bandage_2": {
+          "delta1": 0.8658113199999999,
+          "tae": 2.319256,
+          "tae_covis": 1.193567,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "cave_2": {
+          "delta1": 0.29356932,
+          "tae": 20.169463,
+          "tae_covis": 5.719247,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "cave_4": {
+          "delta1": 0.5854915599999999,
+          "tae": 11.431108,
+          "tae_covis": 3.752245,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "market_2": {
+          "delta1": 0.8873965800000001,
+          "tae": 5.555198,
+          "tae_covis": 1.844554,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "market_5": {
+          "delta1": 0.6954224999999999,
+          "tae": 76.898926,
+          "tae_covis": 11.594511,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "market_6": {
+          "delta1": 0.48876382500000004,
+          "tae": 19.510493,
+          "tae_covis": 10.881997,
+          "n": 40,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "mountain_1": {
+          "delta1": 0.9886477741935484,
+          "tae": 8.21016,
+          "tae_covis": 8.210015,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "shaman_2": {
+          "delta1": 0.7649088399999999,
+          "tae": 1.253874,
+          "tae_covis": 0.90342,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "shaman_3": {
+          "delta1": 0.9955611600000001,
+          "tae": 1.164333,
+          "tae_covis": 1.042357,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "sleeping_1": {
+          "delta1": 0.9994947000000001,
+          "tae": 0.928489,
+          "tae_covis": 0.910811,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "sleeping_2": {
+          "delta1": 0.9855660599999999,
+          "tae": 0.734931,
+          "tae_covis": 0.715913,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "temple_2": {
+          "delta1": 0.6924425400000002,
+          "tae": 58.101868,
+          "tae_covis": 8.329657,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        },
+        "temple_3": {
+          "delta1": 0.6683045599999999,
+          "tae": 58.619123,
+          "tae_covis": 11.378671,
+          "n": 50,
+          "fid_rel_dev": null,
+          "fid_flicker": null
+        }
+      },
+      "plan_bits": null,
+      "config": "fp32"
+    },
+    {
+      "mode": "int2-g64-asym",
+      "bits": null,
+      "delta1": 0.7569207301435407,
+      "abs_rel": 0.20885354545454546,
+      "tae_percent": 55.26030230434781,
+      "tae_covis_percent": 6.537826043478261,
+      "covis_fraction": 0.8603617826086954,
+      "fid_rel_dev_pct": 2.1214590286431103,
+      "fid_flicker_pct": 0.6717576943945301,
+      "n_frames": 1045,
+      "n_skipped_frames": 19,
+      "peak_mb": 1042.52587890625,
+      "cache_mb": 56.2554931640625,
+      "minutes": 5.206688225269318,
+      "per_scene": {
+        "alley_1": {
+          "delta1": 0.8742012800000001,
+          "tae": 6.635612,
+          "tae_covis": 3.342838,
+          "n": 50,
+          "fid_rel_dev": 3.1613148748874664,
+          "fid_flicker": 0.4210790619254112
+        },
+        "alley_2": {
+          "delta1": 0.7293635599999999,
+          "tae": 2.369663,
+          "tae_covis": 1.845482,
+          "n": 50,
+          "fid_rel_dev": 2.1233458071947098,
+          "fid_flicker": 0.3615089226514101
+        },
+        "ambush_2": {
+          "delta1": 0.6166020476190476,
+          "tae": 908.442082,
+          "tae_covis": 56.736873,
+          "n": 21,
+          "fid_rel_dev": 1.33424811065197,
+          "fid_flicker": 1.0963075794279575
+        },
+        "ambush_4": {
+          "delta1": 0.7231940606060605,
+          "tae": 42.495133,
+          "tae_covis": 6.326419,
+          "n": 33,
+          "fid_rel_dev": 1.9326640293002129,
+          "fid_flicker": 1.3735374435782433
+        },
+        "ambush_5": {
+          "delta1": 0.48888094000000004,
+          "tae": 14.300532,
+          "tae_covis": 2.447564,
+          "n": 50,
+          "fid_rel_dev": 1.3854360207915306,
+          "fid_flicker": 0.683221872895956
+        },
+        "ambush_6": {
+          "delta1": 0.8356752999999999,
+          "tae": 20.86379,
+          "tae_covis": 4.964622,
+          "n": 20,
+          "fid_rel_dev": 1.1615928262472153,
+          "fid_flicker": 0.8900386281311512
+        },
+        "ambush_7": {
+          "delta1": 0.99973518,
+          "tae": 0.946789,
+          "tae_covis": 0.477714,
+          "n": 50,
+          "fid_rel_dev": 1.6247069463133812,
+          "fid_flicker": 0.5256884731352329
+        },
+        "bamboo_1": {
+          "delta1": 0.77725826,
+          "tae": 3.183009,
+          "tae_covis": 2.734822,
+          "n": 50,
+          "fid_rel_dev": 5.616443231701851,
+          "fid_flicker": 0.7747959345579147
+        },
+        "bamboo_2": {
+          "delta1": 0.6103833399999999,
+          "tae": 6.335894,
+          "tae_covis": 3.999715,
+          "n": 50,
+          "fid_rel_dev": 1.6004472970962524,
+          "fid_flicker": 0.501384399831295
+        },
+        "bandage_1": {
+          "delta1": 0.8326699199999998,
+          "tae": 1.215074,
+          "tae_covis": 0.664754,
+          "n": 50,
+          "fid_rel_dev": 1.3589019887149334,
+          "fid_flicker": 0.30731570441275835
+        },
+        "bandage_2": {
+          "delta1": 0.8654654400000001,
+          "tae": 2.323949,
+          "tae_covis": 1.199686,
+          "n": 50,
+          "fid_rel_dev": 1.2473974376916885,
+          "fid_flicker": 0.29346924275159836
+        },
+        "cave_2": {
+          "delta1": 0.29049116,
+          "tae": 19.827465,
+          "tae_covis": 5.679798,
+          "n": 50,
+          "fid_rel_dev": 1.5246330760419369,
+          "fid_flicker": 1.038432028144598
+        },
+        "cave_4": {
+          "delta1": 0.57850352,
+          "tae": 11.35893,
+          "tae_covis": 3.711202,
+          "n": 50,
+          "fid_rel_dev": 2.1182959899306297,
+          "fid_flicker": 0.871516764163971
+        },
+        "market_2": {
+          "delta1": 0.8848697400000001,
+          "tae": 5.623596,
+          "tae_covis": 1.899598,
+          "n": 50,
+          "fid_rel_dev": 1.4782321639358997,
+          "fid_flicker": 0.46522049233317375
+        },
+        "market_5": {
+          "delta1": 0.6894713200000001,
+          "tae": 76.399439,
+          "tae_covis": 11.466179,
+          "n": 50,
+          "fid_rel_dev": 1.849503070116043,
+          "fid_flicker": 1.4274870976805687
+        },
+        "market_6": {
+          "delta1": 0.493515775,
+          "tae": 19.355258,
+          "tae_covis": 10.802484,
+          "n": 40,
+          "fid_rel_dev": 1.0669619776308537,
+          "fid_flicker": 0.7170926313847303
+        },
+        "mountain_1": {
+          "delta1": 0.9887101935483871,
+          "tae": 8.284482,
+          "tae_covis": 8.284388,
+          "n": 50,
+          "fid_rel_dev": 6.2583327293396,
+          "fid_flicker": 0.5448276177048683
+        },
+        "shaman_2": {
+          "delta1": 0.7722675600000001,
+          "tae": 1.280292,
+          "tae_covis": 0.935701,
+          "n": 50,
+          "fid_rel_dev": 1.124111097306013,
+          "fid_flicker": 0.174115679692477
+        },
+        "shaman_3": {
+          "delta1": 0.9955078800000002,
+          "tae": 1.16521,
+          "tae_covis": 1.044656,
+          "n": 50,
+          "fid_rel_dev": 1.44442580640316,
+          "fid_flicker": 0.35828810650855303
+        },
+        "sleeping_1": {
+          "delta1": 0.9994500000000001,
+          "tae": 0.944315,
+          "tae_covis": 0.926394,
+          "n": 50,
+          "fid_rel_dev": 1.547273900359869,
+          "fid_flicker": 0.26906924322247505
+        },
+        "sleeping_2": {
+          "delta1": 0.9832285799999998,
+          "tae": 0.737735,
+          "tae_covis": 0.718965,
+          "n": 50,
+          "fid_rel_dev": 2.6305638253688812,
+          "fid_flicker": 0.38605211302638054
+        },
+        "temple_2": {
+          "delta1": 0.7045755199999999,
+          "tae": 58.397668,
+          "tae_covis": 8.716162,
+          "n": 50,
+          "fid_rel_dev": 3.7757180631160736,
+          "fid_flicker": 0.9041018784046173
+        },
+        "temple_3": {
+          "delta1": 0.6649560600000001,
+          "tae": 58.501036,
+          "tae_covis": 11.443983,
+          "n": 50,
+          "fid_rel_dev": 1.429007388651371,
+          "fid_flicker": 1.065876055508852
+        }
+      },
+      "plan_bits": null,
+      "config": "int2-g64-asym"
+    },
+    {
+      "mode": "int2-g32-asym",
+      "bits": null,
+      "delta1": 0.7567225770334928,
+      "abs_rel": 0.21005844784688996,
+      "tae_percent": 55.09852573913044,
+      "tae_covis_percent": 6.489217347826086,
+      "covis_fraction": 0.8603617826086954,
+      "fid_rel_dev_pct": 1.3858180250162664,
+      "fid_flicker_pct": 0.6057511883504365,
+      "n_frames": 1045,
+      "n_skipped_frames": 19,
+      "peak_mb": 1053.76416015625,
+      "cache_mb": 67.506591796875,
+      "minutes": 5.307855284214019,
+      "per_scene": {
+        "alley_1": {
+          "delta1": 0.8629309,
+          "tae": 6.495464,
+          "tae_covis": 3.240381,
+          "n": 50,
+          "fid_rel_dev": 1.9619805738329887,
+          "fid_flicker": 0.3631502389907837
+        },
+        "alley_2": {
+          "delta1": 0.7279666399999998,
+          "tae": 2.381542,
+          "tae_covis": 1.838265,
+          "n": 50,
+          "fid_rel_dev": 1.1887570843100548,
+          "fid_flicker": 0.36838394589722157
+        },
+        "ambush_2": {
+          "delta1": 0.6169777142857144,
+          "tae": 910.515839,
+          "tae_covis": 57.144186,
+          "n": 21,
+          "fid_rel_dev": 1.1049713008105755,
+          "fid_flicker": 0.974587257951498
+        },
+        "ambush_4": {
+          "delta1": 0.7256153636363636,
+          "tae": 42.341686,
+          "tae_covis": 6.501965,
+          "n": 33,
+          "fid_rel_dev": 1.1730016209185123,
+          "fid_flicker": 1.0858315974473953
+        },
+        "ambush_5": {
+          "delta1": 0.48840232,
+          "tae": 14.229815,
+          "tae_covis": 2.417379,
+          "n": 50,
+          "fid_rel_dev": 1.5077191404998302,
+          "fid_flicker": 0.6121408194303513
+        },
+        "ambush_6": {
+          "delta1": 0.8334805,
+          "tae": 20.822977,
+          "tae_covis": 4.92856,
+          "n": 20,
+          "fid_rel_dev": 1.6093457117676735,
+          "fid_flicker": 0.9645550511777401
+        },
+        "ambush_7": {
+          "delta1": 0.99973436,
+          "tae": 0.942456,
+          "tae_covis": 0.475674,
+          "n": 50,
+          "fid_rel_dev": 0.964065920561552,
+          "fid_flicker": 0.4373594652861357
+        },
+        "bamboo_1": {
+          "delta1": 0.77933238,
+          "tae": 3.128027,
+          "tae_covis": 2.681938,
+          "n": 50,
+          "fid_rel_dev": 2.412847802042961,
+          "fid_flicker": 0.621739961206913
+        },
+        "bamboo_2": {
+          "delta1": 0.60940682,
+          "tae": 6.254319,
+          "tae_covis": 3.924864,
+          "n": 50,
+          "fid_rel_dev": 1.125116366893053,
+          "fid_flicker": 0.43889647349715233
+        },
+        "bandage_1": {
+          "delta1": 0.8393265800000002,
+          "tae": 1.212966,
+          "tae_covis": 0.663425,
+          "n": 50,
+          "fid_rel_dev": 0.9494120255112648,
+          "fid_flicker": 0.2732130931690335
+        },
+        "bandage_2": {
+          "delta1": 0.86774558,
+          "tae": 2.308677,
+          "tae_covis": 1.192196,
+          "n": 50,
+          "fid_rel_dev": 1.0326819494366646,
+          "fid_flicker": 0.2567349001765251
+        },
+        "cave_2": {
+          "delta1": 0.29077314,
+          "tae": 19.696043,
+          "tae_covis": 5.589035,
+          "n": 50,
+          "fid_rel_dev": 1.5035075135529041,
+          "fid_flicker": 1.0216983035206795
+        },
+        "cave_4": {
+          "delta1": 0.5804008599999999,
+          "tae": 11.217802,
+          "tae_covis": 3.610485,
+          "n": 50,
+          "fid_rel_dev": 1.4279985800385475,
+          "fid_flicker": 0.8348432369530201
+        },
+        "market_2": {
+          "delta1": 0.88621682,
+          "tae": 5.564941,
+          "tae_covis": 1.864807,
+          "n": 50,
+          "fid_rel_dev": 1.5765158459544182,
+          "fid_flicker": 0.42129047214984894
+        },
+        "market_5": {
+          "delta1": 0.69160038,
+          "tae": 72.367575,
+          "tae_covis": 11.040669,
+          "n": 50,
+          "fid_rel_dev": 2.814544178545475,
+          "fid_flicker": 1.340686623007059
+        },
+        "market_6": {
+          "delta1": 0.49564822500000005,
+          "tae": 19.304117,
+          "tae_covis": 10.682956,
+          "n": 40,
+          "fid_rel_dev": 0.9968588128685951,
+          "fid_flicker": 0.7662825286388397
+        },
+        "mountain_1": {
+          "delta1": 0.9886535161290323,
+          "tae": 8.210803,
+          "tae_covis": 8.210655,
+          "n": 50,
+          "fid_rel_dev": 1.0773931629955769,
+          "fid_flicker": 0.39892648346722126
+        },
+        "shaman_2": {
+          "delta1": 0.7717747200000001,
+          "tae": 1.263528,
+          "tae_covis": 0.920527,
+          "n": 50,
+          "fid_rel_dev": 1.1710758320987225,
+          "fid_flicker": 0.1542424550279975
+        },
+        "shaman_3": {
+          "delta1": 0.99587158,
+          "tae": 1.153779,
+          "tae_covis": 1.034441,
+          "n": 50,
+          "fid_rel_dev": 1.515734475106001,
+          "fid_flicker": 0.33776035998016596
+        },
+        "sleeping_1": {
+          "delta1": 0.9995042399999999,
+          "tae": 0.931796,
+          "tae_covis": 0.914112,
+          "n": 50,
+          "fid_rel_dev": 0.7923845201730728,
+          "fid_flicker": 0.20824489183723927
+        },
+        "sleeping_2": {
+          "delta1": 0.9838410199999998,
+          "tae": 0.71683,
+          "tae_covis": 0.69789,
+          "n": 50,
+          "fid_rel_dev": 1.0875149630010128,
+          "fid_flicker": 0.32124314457178116
+        },
+        "temple_2": {
+          "delta1": 0.69229388,
+          "tae": 57.742372,
+          "tae_covis": 8.421259,
+          "n": 50,
+          "fid_rel_dev": 1.4863252639770508,
+          "fid_flicker": 0.7327475119382143
+        },
+        "temple_3": {
+          "delta1": 0.6674668999999999,
+          "tae": 58.462738,
+          "tae_covis": 11.25633,
+          "n": 50,
+          "fid_rel_dev": 1.3940619304776192,
+          "fid_flicker": 0.9977185167372227
+        }
+      },
+      "plan_bits": null,
+      "config": "int2-g32-asym"
+    }
+  ]
+}

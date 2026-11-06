@@ -5,3 +5,8 @@
 
 # co-visibility tolerance tau = 0.05 is a hyper-parameter, not a result (x5c = literal backslash)
 ctx \x5ctau
+# analytic TCC rate ((4+0.5) + 7*(1+0.5))/8 = 1.875 bits/value (formula in Sec. 3.2, not a measurement)
+num 1.875
+# derived ratios checked by hand: INT2 asym g64 / TCC-1 fid on Bonn ViT-B = 2.44/0.39 = 6.26; TCC-2 cache ratio on Sintel = 11.1
+num 6.3
+num 11.1

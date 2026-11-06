@@ -235,7 +235,7 @@
   "key": "bonn.vits.int2_g16.bits",
   "claimed": 2.5,
   "decimals": 1,
-  "actual_raw": 2.5,
+  "actual_raw": 2.5001152472052555,
   "actual_rounded": 2.5,
   "status": "ok"
  },
@@ -355,7 +355,7 @@
   "key": "bonn.vits.delta_int4_bin_K8.bits",
   "claimed": 2.21,
   "decimals": 2,
-  "actual_raw": 2.2142857142857144,
+  "actual_raw": 2.2144174253774347,
   "actual_rounded": 2.21,
   "status": "ok"
  },
@@ -1091,280 +1091,245 @@
   "key": "hard.sintel.vits.fp32.delta1",
   "claimed": 0.6876,
   "decimals": 4,
-  "actual_raw": 0.6876,
-  "actual_rounded": 0.6876,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.fp32.covtae",
   "claimed": 8.56,
   "decimals": 2,
-  "actual_raw": 8.564436,
-  "actual_rounded": 8.56,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_g16.bits",
   "claimed": 3.5,
   "decimals": 3,
-  "actual_raw": 3.5,
-  "actual_rounded": 3.5,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_g16.delta1",
   "claimed": 0.6869,
   "decimals": 4,
-  "actual_raw": 0.6869,
-  "actual_rounded": 0.6869,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_g16.covtae",
   "claimed": 11.08,
   "decimals": 2,
-  "actual_raw": 11.076032,
-  "actual_rounded": 11.08,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_g64.bits",
   "claimed": 3.125,
   "decimals": 3,
-  "actual_raw": 3.125,
-  "actual_rounded": 3.125,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_g64.delta1",
   "claimed": 0.6938,
   "decimals": 4,
-  "actual_raw": 0.6938,
-  "actual_rounded": 0.6938,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_g64.covtae",
   "claimed": 14.03,
   "decimals": 2,
-  "actual_raw": 14.032199,
-  "actual_rounded": 14.03,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g16_b3.bits",
   "claimed": 3.0,
   "decimals": 3,
-  "actual_raw": 3.5,
-  "actual_rounded": 3.5,
-  "status": "MISMATCH"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g16_b3.delta1",
   "claimed": 0.6836,
   "decimals": 4,
-  "actual_raw": 0.6836,
-  "actual_rounded": 0.6836,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g16_b3.covtae",
   "claimed": 12.06,
   "decimals": 2,
-  "actual_raw": 12.058245,
-  "actual_rounded": 12.06,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g32_b3.bits",
   "claimed": 2.75,
   "decimals": 3,
-  "actual_raw": 3.25,
-  "actual_rounded": 3.25,
-  "status": "MISMATCH"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g32_b3.delta1",
   "claimed": 0.6775,
   "decimals": 4,
-  "actual_raw": 0.6775,
-  "actual_rounded": 0.6775,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g32_b3.covtae",
   "claimed": 12.44,
   "decimals": 2,
-  "actual_raw": 12.441076,
-  "actual_rounded": 12.44,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g64_b3.bits",
   "claimed": 2.625,
   "decimals": 3,
-  "actual_raw": 3.125,
-  "actual_rounded": 3.125,
-  "status": "MISMATCH"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g64_b3.delta1",
   "claimed": 0.6836,
   "decimals": 4,
-  "actual_raw": 0.6836,
-  "actual_rounded": 0.6836,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g64_b3.covtae",
   "claimed": 14.97,
   "decimals": 2,
-  "actual_raw": 14.966476,
-  "actual_rounded": 14.97,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.lam16_g64_b3.bits",
   "claimed": 2.625,
   "decimals": 3,
-  "actual_raw": 3.125,
-  "actual_rounded": 3.125,
-  "status": "MISMATCH"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.lam16_g64_b3.delta1",
   "claimed": 0.6225,
   "decimals": 4,
-  "actual_raw": 0.6225,
-  "actual_rounded": 0.6225,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.lam16_g64_b3.covtae",
   "claimed": 52.69,
   "decimals": 2,
-  "actual_raw": 52.693435,
-  "actual_rounded": 52.69,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int2_g16.bits",
   "claimed": 2.5,
   "decimals": 3,
-  "actual_raw": 2.5,
-  "actual_rounded": 2.5,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int2_g16.delta1",
   "claimed": 0.4187,
   "decimals": 4,
-  "actual_raw": 0.4187,
-  "actual_rounded": 0.4187,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int2_g16.covtae",
   "claimed": 6.38,
   "decimals": 2,
-  "actual_raw": 6.379473,
-  "actual_rounded": 6.38,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int2_g64.bits",
   "claimed": 2.125,
   "decimals": 3,
-  "actual_raw": 2.125,
-  "actual_rounded": 2.125,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int2_g64.delta1",
   "claimed": 0.4069,
   "decimals": 4,
-  "actual_raw": 0.4069,
-  "actual_rounded": 0.4069,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int2_g64.covtae",
   "claimed": 5.96,
   "decimals": 2,
-  "actual_raw": 5.95868,
-  "actual_rounded": 5.96,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g64_b2.bits",
   "claimed": 1.625,
   "decimals": 3,
-  "actual_raw": 2.125,
-  "actual_rounded": 2.125,
-  "status": "MISMATCH"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g64_b2.delta1",
   "claimed": 0.4252,
   "decimals": 4,
-  "actual_raw": 0.4252,
-  "actual_rounded": 0.4252,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.e8_g64_b2.covtae",
   "claimed": 7.61,
   "decimals": 2,
-  "actual_raw": 7.608149,
-  "actual_rounded": 7.61,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_tensor.bits",
   "claimed": 3.125,
   "decimals": 3,
-  "actual_raw": 3.125,
-  "actual_rounded": 3.125,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_tensor.delta1",
   "claimed": 0.4509,
   "decimals": 4,
-  "actual_raw": 0.4509,
-  "actual_rounded": 0.4509,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int3_tensor.covtae",
   "claimed": 63.88,
   "decimals": 2,
-  "actual_raw": 63.876209,
-  "actual_rounded": 63.88,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int4_tensor.bits",
   "claimed": 4.125,
   "decimals": 3,
-  "actual_raw": 4.125,
-  "actual_rounded": 4.125,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int4_tensor.delta1",
   "claimed": 0.6314,
   "decimals": 4,
-  "actual_raw": 0.6314,
-  "actual_rounded": 0.6314,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  },
  {
   "key": "hard.sintel.vits.int4_tensor.covtae",
   "claimed": 14.49,
   "decimals": 2,
-  "actual_raw": 14.486204,
-  "actual_rounded": 14.49,
-  "status": "ok"
+  "status": "NO FACT",
+  "actual_raw": null
  }
 ]

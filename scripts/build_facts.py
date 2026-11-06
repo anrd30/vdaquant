@@ -74,6 +74,8 @@ def add_stream_group(F, g, res):
         F.add(f'{k}.covis_fraction', e.get('covis_fraction'), 3, 'json', s)
         F.add(f'{k}.cache_mb', e['cache_mb'] if 'cache_mb' in e else None, 1, 'json', s)
         F.add(f'{k}.peak_mb', e.get('peak_mb'), 1, 'json', s)
+        F.add(f'{k}.fid', e.get('fid'), 2, 'json', s)          # % deviation from FP32-cache output
+        F.add(f'{k}.flicker', e.get('flicker'), 2, 'json', s)
         F.add(f'{k}.bits', e['bits'], 2, 'derived' if g.kind == 'stream' else 'json', s)
         if lab == 'fp32':
             continue

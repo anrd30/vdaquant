@@ -1,0 +1,73 @@
+{
+ "args": {
+  "encoders": "vits",
+  "configs": "int2-g16,int4-g16::d8:bin-g16",
+  "scene": "alley_2",
+  "warmup": 10,
+  "repeats": 2,
+  "decode": "per-entry",
+  "out": "outputs/stream/timing_reference.json"
+ },
+ "results": [
+  {
+   "encoder": "vits",
+   "config": "int2-g16",
+   "n_timed": 40,
+   "ms_median": 280.48610001133056,
+   "ms_mean": 284.2061075003585,
+   "ms_p90": 315.52210000518244,
+   "fps": 3.5652390616134055,
+   "weights_mb": 111.26171875,
+   "cache_mb": 28.1290283203125,
+   "peak_mb": 401.6552734375,
+   "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+   "repeat": 0,
+   "decode": "per-entry"
+  },
+  {
+   "encoder": "vits",
+   "config": "int4-g16::d8:bin-g16",
+   "n_timed": 40,
+   "ms_median": 474.48620000795927,
+   "ms_mean": 474.305710000408,
+   "ms_p90": 562.3644000006607,
+   "fps": 2.107542853687263,
+   "weights_mb": 120.09423828125,
+   "cache_mb": 22.90533447265625,
+   "peak_mb": 447.48681640625,
+   "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+   "repeat": 0,
+   "decode": "per-entry"
+  },
+  {
+   "encoder": "vits",
+   "config": "int2-g16",
+   "n_timed": 40,
+   "ms_median": 273.5693499998888,
+   "ms_mean": 276.65593750061817,
+   "ms_p90": 299.11589999392163,
+   "fps": 3.6553802536739095,
+   "weights_mb": 120.09423828125,
+   "cache_mb": 28.1290283203125,
+   "peak_mb": 403.2373046875,
+   "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+   "repeat": 1,
+   "decode": "per-entry"
+  },
+  {
+   "encoder": "vits",
+   "config": "int4-g16::d8:bin-g16",
+   "n_timed": 40,
+   "ms_median": 451.3182000009692,
+   "ms_mean": 455.44026249990566,
+   "ms_p90": 540.6677000137279,
+   "fps": 2.2157316057669565,
+   "weights_mb": 120.09423828125,
+   "cache_mb": 22.90533447265625,
+   "peak_mb": 447.48681640625,
+   "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+   "repeat": 1,
+   "decode": "per-entry"
+  }
+ ]
+}
