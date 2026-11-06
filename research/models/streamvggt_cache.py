@@ -6,7 +6,8 @@ every past frame (shape (B, heads, S, N, d), never evicted), so memory grows
 linearly with the number of frames.  This module replaces that cache with a
 bit-packed store:
 
-  plain : every frame quantized independently (per-group scalar, 8-bit scale)
+  plain : every frame quantized independently (per-group scalar, 8-bit scale,
+          or KIVI-style asymmetric with fp16 scale and zero: 'a<bits>g<group>')
   delta : closed-loop temporal predictive coding.  Every K-th frame is a
           keyframe (e.g. INT3); other frames store the quantized residual
           against the previous frame's *reconstruction* (e.g. 1-bit sign +
@@ -16,7 +17,9 @@ No rotation and no lattice: per-group scalar quantization only.
 
 Usage (before the model is built):
     from research.models.streamvggt_cache import install
-    install("delta:int3:bin:8")        # or "plain:int2", "fp16", "none"
+    install("delta:int4:bin:8")        # TCC-1
+    install("delta:int4:a2g64:8")      # TCC-2
+    install("plain:a2g64")             # asymmetric INT2 baseline; or "fp16", "none"
 """
 from __future__ import annotations
 
@@ -34,16 +37,26 @@ GROUP = 16
 # --------------------------------------------------------------------------
 
 
+def _asym(kind: str):
+    """'a2g64' -> (bits=2, group=64); None for symmetric kinds."""
+    if not kind.startswith('a'):
+        return None
+    b, g = kind[1:].split('g')
+    return int(b), int(g)
+
+
 def _store_bits(kind: str) -> int:
     """Bits per code actually allocated (packable widths 1, 2, 4)."""
     if kind == 'bin':
         return 1
-    b = int(kind[3:])
+    b = _asym(kind)[0] if _asym(kind) else int(kind[3:])
     return {2: 2, 3: 4, 4: 4}[b]
 
 
 def _ideal_bits(kind: str) -> int:
-    return 1 if kind == 'bin' else int(kind[3:])
+    if kind == 'bin':
+        return 1
+    return _asym(kind)[0] if _asym(kind) else int(kind[3:])
 
 
 def _pack(codes: torch.Tensor, w: int) -> torch.Tensor:
@@ -63,8 +76,20 @@ def _unpack(packed: torch.Tensor, w: int, n: int) -> torch.Tensor:
 
 def quantize(x: torch.Tensor, kind: str) -> dict:
     """Per-group (16) symmetric scalar quantization with an 8-bit scale.
-    kind: 'int2' | 'int3' | 'int4' | 'bin'."""
+    kind: 'int2' | 'int3' | 'int4' | 'bin', or 'a<bits>g<group>' for asymmetric
+    quantization with fp16 scale and zero, as int<bits>-g<group>-asym in
+    stream_cache.scalar_compress."""
     shape = tuple(x.shape)
+    if _asym(kind):
+        bits, g = _asym(kind)
+        xg = x.float().reshape(-1, g)
+        mn, mx = xg.amin(-1, keepdim=True), xg.amax(-1, keepdim=True)
+        scale = ((mx - mn) / (2 ** bits - 1)).clamp(min=1e-8).half().float()
+        zero = mn.half().float()
+        codes = ((xg - zero) / scale).round().clamp(0, 2 ** bits - 1).to(torch.uint8)
+        return {'packed': _pack(codes.reshape(-1), _store_bits(kind)),
+                'scale': scale.half().reshape(-1), 'zero': zero.half().reshape(-1),
+                'shape': shape, 'kind': kind, 'n': xg.numel()}
     xg = x.float().reshape(-1, GROUP)
     if kind == 'bin':
         scale = xg.abs().mean(-1, keepdim=True)          # L2-optimal 1-bit scale
@@ -89,6 +114,11 @@ def dequantize_batch(items: List[dict]) -> torch.Tensor:
     kind, shape, n = items[0]['kind'], items[0]['shape'], items[0]['n']
     w = _store_bits(kind)
     codes = _unpack(torch.stack([it['packed'] for it in items]), w, n).float()
+    if _asym(kind):
+        codes = codes.reshape(len(items), -1, _asym(kind)[1])
+        scale = torch.stack([it['scale'] for it in items]).float().unsqueeze(-1)
+        zero = torch.stack([it['zero'] for it in items]).float().unsqueeze(-1)
+        return (codes * scale + zero).reshape(len(items), *shape)
     codes = codes.reshape(len(items), -1, GROUP)
     scale = (torch.stack([it['sidx'] for it in items]).float()
              * torch.stack([it['step'] for it in items])).unsqueeze(-1)
@@ -99,14 +129,33 @@ def dequantize_batch(items: List[dict]) -> torch.Tensor:
     return vals.reshape(len(items), *shape)
 
 
+def _meta_bits(item: dict) -> int:
+    """Bits of per-group side information."""
+    if 'sidx' in item:
+        return item['sidx'].numel() * 8
+    return (item['scale'].numel() + item['zero'].numel()) * 16
+
+
 def _nbytes(item: dict) -> int:
-    return item['packed'].numel() + item['sidx'].numel() + 4
+    extra = 4 if 'sidx' in item else 0          # fp32 step of the 8-bit scales
+    return item['packed'].numel() + _meta_bits(item) // 8 + extra
 
 
 # --------------------------------------------------------------------------
 # Per-layer cache
 # --------------------------------------------------------------------------
-_LIVE = weakref.WeakSet()
+class _Live(weakref.WeakSet):
+    """Live caches.  StreamVGGT.inference drops its caches when it returns, so
+    set .pin to a list to keep this inference's caches alive for reporting."""
+    pin = None
+
+    def add(self, item):
+        super().add(item)
+        if self.pin is not None:
+            self.pin.append(item)
+
+
+_LIVE = _Live()
 
 
 class _ShapeProxy:
@@ -194,7 +243,7 @@ class CompressedKV:
         for f in self.frames:
             for which in ('k', 'v'):
                 it = f[which]
-                tot += it['n'] * _ideal_bits(it['kind']) + it['sidx'].numel() * 8
+                tot += it['n'] * _ideal_bits(it['kind']) + _meta_bits(it)
                 cnt += it['n']
         return tot / max(cnt, 1)
 

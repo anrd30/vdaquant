@@ -39,17 +39,21 @@ def main():
     def inference(self, frames, *a, **kw):
         torch.cuda.reset_peak_memory_stats()
         t0 = time.time()
-        out = orig_inference(self, frames, *a, **kw)
-        torch.cuda.synchronize()
-        caches = list(kc._LIVE)
-        stats.append({
-            'frames': len(frames),
-            'seconds': time.time() - t0,
-            'cache_bytes': sum(c.nbytes() for c in caches if len(c.frames) == len(frames)),
-            'ideal_bits': (sum(c.ideal_bits() for c in caches if len(c.frames) == len(frames))
-                           / max(1, sum(1 for c in caches if len(c.frames) == len(frames)))),
-            'peak_mb': torch.cuda.max_memory_allocated() / 2 ** 20,
-        })
+        kc._LIVE.pin = []        # inference frees its caches on return
+        try:
+            out = orig_inference(self, frames, *a, **kw)
+            torch.cuda.synchronize()
+            caches = kc._LIVE.pin
+            stats.append({
+                'frames': len(frames),
+                'seconds': time.time() - t0,
+                'cache_bytes': sum(c.nbytes() for c in caches),
+                'ideal_bits': sum(c.ideal_bits() for c in caches) / max(1, len(caches)),
+                'n_caches': len(caches),
+                'peak_mb': torch.cuda.max_memory_allocated() / 2 ** 20,
+            })
+        finally:
+            kc._LIVE.pin = None
         return out
     sv.StreamVGGT.inference = inference
 

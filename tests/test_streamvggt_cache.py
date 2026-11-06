@@ -134,6 +134,58 @@ def test_delta_cheaper_than_plain_same_keyframes():
 
 
 # ----------------------------------------------------------------------------
+# asymmetric baselines and TCC-2
+# ----------------------------------------------------------------------------
+@pytest.mark.parametrize('kind,spec', [('a2g64', 'int2-g64-asym'), ('a2g32', 'int2-g32-asym')])
+def test_asym_matches_vda_baseline(kind, spec):
+    """Same numbers as the VDA baseline, so the two papers' INT2 rows agree."""
+    from research.models import stream_cache as sc
+    x = torch.randn(2, 4, 1, 30, 64) * 3 + 0.7
+    ours = kc.dequantize_batch([kc.quantize(x, kind)])[0]
+    ref = sc.scalar_decompress(sc.scalar_compress(x, spec, None), None)
+    assert torch.equal(ours, ref.float())
+
+
+@pytest.mark.parametrize('spec,bits', [('plain:a2g64', 2.5), ('plain:a2g32', 3.0)])
+def test_asym_bits(spec, bits):
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(), make_pos(), spec)
+    assert abs(cache.ideal_bits() - bits) < 1e-6
+
+
+@pytest.mark.parametrize('spec,bits', [('delta:int4:bin:8', 1.875), ('delta:int4:a2g64:8', 2.75)])
+def test_tcc_analytic_rate(spec, bits):
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(n=16), make_pos(), spec)
+    assert abs(cache.ideal_bits() - bits) < 1e-6
+
+
+def test_asym_residual_closed_loop():
+    """TCC-2 tracks the input better than TCC-1, and its error stays bounded."""
+    attn = make_attn(True)
+    pos = make_pos()
+    frames = make_frames(n=24, drift=0.05)
+    ref, _ = stream_original(attn, frames, pos)
+    o1, _ = stream_mode(attn, frames, pos, 'delta:int4:bin:8')
+    o2, _ = stream_mode(attn, frames, pos, 'delta:int4:a2g64:8')
+    assert torch.isfinite(o2).all()
+    assert relerr(o2, ref) < relerr(o1, ref)
+
+
+def test_pin_keeps_caches_after_stream_ends():
+    """StreamVGGT.inference drops its caches on return; stats need them."""
+    import gc
+    attn = make_attn(True)
+    kc._LIVE.pin = []
+    try:
+        stream_mode(attn, make_frames(), make_pos(), 'delta:int4:bin:8')
+        gc.collect()
+        assert len(kc._LIVE.pin) == 1 and kc._LIVE.pin[0].nbytes() > 0
+    finally:
+        kc._LIVE.pin = None
+
+
+# ----------------------------------------------------------------------------
 # parse
 # ----------------------------------------------------------------------------
 def test_parse_xstream_specs():
