@@ -44,10 +44,17 @@ setup() {
   [ -d "$VENV" ] || python3 -m venv "$VENV"
   activate
   pip install -q --upgrade pip
-  # Viewer, training and rendering packages are not needed for evaluation.
-  grep -vE '^(gradio|viser|gsplat|open3d|pyglet|lpips|tensorboard|opencv-python)' \
-    "$SVG/requirements.txt" > "$ROOT/requirements_eval.txt"
-  pip install -q -r "$ROOT/requirements_eval.txt" opencv-python-headless
+  # Exactly what the evaluator imports, at fixed versions. StreamVGGT's own
+  # requirements.txt adds training and viewer packages and pins an old numpy,
+  # which leaves pip searching old versions for a long time.
+  echo "== installing torch"
+  pip install --no-input --progress-bar off torch==2.3.1 torchvision==0.18.1
+  echo "== installing evaluation packages"
+  pip install --no-input --progress-bar off numpy==1.26.4 pillow==10.3.0 \
+    opencv-python-headless==4.10.0.84 scipy==1.13.1 matplotlib==3.9.2 \
+    accelerate==0.33.0 transformers==4.44.2 huggingface_hub==0.24.6 \
+    tqdm einops roma imageio safetensors
+  echo "== downloading checkpoint"
   mkdir -p "$SVG/ckpt"
   [ -f "$SVG/ckpt/checkpoints.pth" ] || python - "$SVG/ckpt" <<'PY'
 import sys
