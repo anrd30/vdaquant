@@ -20,6 +20,13 @@ Usage (before the model is built):
     install("delta:int4:bin:8")        # TCC-1
     install("delta:int4:a2g64:8")      # TCC-2
     install("plain:a2g64")             # asymmetric INT2 baseline; or "fp16", "none"
+    install("kivi:2:64")               # keys per channel, values per token
+    install("plain:a2g64:w4")          # newest 4 frames kept at 16 bits
+    install("drop:2:int4")             # keep every 2nd frame, INT4
+    install("offload")                 # exact cache in host memory: a reference
+                                       # for videos too long for the GPU
+
+Set kc.TRACE = True to record residual statistics per layer in cache.trace.
 """
 from __future__ import annotations
 
@@ -32,6 +39,7 @@ import torch
 
 GROUP = 16
 CHUNK = 32      # frames decoded at a time when reading a cache
+TRACE = False   # record residual statistics in CompressedKV.trace
 
 # --------------------------------------------------------------------------
 # Bit-packed per-group scalar codes
@@ -55,6 +63,9 @@ def _store_bits(kind: str) -> int:
 
 
 def _ideal_bits(kind: str) -> int:
+    if kind == 'raw':
+        return 16
+    kind = kind.lstrip('c')
     if kind == 'bin':
         return 1
     return _asym(kind)[0] if _asym(kind) else int(kind[3:])
@@ -110,8 +121,32 @@ def quantize(x: torch.Tensor, kind: str) -> dict:
             'step': step.reshape(1), 'shape': shape, 'kind': kind, 'n': xg.numel()}
 
 
+def quantize_channels(x: torch.Tensor, kind: str) -> dict:
+    """KIVI-style key quantization of one frame (B, h, 1, N, d): groups run along
+    the tokens of each channel.  N is padded with its last token to a whole number
+    of groups."""
+    g = _asym(kind)[1]
+    t = x.transpose(-1, -2)
+    pad = -t.shape[-1] % g
+    if pad:
+        t = torch.cat([t, t[..., -1:].expand(*t.shape[:-1], pad)], -1)
+    item = quantize(t.contiguous(), kind)
+    item.update(kind='c' + kind, tokens=x.shape[-2])
+    return item
+
+
+def raw_item(x: torch.Tensor) -> dict:
+    """A frame kept at 16 bits inside a quantized cache."""
+    return {'t': x.half(), 'kind': 'raw', 'n': x.numel()}
+
+
 def dequantize_batch(items: List[dict]) -> torch.Tensor:
     """Decode several codes of the same kind/shape at once -> (len, *shape) fp32."""
+    if items[0]['kind'] == 'raw':
+        return torch.stack([it['t'] for it in items]).float()
+    if items[0]['kind'].startswith('c'):
+        vals = dequantize_batch([dict(it, kind=it['kind'][1:]) for it in items])
+        return vals[..., :items[0]['tokens']].transpose(-1, -2)
     kind, shape, n = items[0]['kind'], items[0]['shape'], items[0]['n']
     w = _store_bits(kind)
     codes = _unpack(torch.stack([it['packed'] for it in items]), w, n).float()
@@ -132,12 +167,16 @@ def dequantize_batch(items: List[dict]) -> torch.Tensor:
 
 def _meta_bits(item: dict) -> int:
     """Bits of per-group side information."""
+    if item['kind'] == 'raw':
+        return 0
     if 'sidx' in item:
         return item['sidx'].numel() * 8
     return (item['scale'].numel() + item['zero'].numel()) * 16
 
 
 def _nbytes(item: dict) -> int:
+    if item['kind'] == 'raw':
+        return item['t'].numel() * 2
     extra = 4 if 'sidx' in item else 0          # fp32 step of the 8-bit scales
     return item['packed'].numel() + _meta_bits(item) // 8 + extra
 
@@ -171,6 +210,9 @@ class CompressedKV:
         self.cfg = cfg
         self.frames: List[dict] = []
         self.frame_shape = None     # (B, h, 1, N, d)
+        self.seen = 0               # frames offered, including dropped ones
+        self.trace = None
+        self.true_prev = None
         _LIVE.add(self)
 
     # aggregator reads past_key_values[0][0].shape and unpacks k, v
@@ -191,20 +233,62 @@ class CompressedKV:
         encoder and decoder in exact closed loop and needs no extra state."""
         cfg = self.cfg
         self.frame_shape = tuple(k.shape)
+        self.seen += 1
+        if (self.seen - 1) % cfg.get('stride', 1):
+            return
         if cfg['mode'] == 'fp16':
             self.frames.append({'key': True, 'k': k.half(), 'v': v.half()})
+            return
+        if cfg['mode'] == 'offload':
+            self.frames.append({'key': True, 'k': k.cpu(), 'v': v.cpu()})
+            return
+        window = cfg.get('window', 0)
+        if window:
+            self.frames.append({'key': True, 'k': raw_item(k), 'v': raw_item(v)})
+            if len(self.frames) > window:
+                old = self.frames[-window - 1]
+                for which in ('k', 'v'):
+                    old[which] = self._encode(old[which]['t'].float(), cfg['key'], which)
             return
         idx = len(self.frames)
         key = cfg['mode'] == 'plain' or prev is None or idx % cfg['K'] == 0
         kind = cfg['key'] if key else cfg['res']
         cur = (k.float(), v.float())
         payload = cur if key else (cur[0] - prev[0], cur[1] - prev[1])
-        self.frames.append({'key': key, 'k': quantize(payload[0], kind),
-                            'v': quantize(payload[1], kind)})
+        self.frames.append({'key': key, 'k': self._encode(payload[0], kind, 'k'),
+                            'v': self._encode(payload[1], kind, 'v')})
+        if TRACE:
+            self._record(cur, payload, key)
+
+    def _encode(self, x: torch.Tensor, kind: str, which: str) -> dict:
+        if which == 'k' and self.cfg.get('chan_k'):
+            return quantize_channels(x, kind)
+        return quantize(x, kind)
+
+    def _record(self, cur, payload, key: bool):
+        """Per stream: energy kept by the residual quantizer, and how the residual
+        and the coding error compare with the true frame-to-frame change."""
+        if self.trace is None:
+            self.trace = {w: {'frames': 0, 'quant_err_ratio': 0.0, 'quant_err_ratio_max': 0.0,
+                              'change_ratio': 0.0, 'err_vs_change': 0.0} for w in 'kv'}
+        for i, which in enumerate('kv'):
+            h = cur[i]
+            if not key and self.true_prev is not None:
+                r = payload[i]
+                e = r - dequantize_batch([self.frames[-1][which]])[0]
+                change = (h - self.true_prev[i]).pow(2).sum()
+                ratio = float(e.pow(2).sum() / r.pow(2).sum().clamp(min=1e-20))
+                t = self.trace[which]
+                t['frames'] += 1
+                t['quant_err_ratio'] += ratio
+                t['quant_err_ratio_max'] = max(t['quant_err_ratio_max'], ratio)
+                t['change_ratio'] += float(change / (h - h.mean()).pow(2).sum().clamp(min=1e-20))
+                t['err_vs_change'] += float(e.pow(2).sum() / change.clamp(min=1e-20))
+        self.true_prev = cur
 
     def materialize(self):
         """All cached frames, (B, h, S, N, d) each, fp32."""
-        if self.cfg['mode'] == 'fp16':
+        if self.cfg['mode'] in ('fp16', 'offload'):
             k = torch.cat([f['k'] for f in self.frames], 2).float()
             v = torch.cat([f['v'] for f in self.frames], 2).float()
             return k, v
@@ -245,6 +329,8 @@ class CompressedKV:
             n = len(part)
             if self.cfg['mode'] == 'fp16':
                 vals = torch.stack([f[which] for f in part]).float()
+            elif self.cfg['mode'] == 'offload':
+                vals = torch.stack([f[which] for f in part]).to(cur.device)
             else:
                 vals = torch.empty((n,) + self.frame_shape, dtype=torch.float32, device=cur.device)
                 groups = {}
@@ -276,13 +362,13 @@ class CompressedKV:
         return k_all, v_all, (pk, pv)
 
     def nbytes(self) -> int:
-        if self.cfg['mode'] == 'fp16':
+        if self.cfg['mode'] in ('fp16', 'offload'):
             return sum(f['k'].numel() * 2 + f['v'].numel() * 2 for f in self.frames)
         return sum(_nbytes(f['k']) + _nbytes(f['v']) for f in self.frames)
 
     def ideal_bits(self) -> float:
         """Bits per cached scalar for an ideally packed layout (incl. scales)."""
-        if self.cfg['mode'] == 'fp16':
+        if self.cfg['mode'] in ('fp16', 'offload'):
             return 16.0
         tot, cnt = 0.0, 0
         for f in self.frames:
@@ -303,15 +389,28 @@ def total_cache_bytes() -> int:
 
 
 def parse(spec: str) -> Optional[dict]:
-    """'none' | 'fp16' | 'plain:int2' | 'delta:int3:bin:8' |
-    'xstream:2048:4:4' | 'xstream+delta:2048:int3:bin:8'"""
+    """'none' | 'fp16' | 'offload' | 'plain:int2[:w<recent>]' | 'kivi:2:64[:w<recent>]' |
+    'drop:<stride>:int4' | 'delta:int3:bin:8' | 'xstream:2048:4:4' |
+    'xstream+delta:2048:int3:bin:8'"""
     p = spec.split(':')
     if p[0] == 'none':
         return None
     if p[0] == 'fp16':
         return {'mode': 'fp16'}
+    if p[0] == 'offload':
+        return {'mode': 'offload'}
     if p[0] == 'plain':
-        return {'mode': 'plain', 'key': p[1]}
+        cfg = {'mode': 'plain', 'key': p[1]}
+        if len(p) > 2:
+            cfg['window'] = int(p[2][1:])
+        return cfg
+    if p[0] == 'kivi':             # kivi:<bits>:<group>[:w<recent>]
+        cfg = {'mode': 'plain', 'key': f'a{p[1]}g{p[2]}', 'chan_k': True}
+        if len(p) > 3:
+            cfg['window'] = int(p[3][1:])
+        return cfg
+    if p[0] == 'drop':             # drop:<stride>:<kind>
+        return {'mode': 'plain', 'key': p[2], 'stride': int(p[1])}
     if p[0] == 'delta':
         return {'mode': 'delta', 'key': p[1], 'res': p[2], 'K': int(p[3])}
     if p[0] == 'xstream':          # xstream:<budget>:<kbits>:<vbits>[:<group>[:<pool>]]

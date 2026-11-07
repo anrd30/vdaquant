@@ -190,6 +190,78 @@ def test_chunked_read_matches_materialize(spec, chunk, monkeypatch):
     assert (pk - rk[:, :, -1:]).abs().max() < 1e-4
 
 
+@pytest.mark.parametrize('rope', [False, True])
+def test_offload_equals_original(rope):
+    """The host-memory reference must be the uncompressed model exactly."""
+    attn = make_attn(rope)
+    frames, pos = make_frames(), make_pos()
+    ref, _ = stream_original(attn, frames, pos)
+    out, cache = stream_mode(attn, frames, pos, 'offload')
+    assert torch.equal(out, ref)
+    assert cache.shape[2] == len(frames)
+
+
+def test_kivi_keys_are_per_channel():
+    """A channel with a large offset ruins per-token groups, not per-channel ones."""
+    torch.manual_seed(0)
+    x = torch.randn(1, 2, 1, N, 64)
+    x[..., 3] += 50
+    per_token = kc.dequantize_batch([kc.quantize(x, 'a2g64')])[0]
+    per_chan = kc.dequantize_batch([kc.quantize_channels(x, 'a2g64')])[0]
+    assert per_chan.shape == x.shape
+    assert (per_chan - x).abs().mean() < 0.5 * (per_token - x).abs().mean()
+
+
+def test_kivi_runs_at_the_rate_of_a2g64():
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(), make_pos(), 'kivi:2:64')
+    # keys pad 40 tokens to one group of 64, values use 64 channels per group
+    assert 2.4 < cache.ideal_bits() < 2.6
+
+
+def test_window_keeps_recent_frames_at_16_bits():
+    attn = make_attn(True)
+    frames = make_frames(n=12)
+    _, cache = stream_mode(attn, frames, make_pos(), 'plain:a2g64:w4')
+    kinds = [f['k']['kind'] for f in cache.frames]
+    assert kinds == ['a2g64'] * 8 + ['raw'] * 4
+    plain = stream_mode(attn, frames, make_pos(), 'plain:a2g64')[1]
+    assert cache.nbytes() > plain.nbytes()
+    rk, _ = cache.materialize()
+    assert rk.shape[2] == 12
+
+
+def test_drop_stores_every_second_frame():
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(n=11), make_pos(), 'drop:2:int4')
+    assert len(cache.frames) == 6 and cache.seen == 11
+
+
+@pytest.mark.parametrize('spec', ['kivi:2:64', 'kivi:2:64:w2', 'plain:a2g64:w3', 'drop:2:int4'])
+@pytest.mark.parametrize('chunk', [1, 3, 32])
+def test_new_baselines_read_matches_materialize(spec, chunk, monkeypatch):
+    monkeypatch.setattr(kc, 'CHUNK', chunk)
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(n=13), make_pos(), spec)
+    B, h, S, n, d = cache.shape
+    cur = torch.randn(B, h, 1, n, d)
+    k_all, v_all, _ = cache.read(cur, cur + 1)
+    rk, rv = cache.materialize()
+    assert (k_all[:, :, :S] - rk).abs().max() < 1e-4
+    assert (v_all[:, :, :S] - rv).abs().max() < 1e-4
+
+
+def test_one_bit_residual_always_removes_energy(monkeypatch):
+    """||r - Q(r)||^2 <= (1 - 1/g) ||r||^2 per group, so closed-loop error stays bounded."""
+    monkeypatch.setattr(kc, 'TRACE', True)
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(n=17), make_pos(), 'delta:int4:bin:8')
+    for t in cache.trace.values():
+        assert t['frames'] == 14                  # 17 frames, keyframes 0, 8, 16
+        assert t['quant_err_ratio_max'] <= 1 - 1 / kc.GROUP + 0.01
+        assert t['quant_err_ratio'] / t['frames'] < 0.5
+
+
 def test_pin_keeps_caches_after_stream_ends():
     """StreamVGGT.inference drops its caches on return; stats need them."""
     import gc
