@@ -31,6 +31,7 @@ from typing import List, Optional
 import torch
 
 GROUP = 16
+CHUNK = 32      # frames decoded at a time when reading a cache
 
 # --------------------------------------------------------------------------
 # Bit-packed per-group scalar codes
@@ -230,6 +231,50 @@ class CompressedKV:
             out.append(vals.squeeze(3).permute(1, 2, 0, 3, 4))
         return out[0], out[1]
 
+    def _read_one(self, which: str, cur: torch.Tensor):
+        """Past frames plus the current one in cur's dtype, (B, h, S+1, N, d), and
+        the newest past frame's fp32 reconstruction.  Decodes CHUNK frames at a
+        time, so fp32 temporaries do not grow with the length of the video."""
+        S = len(self.frames)
+        B, h, _, N, d = self.frame_shape
+        dst = torch.empty((B, h, S + 1, N, d), dtype=cur.dtype, device=cur.device)
+        dst[:, :, S:S + 1] = cur
+        run = None
+        for s0 in range(0, S, CHUNK):
+            part = self.frames[s0:s0 + CHUNK]
+            n = len(part)
+            if self.cfg['mode'] == 'fp16':
+                vals = torch.stack([f[which] for f in part]).float()
+            else:
+                vals = torch.empty((n,) + self.frame_shape, dtype=torch.float32, device=cur.device)
+                groups = {}
+                for i, f in enumerate(part):
+                    groups.setdefault(f[which]['kind'], []).append(i)
+                for kind, ids in groups.items():
+                    vals[ids] = dequantize_batch([part[i][which] for i in ids])
+            if self.cfg['mode'] == 'delta':
+                # recon_t = reconstruction carried in + decoded values since the last keyframe
+                is_key = torch.tensor([f['key'] for f in part], device=vals.device)
+                if run is not None and not part[0]['key']:
+                    vals[0] += run
+                pos = torch.arange(n, device=vals.device)
+                last_key = torch.cummax(torch.where(is_key, pos, torch.zeros_like(pos)), 0).values
+                csum = torch.cumsum(vals, 0)
+                base = torch.where((last_key > 0).view(-1, *[1] * (vals.dim() - 1)),
+                                   csum[(last_key - 1).clamp(min=0)], torch.zeros_like(csum))
+                vals = csum - base
+                del csum, base
+            run = vals[-1]
+            dst[:, :, s0:s0 + n] = vals.squeeze(3).permute(1, 2, 0, 3, 4)
+        return dst, run
+
+    def read(self, k: torch.Tensor, v: torch.Tensor):
+        """Cached frames with the current k, v appended, and the newest cached
+        frame's fp32 reconstruction for closed-loop encoding."""
+        k_all, pk = self._read_one('k', k)
+        v_all, pv = self._read_one('v', v)
+        return k_all, v_all, (pk, pv)
+
     def nbytes(self) -> int:
         if self.cfg['mode'] == 'fp16':
             return sum(f['k'].numel() * 2 + f['v'].numel() * 2 for f in self.frames)
@@ -296,11 +341,7 @@ def _patched_forward(self, x, pos=None, attn_mask=None, past_key_values=None, us
     v = v.unsqueeze(2)
     cache = past_key_values if isinstance(past_key_values, CompressedKV) else CompressedKV(cfg)
     if cache.frames:
-        pk, pv = cache.materialize()
-        prev = (pk[:, :, -1:], pv[:, :, -1:])
-        k_all = torch.cat([pk.to(k.dtype), k], 2)
-        v_all = torch.cat([pv.to(v.dtype), v], 2)
-        del pk, pv
+        k_all, v_all, prev = cache.read(k, v)
     else:
         prev = None
         k_all, v_all = k, v

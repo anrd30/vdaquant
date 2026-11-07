@@ -172,6 +172,24 @@ def test_asym_residual_closed_loop():
     assert relerr(o2, ref) < relerr(o1, ref)
 
 
+@pytest.mark.parametrize('spec', ['fp16', 'plain:a2g64', 'plain:int4', 'delta:int4:bin:8',
+                                  'delta:int4:bin:4', 'delta:int4:a2g64:8'])
+@pytest.mark.parametrize('chunk', [1, 3, 8, 32])
+def test_chunked_read_matches_materialize(spec, chunk, monkeypatch):
+    """Chunk boundaries, including ones that split a keyframe interval."""
+    monkeypatch.setattr(kc, 'CHUNK', chunk)
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(n=21), make_pos(), spec)
+    B, h, S, N, d = cache.shape
+    cur = torch.randn(B, h, 1, N, d)
+    k_all, v_all, (pk, pv) = cache.read(cur, cur + 1)
+    rk, rv = cache.materialize()
+    assert k_all.shape[2] == S + 1 and torch.equal(k_all[:, :, S:S + 1], cur)
+    assert (k_all[:, :, :S] - rk).abs().max() < 1e-4
+    assert (v_all[:, :, :S] - rv).abs().max() < 1e-4
+    assert (pk - rk[:, :, -1:]).abs().max() < 1e-4
+
+
 def test_pin_keeps_caches_after_stream_ends():
     """StreamVGGT.inference drops its caches on return; stats need them."""
     import gc
