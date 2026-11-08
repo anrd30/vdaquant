@@ -23,6 +23,9 @@ Usage (before the model is built):
     install("kivi:2:64")               # keys per channel, values per token
     install("plain:a2g64:w4")          # newest 4 frames kept at 16 bits
     install("drop:2:int4")             # keep every 2nd frame, INT4
+    install("delta:int4:bin:8:s2")     # TCC-1 on every 2nd frame (drop + TCC)
+    install("delta:int4:bin:8:a0.5")   # extra keyframe when the residual is large
+    install("zero")                    # zero-cache control: past keys/values = 0
     install("offload")                 # exact cache in host memory: a reference
                                        # for videos too long for the GPU
 
@@ -242,6 +245,9 @@ class CompressedKV:
         if cfg['mode'] == 'offload':
             self.frames.append({'key': True, 'k': k.cpu(), 'v': v.cpu()})
             return
+        if cfg['mode'] == 'zero':
+            self.frames.append({'key': True})
+            return
         window = cfg.get('window', 0)
         if window:
             self.frames.append({'key': True, 'k': raw_item(k), 'v': raw_item(v)})
@@ -255,6 +261,10 @@ class CompressedKV:
         kind = cfg['key'] if key else cfg['res']
         cur = (k.float(), v.float())
         payload = cur if key else (cur[0] - prev[0], cur[1] - prev[1])
+        if not key and cfg.get('adaptive') and any(
+                float(r.pow(2).sum() / (c - c.mean()).pow(2).sum().clamp(min=1e-20)) > cfg['adaptive']
+                for r, c in zip(payload, cur)):
+            key, kind, payload = True, cfg['key'], cur      # scene change: new keyframe
         self.frames.append({'key': key, 'k': self._encode(payload[0], kind, 'k'),
                             'v': self._encode(payload[1], kind, 'v')})
         if TRACE:
@@ -288,6 +298,9 @@ class CompressedKV:
 
     def materialize(self):
         """All cached frames, (B, h, S, N, d) each, fp32."""
+        if self.cfg['mode'] == 'zero':
+            z = torch.zeros(self.shape)
+            return z, z
         if self.cfg['mode'] in ('fp16', 'offload'):
             k = torch.cat([f['k'] for f in self.frames], 2).float()
             v = torch.cat([f['v'] for f in self.frames], 2).float()
@@ -331,6 +344,8 @@ class CompressedKV:
                 vals = torch.stack([f[which] for f in part]).float()
             elif self.cfg['mode'] == 'offload':
                 vals = torch.stack([f[which] for f in part]).to(cur.device)
+            elif self.cfg['mode'] == 'zero':
+                vals = torch.zeros((n,) + self.frame_shape, dtype=cur.dtype, device=cur.device)
             else:
                 vals = torch.empty((n,) + self.frame_shape, dtype=torch.float32, device=cur.device)
                 groups = {}
@@ -362,12 +377,16 @@ class CompressedKV:
         return k_all, v_all, (pk, pv)
 
     def nbytes(self) -> int:
+        if self.cfg['mode'] == 'zero':
+            return 0
         if self.cfg['mode'] in ('fp16', 'offload'):
             return sum(f['k'].numel() * 2 + f['v'].numel() * 2 for f in self.frames)
         return sum(_nbytes(f['k']) + _nbytes(f['v']) for f in self.frames)
 
     def ideal_bits(self) -> float:
         """Bits per cached scalar for an ideally packed layout (incl. scales)."""
+        if self.cfg['mode'] == 'zero':
+            return 0.0
         if self.cfg['mode'] in ('fp16', 'offload'):
             return 16.0
         tot, cnt = 0.0, 0
@@ -399,6 +418,8 @@ def parse(spec: str) -> Optional[dict]:
         return {'mode': 'fp16'}
     if p[0] == 'offload':
         return {'mode': 'offload'}
+    if p[0] == 'zero':
+        return {'mode': 'zero'}
     if p[0] == 'plain':
         cfg = {'mode': 'plain', 'key': p[1]}
         if len(p) > 2:
@@ -411,8 +432,16 @@ def parse(spec: str) -> Optional[dict]:
         return cfg
     if p[0] == 'drop':             # drop:<stride>:<kind>
         return {'mode': 'plain', 'key': p[2], 'stride': int(p[1])}
-    if p[0] == 'delta':
-        return {'mode': 'delta', 'key': p[1], 'res': p[2], 'K': int(p[3])}
+    if p[0] == 'delta':            # delta:<key>:<res>:<K>[:s<stride>][:a<threshold>]
+        cfg = {'mode': 'delta', 'key': p[1], 'res': p[2], 'K': int(p[3])}
+        for opt in p[4:]:
+            if opt[0] == 's':
+                cfg['stride'] = int(opt[1:])
+            elif opt[0] == 'a':
+                cfg['adaptive'] = float(opt[1:])
+            else:
+                raise ValueError(spec)
+        return cfg
     if p[0] == 'xstream':          # xstream:<budget>:<kbits>:<vbits>[:<group>[:<pool>]]
         from research.models.xstream_baseline import parse_xstream
         return parse_xstream(p)

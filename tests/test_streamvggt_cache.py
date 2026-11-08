@@ -262,6 +262,39 @@ def test_one_bit_residual_always_removes_energy(monkeypatch):
         assert t['quant_err_ratio'] / t['frames'] < 0.5
 
 
+def test_delta_with_stride_codes_every_second_frame():
+    attn = make_attn(True)
+    frames = make_frames(n=13)
+    _, cache = stream_mode(attn, frames, make_pos(), 'delta:int4:bin:4:s2')
+    assert len(cache.frames) == 7 and cache.seen == 13
+    assert [f['key'] for f in cache.frames] == [True, False, False, False, True, False, False]
+    B, h, S, n, d = cache.shape
+    cur = torch.randn(B, h, 1, n, d)
+    k_all, _, _ = cache.read(cur, cur)
+    assert (k_all[:, :, :S] - cache.materialize()[0]).abs().max() < 1e-4
+
+
+def test_adaptive_keyframe_at_scene_cut():
+    attn = make_attn(True)
+    frames = make_frames(n=10, drift=0.05)
+    cut = make_frames(n=6, seed=9, drift=0.05)
+    _, cache = stream_mode(attn, frames + cut, make_pos(), 'delta:int4:bin:16:a0.5')
+    keys = [i for i, f in enumerate(cache.frames) if f['key']]
+    assert keys == [0, 10]
+    _, plain = stream_mode(attn, frames + cut, make_pos(), 'delta:int4:bin:16')
+    assert [i for i, f in enumerate(plain.frames) if f['key']] == [0]
+
+
+def test_zero_cache_attends_to_zeros():
+    attn = make_attn(False)
+    frames, pos = make_frames(n=4), make_pos()
+    out, cache = stream_mode(attn, frames, pos, 'zero')
+    assert cache.nbytes() == 0 and cache.shape[2] == 4
+    ref, _ = stream_original(attn, frames, pos)
+    assert torch.allclose(out[0], ref[0], atol=1e-6)        # first frame has no past
+    assert not torch.allclose(out[3], ref[3], atol=1e-3)
+
+
 def test_pin_keeps_caches_after_stream_ends():
     """StreamVGGT.inference drops its caches on return; stats need them."""
     import gc
