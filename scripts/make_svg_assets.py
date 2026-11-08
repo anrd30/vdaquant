@@ -2,7 +2,7 @@
 StreamVGGT tables, figure and numbers for the paper, from the result files only.
 
     python -X utf8 scripts/make_svg_assets.py --res results/2026-11-07_svg_queue \
-        --paper C:/Users/aniru/Downloads/cvpr2027/paper
+        --paper <paper folder>
 
 Reads <res>/res/fidelity_*.json and result_scale.json (official video-depth runs),
 <res>/long_bonn/*.json (240-frame runs against the exact reference) and
