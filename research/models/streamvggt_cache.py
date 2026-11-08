@@ -243,6 +243,8 @@ class CompressedKV:
             self.frames.append({'key': True, 'k': k.half(), 'v': v.half()})
             return
         if cfg['mode'] == 'offload':
+            if TRACE:
+                self._record_outliers(k, v)
             self.frames.append({'key': True, 'k': k.cpu(), 'v': v.cpu()})
             return
         if cfg['mode'] == 'zero':
@@ -295,6 +297,24 @@ class CompressedKV:
                 t['change_ratio'] += float(change / (h - h.mean()).pow(2).sum().clamp(min=1e-20))
                 t['err_vs_change'] += float(e.pow(2).sum() / change.clamp(min=1e-20))
         self.true_prev = cur
+
+    def _record_outliers(self, k, v):
+        """Channel outliers per frame: the largest channel's absolute maximum over
+        the median channel's (channel = head x dim), and the kurtosis of all values."""
+        if self.trace is None:
+            self.trace = {w: {'frames': 0, 'chan_ratio': 0.0, 'chan_ratio_max': 0.0, 'kurtosis': 0.0}
+                          for w in 'kv'}
+        for which, x in (('k', k), ('v', v)):
+            x = x.float()
+            m = x.abs().amax(dim=(0, 2, 3)).reshape(-1)           # (h * d,)
+            ratio = float(m.max() / m.median().clamp(min=1e-20))
+            z = x - x.mean()
+            kurt = float(z.pow(4).mean() / z.pow(2).mean().pow(2).clamp(min=1e-20))
+            t = self.trace[which]
+            t['frames'] += 1
+            t['chan_ratio'] += ratio
+            t['chan_ratio_max'] = max(t['chan_ratio_max'], ratio)
+            t['kurtosis'] += kurt
 
     def materialize(self):
         """All cached frames, (B, h, S, N, d) each, fp32."""

@@ -295,6 +295,14 @@ def test_zero_cache_attends_to_zeros():
     assert not torch.allclose(out[3], ref[3], atol=1e-3)
 
 
+def test_outlier_trace_on_offload(monkeypatch):
+    monkeypatch.setattr(kc, 'TRACE', True)
+    attn = make_attn(True)
+    _, cache = stream_mode(attn, make_frames(n=5), make_pos(), 'offload')
+    for t in cache.trace.values():
+        assert t['frames'] == 5 and t['chan_ratio_max'] >= 1.0 and t['kurtosis'] > 1.0
+
+
 def test_pin_keeps_caches_after_stream_ends():
     """StreamVGGT.inference drops its caches on return; stats need them."""
     import gc
