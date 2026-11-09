@@ -216,6 +216,7 @@ class CompressedKV:
         self.seen = 0               # frames offered, including dropped ones
         self.trace = None
         self.true_prev = None
+        self.last_true = None       # open loop: the true previous frame
         _LIVE.add(self)
 
     # aggregator reads past_key_values[0][0].shape and unpacks k, v
@@ -262,6 +263,10 @@ class CompressedKV:
         key = cfg['mode'] == 'plain' or prev is None or idx % cfg['K'] == 0
         kind = cfg['key'] if key else cfg['res']
         cur = (k.float(), v.float())
+        if cfg.get('open') and not key and self.last_true is not None:
+            prev = self.last_true          # open loop: predict from the true frame
+        if cfg.get('open'):
+            self.last_true = cur
         payload = cur if key else (cur[0] - prev[0], cur[1] - prev[1])
         if not key and cfg.get('adaptive') and any(
                 float(r.pow(2).sum() / (c - c.mean()).pow(2).sum().clamp(min=1e-20)) > cfg['adaptive']
@@ -459,6 +464,8 @@ def parse(spec: str) -> Optional[dict]:
                 cfg['stride'] = int(opt[1:])
             elif opt[0] == 'a':
                 cfg['adaptive'] = float(opt[1:])
+            elif opt == 'o':
+                cfg['open'] = True         # open-loop control: residuals against true frames
             else:
                 raise ValueError(spec)
         return cfg

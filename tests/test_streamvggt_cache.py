@@ -303,6 +303,20 @@ def test_outlier_trace_on_offload(monkeypatch):
         assert t['frames'] == 5 and t['chan_ratio_max'] >= 1.0 and t['kurtosis'] > 1.0
 
 
+def test_open_loop_drifts_and_closed_loop_does_not():
+    attn = make_attn(True)
+    frames = make_frames(n=16, drift=0.1)
+    errs = {}
+    for spec in ('delta:int4:bin:16', 'delta:int4:bin:16:o'):
+        _, cache = stream_mode(attn, frames, make_pos(), spec)
+        rec, _ = cache.materialize()
+        true = torch.stack([raw_kv(attn, x)[0] for x in frames], 2)
+        errs[spec] = (rec - true).pow(2).mean((0, 1, 3, 4)).sqrt()
+    closed, opened = errs['delta:int4:bin:16'], errs['delta:int4:bin:16:o']
+    assert opened[-1] > 1.5 * closed[-1]
+    assert opened[-4:].mean() > opened[1:5].mean()
+
+
 def test_pin_keeps_caches_after_stream_ends():
     """StreamVGGT.inference drops its caches on return; stats need them."""
     import gc
