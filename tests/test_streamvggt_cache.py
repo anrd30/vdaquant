@@ -317,6 +317,35 @@ def test_open_loop_drifts_and_closed_loop_does_not():
     assert opened[-4:].mean() > opened[1:5].mean()
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='needs a GPU')
+@pytest.mark.parametrize('spec', ['plain:int4', 'plain:int2', 'plain:a2g64', 'delta:int4:bin:8',
+                                  'delta:int4:a2g64:8', 'delta:int4:bin:4:s2', 'drop:2:int4'])
+def test_fused_decode_matches_pytorch(spec, monkeypatch):
+    """Closed loop on real-sized frames: the fused path and the PyTorch path give the
+    same attention buffer and the same reconstruction, to float32 rounding."""
+    pytest.importorskip('triton')
+    torch.manual_seed(0)
+    shape = (1, 4, 1, 37, 64)
+    x = torch.randn(shape, device='cuda')
+    frames = []
+    for _ in range(19):
+        x = x + 0.2 * torch.randn(shape, device='cuda')
+        frames.append(x.to(torch.bfloat16))
+    out = {}
+    for fused in (False, True):
+        monkeypatch.setattr(kc, 'FUSED', fused)
+        cache = kc.CompressedKV(kc.parse(spec))
+        for f in frames:
+            prev = cache.read(f, f)[2] if cache.frames else None
+            cache.append(f, f, prev)
+        cur = frames[-1]
+        out[fused] = cache.read(cur, cur)
+    (ka, va, (pa, _)), (kb, vb, (pb, _)) = out[False], out[True]
+    assert ka.shape == kb.shape
+    assert (ka.float() - kb.float()).abs().max() < 2e-2      # bf16 buffer
+    assert (pa - pb).abs().max() < 1e-4                      # fp32 reconstruction
+
+
 def test_pin_keeps_caches_after_stream_ends():
     """StreamVGGT.inference drops its caches on return; stats need them."""
     import gc

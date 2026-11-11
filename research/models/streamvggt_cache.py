@@ -43,6 +43,7 @@ import torch
 GROUP = 16
 CHUNK = 32      # frames decoded at a time when reading a cache
 TRACE = False   # record residual statistics in CompressedKV.trace
+FUSED = os.environ.get('TCC_FUSED', '0') == '1'   # fused Triton decode (kernels/triton_kernels/decode_svg.py)
 
 # --------------------------------------------------------------------------
 # Bit-packed per-group scalar codes
@@ -361,6 +362,12 @@ class CompressedKV:
         B, h, _, N, d = self.frame_shape
         dst = torch.empty((B, h, S + 1, N, d), dtype=cur.dtype, device=cur.device)
         dst[:, :, S:S + 1] = cur
+        if FUSED and cur.is_cuda and self.cfg['mode'] in ('plain', 'delta'):
+            from kernels.triton_kernels import decode_svg
+            items = [f[which] for f in self.frames]
+            if decode_svg.supported(items):
+                residual = [self.cfg['mode'] == 'delta' and not f['key'] for f in self.frames]
+                return dst, decode_svg.svg_decode(items, residual, dst, self.frame_shape)
         run = None
         for s0 in range(0, S, CHUNK):
             part = self.frames[s0:s0 + CHUNK]
