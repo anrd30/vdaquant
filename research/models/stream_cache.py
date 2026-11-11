@@ -543,7 +543,7 @@ def _patch_lazy(attn):
     attn.forward = forward
 
 
-PREDICTORS = ('prev', 'none', 'extrap2', 'linfit')
+PREDICTORS = ('prev', 'none', 'extrap2', 'linfit', 'open')   # 'open': open-loop control
 
 
 def _predict(predictor: str, r1: torch.Tensor, r2: Optional[torch.Tensor], params=None):
@@ -686,11 +686,14 @@ class _DeltaEncoder:
         assert predictor in PREDICTORS, predictor
         assert predictor != 'linfit' or params is not None, "linfit needs predictor_params"
         self.delta, self.mode, self.residual_mode, self.bits = delta, mode, residual_mode, bits
-        self.predictor, self.params = predictor, params
+        self.open_loop = predictor == 'open'
+        self.predictor = 'prev' if self.open_loop else predictor
+        self.params = params
         self.reset()
 
     def reset(self):
         self.h1, self.h2, self.since_intra = None, None, 0
+        self.t1 = None              # true previous entry (open-loop control only)
 
     def encode(self, cache_list, signs) -> CompressedEntry:
         cur = [t.float() for t in cache_list]
@@ -705,6 +708,8 @@ class _DeltaEncoder:
                              None if self.params is None
                              else _params_on(self.params[i], r1.device))
                     for i, (r1, r2) in enumerate(zip(self.h1, h2))]
+            if self.open_loop:      # residual against the true previous entry, which
+                pred = self.t1      # the decoder does not have: errors are not corrected
             payload = [c if p is None else c - p for c, p in zip(cur, pred)]
         e = CompressedEntry(payload, self.mode if intra else self.residual_mode,
                             self.bits, signs)
@@ -713,9 +718,11 @@ class _DeltaEncoder:
         if intra:
             rec, self.h2, self.since_intra = dec, None, 0
         else:
-            rec = [d if p is None else p + d for p, d in zip(pred, dec)]
+            base = self.h1 if self.open_loop else pred      # what the decoder adds to
+            rec = [d if p is None else p + d for p, d in zip(base, dec)]
             self.h2, self.since_intra = self.h1, self.since_intra + 1
         self.h1 = rec
+        self.t1 = cur
         return e
 
 
@@ -839,7 +846,7 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
         if delta:
             L, H = model.frame_cache_list, model._delta_hidden
             chain = list(H) + list(L[1:])
-            return [DeltaLazyLayer(L[0], chain, len(H), INFER_LEN - 3, i, predictor,
+            return [DeltaLazyLayer(L[0], chain, len(H), INFER_LEN - 3, i, 'prev' if predictor == 'open' else predictor,
                                    None if predictor_params is None else predictor_params[i])
                     for i in range(n)]
         if lazy:

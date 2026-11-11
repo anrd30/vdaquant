@@ -61,7 +61,7 @@ def fmt_pct(x, d=1):
 
 
 # ---------------------------------------------------------------- main table
-FORMATS = [('zero', 'Cache removed', None), ('int2-g16', 'INT2 symmetric', None),
+FORMATS = [('zero', 'Zero cache', None), ('int2-g16', 'INT2 symmetric', None),
            (G64, 'INT2 asym., $g{=}64$', 1), (OURS, '\\textbf{TCC-1}, $K{=}8$', 1),
            (OURS4, '\\textbf{TCC-1}, $K{=}4$', 1), (G32, 'INT2 asym., $g{=}32$', 2),
            (TCC2, '\\textbf{TCC-2}, $K{=}8$', 2)]
@@ -107,16 +107,6 @@ def main_table(out):
             L.append(r'\midrule')
         L.append(f'{lab} & {bits_of(cfg)} & ' + ' & '.join(cells(cfg, g, 'fid_rel_dev_pct', f2)
                                                            + cells(cfg, g, 'fid_flicker_pct', f2)) + r' \\')
-    L += [r'\midrule',
-          r' & & \multicolumn{6}{c}{cov-TAE change (\%)} & \multicolumn{6}{c}{TAE change (\%)} \\',
-          r'\cmidrule(lr){3-8}\cmidrule(lr){9-14}']
-    fp = [row(data[k], 'fp32') for k in order]
-    L.append('FP32 (absolute) & 32 & ' + ' & '.join([f"{b['tae_covis_percent']:.2f}" for b in fp]
-                                                   + [f"{b['tae_percent']:.2f}" for b in fp]) + r' \\')
-    f1 = lambda v: fmt_pct(v)
-    for cfg, lab, g in FORMATS:
-        L.append(f'{lab} & {bits_of(cfg)} & ' + ' & '.join(cells(cfg, None, 'tae_covis_percent', f1)
-                                                           + cells(cfg, None, 'tae_percent', f1)) + r' \\')
     L += [r'\bottomrule', r'\end{tabular}']
     (out / 'tab_main.tex').write_text('\n'.join(L), encoding='utf-8')
 
@@ -194,28 +184,29 @@ ABL = [('int4-g16::d4:bin-g16', '$K{=}4$'), ('int4-g16::d8:bin-g16', '$K{=}8$ (d
        ('int4-g16::d8:bin-g64-s8', 'residual group $g{=}64$'),
        ('int8-g16::d8:bin-g16', 'INT8 keyframes'), ('int4-g16::d8:int2-g16', 'ternary residuals'),
        (TCC2, '4-level residuals (TCC-2)'),
-       ('int4-g16::d8:bin-g16:none', 'no prediction'), ('int4-g16::d8:bin-g16:extrap2', 'linear extrapolation')]
+       ('int4-g16::d8:bin-g16:none', 'no prediction'), ('int4-g16::d8:bin-g16:open', 'open loop'),
+       ('int4-g16::d8:bin-g16:extrap2', 'linear extrapolation')]
 
 
 def ablation_table(out):
-    sets = [(n, (load(f'{d}_vits_ablation') or []) + (load(f'{d}_vits_sweep') or []) + (load(f'{d}_vits_match') or []))
+    sets = [(n, (load(f'{d}_vits_ablation') or []) + (load(f'{d}_vits_sweep') or []) + (load(f'{d}_vits_match') or []) + (load(f'{d}_vits_open') or []))
             for n, d in (('Sintel', 'sintel'), ('Bonn', 'bonn'))]
     avail = [(n, rs) for n, rs in sets if rs is not None]
     L = [r'\begin{tabular}{l' + 'rrr' * len(avail) + '}', r'\toprule',
-         ' & ' + ' & '.join(f'\\multicolumn{{3}}{{c}}{{{n}}}' for n, _ in avail) + r' \\',
-         'Variant' + ' & bits & cov $\\Delta$\\% & Fid.\\%' * len(avail) + r' \\', r'\midrule']
+         ' & ' + ' & '.join(f'\\multicolumn{{2}}{{c}}{{{n}}}' for n, _ in avail) + r' \\',
+         'Variant' + ' & bits & Dev.\\%' * len(avail) + r' \\', r'\midrule']
     for cfg, lab in ABL:
         cells = []
         for n, rs in avail:
             b, r = row(rs, 'fp32'), row(rs, cfg)
             if r is None:
-                cells.append('-- & -- & --')
+                cells.append('-- & --')
                 continue
             bt, cov, fid = bits(r, b), rel(r, b, 'tae_covis_percent'), r['fid_rel_dev_pct']
             tag = cfg.replace('int4-g16::', '').replace(':', '_')
             NUM.update({f'abl.{n.lower()}.{tag}.bits': round(bt, 2), f'abl.{n.lower()}.{tag}.cov': round(cov, 1),
                         f'abl.{n.lower()}.{tag}.fid': round(fid, 2)})
-            cells.append(f'{bt:.2f} & {fmt_pct(cov)} & {fid:.2f}')
+            cells.append(f'{bt:.2f} & {fid:.2f}')
         L.append(f'{lab} & ' + ' & '.join(cells) + r' \\')
     L += [r'\bottomrule', r'\end{tabular}']
     (out / 'tab_ablation.tex').write_text('\n'.join(L), encoding='utf-8')
@@ -227,7 +218,7 @@ BASE = [('fp16', 'FP16'), ('int8-g64', 'INT8 (per-group)'), ('int4-g64-asym', 'I
         (G32, 'INT2 asym., $g{=}32$'), (G64, 'INT2 asym., $g{=}64$'),
         ('int2-g16', 'INT2 symmetric'), ('int2-g16-rht', 'INT2 sym.\\ + Hadamard'), ('bw16:3', '$\\Lambda_{16}$ lattice, 3-bit'),
         ('bw16:2', '$\\Lambda_{16}$ lattice, 2-bit'), ('bin-g16', '1-bit, no prediction'),
-        (TCC2, '\\textbf{TCC-2}'), (OURS, '\\textbf{TCC-1}'), ('zero', 'Cache removed')]
+        (TCC2, '\\textbf{TCC-2}'), (OURS, '\\textbf{TCC-1}'), ('zero', 'Zero cache')]
 
 
 def baseline_table(out):
@@ -242,18 +233,17 @@ def baseline_table(out):
                    'sintel_vits_match'])
     L = [r'\begin{tabular}{lrrrrr}', r'\toprule',
          r' & bits & \multicolumn{2}{c}{Bonn} & \multicolumn{2}{c}{Sintel} \\',
-         r'Cache format & & cov $\Delta$\% & AbsRel & cov $\Delta$\% & AbsRel \\', r'\midrule']
+         r'Cache format & & Dev.\% & AbsRel & Dev.\% & AbsRel \\', r'\midrule']
     bb, bs = row(bonn, 'fp32'), row(sint, 'fp32')
-    L.append(f"FP32 & 32 & {bb['tae_covis_percent']:.3f} & {bb['abs_rel']:.4f} & "
-             f"{bs['tae_covis_percent']:.3f} & {bs['abs_rel']:.4f} \\\\")
+    L.append(f"FP32 & 32 & -- & {bb['abs_rel']:.4f} & -- & {bs['abs_rel']:.4f} \\\\")
     for cfg, lab in BASE:
         rb, rsn = row(bonn, cfg), row(sint, cfg)
         ref = rb or rsn
         if ref is None:
             continue
         bt = bits(ref, bb if rb else bs)
-        cb = fmt_pct(rel(rb, bb, 'tae_covis_percent')) if rb else '--'
-        cs = fmt_pct(rel(rsn, bs, 'tae_covis_percent')) if rsn else '--'
+        dv = lambda r: f"{r['fid_rel_dev_pct']:.2f}" if r and r.get('fid_rel_dev_pct') is not None else '--'
+        cb, cs = dv(rb), dv(rsn)
         ab = f"{rb['abs_rel']:.4f}" if rb else '--'
         as_ = f"{rsn['abs_rel']:.4f}" if rsn else '--'
         L.append(f'{lab} & {bt:.2f} & {cb} & {ab} & {cs} & {as_} \\\\')
