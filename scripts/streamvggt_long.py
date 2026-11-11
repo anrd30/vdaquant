@@ -128,8 +128,17 @@ def run_scene(model, frames_dir, args, kv, device):
     kc._LIVE.pin = []
     if cuda:
         torch.cuda.reset_peak_memory_stats()
+    prof = None
     with torch.no_grad():
         for i, path in enumerate(paths):
+            if args.profile_at and cuda and i == args.profile_at:
+                prof = torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,
+                                                          torch.profiler.ProfilerActivity.CUDA])
+                prof.start()
+            if prof is not None and i == args.profile_at + args.profile_frames:
+                prof.stop()
+                write_profile(prof, args, kv, scene, args.profile_frames)
+                prof = None
             images = load_and_preprocess_images([path]).to(device)[None]      # (1, 1, 3, H, W)
             if cuda:
                 torch.cuda.synchronize()
@@ -195,6 +204,9 @@ def run_scene(model, frames_dir, args, kv, device):
     result = {'frames': n, 'frames_available': len(paths), 'oom': oom, 'hw': hw, 'series': series,
               'ms': ms, 'aggregator_ms': agg_ms, 'curve': curve, 'cache_mb': cache_mb, 'bits': bits,
               'peak_mb': torch.cuda.max_memory_allocated() / 2 ** 20 if cuda else 0.0,
+              'allocator': {k: torch.cuda.memory_stats().get(k) for k in
+                            ('num_alloc_retries', 'num_ooms', 'num_device_alloc', 'num_device_free')}
+                           if cuda else {},
               'centres': centres.tolist() if centres is not None else [],
               'ground_truth': ground_truth(frames_dir, paths[:n]) if is_ref else None}
     if trace:
@@ -205,6 +217,43 @@ def run_scene(model, frames_dir, args, kv, device):
     if cuda:
         torch.cuda.empty_cache()
     return scene, result
+
+
+def write_profile(prof, args, kv, scene, frames):
+    """Per-frame GPU time by kernel group, plus allocator calls, for `frames` frames."""
+    groups = {'attention': ('flash', 'fmha', 'attention', 'sdpa', 'efficient'),
+              'tcc_decode': ('_svg_decode',),
+              'matmul': ('gemm', 'cutlass', 'sm80_', 'ampere_', 'cublas'),
+              'copy/cat': ('memcpy', 'copy', 'cat', 'memset')}
+    gpu, alloc = {g: 0.0 for g in list(groups) + ['other']}, {}
+    events = prof.key_averages()
+    from torch.autograd import DeviceType
+    n_kernels = 0
+    for e in events:
+        if e.key in ('cudaMalloc', 'cudaFree', 'cudaMallocAsync', 'cudaFreeAsync'):
+            alloc[e.key] = {'calls': e.count, 'cpu_ms': e.cpu_time_total / 1000}
+        if e.device_type != DeviceType.CUDA:      # count GPU kernels only, not the CPU ops
+            continue                               # that launched them (avoids double counting)
+        t = getattr(e, 'device_time_total', None)
+        t = e.cuda_time_total if t is None else t
+        if not t:
+            continue
+        n_kernels += e.count
+        name = e.key.lower()
+        g = next((g for g, keys in groups.items() if any(k in name for k in keys)), 'other')
+        gpu[g] += t / 1000 / frames
+    summary = {'kv': kv, 'scene': scene, 'from_frame': args.profile_at, 'frames': frames,
+               'gpu_ms_per_frame': gpu, 'gpu_ms_per_frame_total': sum(gpu.values()),
+               'kernel_launches': n_kernels, 'allocator_calls': alloc}
+    if not n_kernels:
+        summary['warning'] = 'no CUDA kernel events recorded (CUPTI unavailable?)'
+    base = os.path.join(args.out, f'profile_{tag(kv)}')
+    with open(base + '.json', 'w') as fh:
+        json.dump(summary, fh, indent=2)
+    with open(base + '.txt', 'w') as fh:
+        fh.write(json.dumps(summary, indent=2) + '\n\n')
+        fh.write(events.table(sort_by='self_cuda_time_total', row_limit=40, max_name_column_width=70))
+    print('profile', json.dumps(summary), flush=True)
 
 
 def run_config(args, kv):
@@ -250,6 +299,8 @@ def main():
     ap.add_argument('--bf16', action='store_true')
     ap.add_argument('--no-compare', action='store_true')
     ap.add_argument('--trace', action='store_true')
+    ap.add_argument('--profile-at', type=int, default=0, help='profile frames from this index (0: off)')
+    ap.add_argument('--profile-frames', type=int, default=3)
     ap.add_argument('--device', default='cuda')
     ap.add_argument('--random-init', action='store_true', help=argparse.SUPPRESS)
     ap.add_argument('--single', default=None, help=argparse.SUPPRESS)
