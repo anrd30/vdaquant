@@ -113,19 +113,18 @@ def main_table(out):
 
 def full_table(out):
     """Every format on every pair with cache size, delta1 and AbsRel (supplement)."""
-    L = [r'\begin{tabular}{llrrrrrrrr}', r'\toprule',
-         r'Enc. & Data & Cache & bits & cov-TAE & TAE & Fid. & Flick. & $\delta_1$ & AbsRel \\',
-         r' & & (MB) & & $\Delta$\% & $\Delta$\% & \% & \% & & \\', r'\midrule']
+    L = [r'\begin{tabular}{llrrrrrr}', r'\toprule',
+         r'Enc. & Data & Cache & bits & Fid. & Flick. & $\delta_1$ & AbsRel \\',
+         r' & & (MB) & & \% & \% & & \\', r'\midrule']
     for enc in ENCS:
         for ds in ('bonn', 'sintel'):
             rs = pair_rows(ds, enc)
             b = row(rs, 'fp32')
-            L.append(f"ViT-{enc[-1].upper()} & {ds.capitalize()} & {b['cache_mb']:.0f} & 32 & {b['tae_covis_percent']:.2f} & "
-                     f"{b['tae_percent']:.2f} & -- & -- & {b['delta1']:.4f} & {b['abs_rel']:.4f} \\\\")
+            L.append(f"ViT-{enc[-1].upper()} & {ds.capitalize()} & {b['cache_mb']:.0f} & 32 & "
+                     f"-- & -- & {b['delta1']:.4f} & {b['abs_rel']:.4f} \\\\")
             for cfg, lab, _ in FORMATS:
                 r = row(rs, cfg)
                 L.append(f" & \\quad {lab} & {r['cache_mb']:.0f} & {bits(r, b):.2f} & "
-                         f"{fmt_pct(rel(r, b, 'tae_covis_percent'))} & {fmt_pct(rel(r, b, 'tae_percent'))} & "
                          f"{r['fid_rel_dev_pct']:.2f} & {r['fid_flicker_pct']:.2f} & {r['delta1']:.4f} & {r['abs_rel']:.4f} \\\\")
             L.append(r'\midrule')
     L[-1] = r'\bottomrule'
@@ -343,8 +342,8 @@ def pareto_fig(figdir):
                         'ours' if '::d' in c else
                         'asym INT' if c.endswith('-asym') else
                         'uniform INT' if c.startswith(('int', 'age:all')) else 'age allocation')
-                if c.startswith('age:') and c.count('=') == 1 and not c.startswith('age:all'):
-                    continue                              # single-bucket perturbations: not a codec
+                if c.startswith('age:') and not c.startswith('age:all'):
+                    continue                              # age-dependent bit plans: not in the paper
                 pts.append((bt, r['fid_rel_dev_pct'], kind))
         style = {'ours': ('o', '#2F6DB5'), 'asym INT': ('P', '#B23A48'), 'uniform INT': ('s', '0.55'),
                  'age allocation': ('^', '#3A9D5D'),
