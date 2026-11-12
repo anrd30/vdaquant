@@ -775,8 +775,12 @@ def _patch_temporal_attention(attn):
 def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int = 0,
                             kv: bool = False, lazy: bool = True, delta: int = 0,
                             residual_mode: Optional[str] = None,
-                            predictor: str = 'prev', predictor_params=None):
+                            predictor: str = 'prev', predictor_params=None, drop: int = 1):
     """Patch a streaming VideoDepthAnything so its frame cache is compressed.
+
+    drop=n>1 stores only every n-th frame (frame dropping baseline): a dropped
+    frame's slot holds a reference to the last stored entry, as VDA itself
+    fills its window at the start of a video, so it takes no memory.
 
     Frame 0 runs VDA's own code (it reads no cache).  Later frames run a copy
     of VDA's streaming step whose only change is how the cache is read
@@ -799,8 +803,10 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
     31 cached frames are recomputed every frame).  kv=True caches the
     projected W_k h and W_v h instead (2x the entries, no recomputation).
     """
-    if mode == 'fp32' and not kv and not delta:
+    if mode == 'fp32' and not kv and not delta and drop == 1:
         return model
+    assert drop == 1 or not (delta or kv), "frame dropping is implemented for plain storage"
+
     assert not (kv and delta), "delta coding is implemented for the h cache only"
     assert predictor in PREDICTORS, predictor
     assert predictor == 'prev' or delta, "predictor != 'prev' needs delta > 0"
@@ -892,7 +898,10 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
                               mode='bilinear', align_corners=True)
         new_depth = depth[-1][0].cpu().numpy()
         with torch.no_grad():
-            self.frame_cache_list.append(compress(new_cache))
+            if drop > 1 and self.id % drop:     # dropped frame: reuse the last stored entry
+                self.frame_cache_list.append(self.frame_cache_list[-1])
+            else:
+                self.frame_cache_list.append(compress(new_cache))
 
         self.frame_id_list.append(self.id)
         if self.id + INFER_LEN > self.gap + 1:

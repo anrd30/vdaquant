@@ -98,7 +98,7 @@ def reset_stream(model):
 
 
 def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, age_spec=None,
-               predictor='prev'):
+               predictor='prev', drop=1):
     gc.collect()
     torch.cuda.empty_cache()
     model = VideoDepthAnything(**CFGS[args.encoder])
@@ -111,11 +111,11 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         mode = 'age'
     else:
         model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, delta=delta,
-                                        residual_mode=residual_mode,
+                                        residual_mode=residual_mode, drop=drop,
                                         **({'predictor': predictor} if delta else {}))
 
     acc, tae, tae_cov, cov_frac, per_scene = [], [], [], [], {}
-    is_ref = mode == 'fp32' and not delta
+    is_ref = mode == 'fp32' and not delta and drop == 1
     fid_dev, fid_flk = [], []
     n_skip, peak, cache_mb, t0 = 0, 0, 0.0, time.time()
     for name, frames in scenes.items():
@@ -214,14 +214,17 @@ def main():
                 with open(args.out, 'w') as fh:
                     json.dump({'args': vars(args), 'results': results}, fh, indent=2)
             continue
-        parts = cfg.split(':')
+        spec, drop = (cfg.split('@drop') + ['1'])[:2]    # e.g. int4-g16@drop2: keep every 2nd frame
+        drop = int(drop)
+        parts = spec.split(':')
         mode = parts[0]
         b = int(parts[1]) if len(parts) > 1 and parts[1] else 3
         dk = int(parts[2][1:]) if len(parts) > 2 and parts[2] else 0
         rmode = parts[3] if len(parts) > 3 and parts[3] else None
         pred = parts[4] if len(parts) > 4 else 'prev'        # predictor: prev|none|extrap2
         print(f"  config {cfg}", flush=True)
-        r = run_config(args, mode, b, scenes, gt_range, delta=dk, residual_mode=rmode, predictor=pred)
+        r = run_config(args, mode, b, scenes, gt_range, delta=dk, residual_mode=rmode, predictor=pred,
+                       drop=drop)
         r['config'] = cfg
         results.append(r)
         print(json.dumps({k: v for k, v in r.items() if k != 'per_scene'}), flush=True)
