@@ -134,18 +134,17 @@ def full_table(out):
 
 # ---------------------------------------------------------------- memory and speed
 def memory_table(out):
-    L = [r'\begin{tabular}{lrrrrrrrr}', r'\toprule',
-         r' & \multicolumn{2}{c}{FP32} & \multicolumn{3}{c}{TCC-1} & \multicolumn{3}{c}{TCC-2} \\',
-         r'\cmidrule(lr){2-3}\cmidrule(lr){4-6}\cmidrule(lr){7-9}',
-         r'Enc. & cache & peak & cache & ratio & peak & cache & ratio & peak \\', r'\midrule']
+    L = [r'\begin{tabular}{lrrrrrrr}', r'\toprule',
+         r' & \multicolumn{2}{c}{FP32} & \multicolumn{3}{c}{TCC-1} & \multicolumn{2}{c}{TCC-2} \\',
+         r'\cmidrule(lr){2-3}\cmidrule(lr){4-6}\cmidrule(lr){7-8}',
+         r'Enc. & cache & peak & cache & ratio & peak & cache & ratio \\', r'\midrule']
     for e in ENCS:
         rs = pair_rows('bonn', e)
         b, o, t = row(rs, 'fp32'), row(rs, OURS), row(rs, TCC2)
         cut = lambda r: 100 * (1 - r['peak_mb'] / b['peak_mb'])
-        L.append(f"ViT-{e[-1].upper()} & {b['cache_mb']:.0f} & {b['peak_mb']:.0f} & {o['cache_mb']:.0f} & "
+        L.append(f"ViT-{e[-1].upper()} & {b['cache_mb']:.0f} & {b['peak_mb']:.0f} & {o['cache_mb']:.1f} & "
                  f"{b['cache_mb'] / o['cache_mb']:.1f}$\\times$ & {o['peak_mb']:.0f} ($-${cut(o):.0f}\\%) & "
-                 f"{t['cache_mb']:.0f} & {b['cache_mb'] / t['cache_mb']:.1f}$\\times$ & "
-                 f"{t['peak_mb']:.0f} ($-${cut(t):.0f}\\%) \\\\")
+                 f"{t['cache_mb']:.1f} & {b['cache_mb'] / t['cache_mb']:.1f}$\\times$ \\\\")
     L += [r'\bottomrule', r'\end{tabular}']
     (out / 'tab_memory.tex').write_text('\n'.join(L), encoding='utf-8')
 
