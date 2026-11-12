@@ -73,6 +73,9 @@ SVG = [('TCC-1', 'delta:int4:bin:8', 'INT2 g64', 'plain:a2g64'),
        ('TCC-1', 'delta:int4:bin:8', 'KIVI', 'kivi:2:64'),
        ('TCC-1', 'delta:int4:bin:8', 'XStreamVGGT 12000 (equal memory)', 'xstream:12000:4:4'),
        ('TCC-1', 'delta:int4:bin:8', 'INT4 drop2', 'drop:2:int4'),
+       ('TCC-1', 'delta:int4:bin:8', 'XStreamVGGT 2048', 'xstream:2048:4:4'),
+       ('TCC-2', 'delta:int4:a2g64:8', 'INT2 g64', 'plain:a2g64'),
+       ('TCC-2', 'delta:int4:a2g64:8', 'KIVI', 'kivi:2:64'),
        ('TCC-2', 'delta:int4:a2g64:8', 'INT2 g32', 'plain:a2g32'),
        ('TCC-2', 'delta:int4:a2g64:8', 'KIVI + 16-bit window', 'kivi:2:64:w4'),
        ('TCC-2', 'delta:int4:a2g64:8', 'INT3', 'plain:int3'),
@@ -86,7 +89,13 @@ def main():
     args = ap.parse_args()
     os.chdir(ROOT)
     res = []
-    for ds in ('sintel', 'bonn'):
+    for ds in ('sintel', 'bonn', 'kitti'):
+        if ds == 'kitti':
+            rows = svg_rows(ds)
+            for la, a, lb, b in SVG:
+                if a in rows and b in rows:
+                    res.append({'model': 'StreamVGGT', 'data': ds, 'enc': '', 'a': la, 'b': lb, **compare(rows[a], rows[b])})
+            continue
         for enc in ('vits', 'vitb', 'vitl'):
             rows = vda_rows(ds, enc)
             for la, a, lb, b in VDA:
