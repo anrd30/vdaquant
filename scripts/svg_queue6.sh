@@ -39,7 +39,8 @@ kitti_data() {
   [ -d "$MON" ] || git clone -q --depth 1 https://github.com/Junyi42/monst3r.git "$MON" || return 1
   (cd "$MON/data" && sed 's/^wget /wget -c -q /' download_kitti.sh > dl_kitti_c.sh && bash dl_kitti_c.sh) || return 1
   (cd "$MON/datasets_preprocess" && "$PY" prepare_kitti.py) || return 1
-  ln -sfn "$MON/data/kitti" "$SVG/data/eval/kitti"
+  # data/eval may itself be $MON/data: only link when it is a different folder
+  [ "$(readlink -f "$SVG/data/eval")" = "$(readlink -f "$MON/data")" ] || ln -sfn "$MON/data/kitti" "$SVG/data/eval/kitti"
   ls "$KITTI" | head -3; ls "$KITTI" | wc -l
 }
 

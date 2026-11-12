@@ -24,7 +24,8 @@ say "fetch the benchmark frames only, into $K"
 "$PY" -u "$VDAQ/scripts/kitti_partial.py" --dst "$K" --threads 8 > "$OUT/partial.log" 2>&1   || { say "FETCH FAILED, see $OUT/partial.log"; exit 1; }
 say "prepare"
 (cd "$MON/datasets_preprocess" && "$PY" prepare_kitti.py) > "$OUT/prepare.log" 2>&1 || { say "PREPARE FAILED"; exit 1; }
-ln -sfn "$MON/data/kitti" "$SVG/data/eval/kitti"
+# data/eval may itself be $MON/data: only link when it is a different folder
+  [ "$(readlink -f "$SVG/data/eval")" = "$(readlink -f "$MON/data")" ] || ln -sfn "$MON/data/kitti" "$SVG/data/eval/kitti"
 say "sequences: $(ls "$SVG/data/eval/kitti/depth_selection/val_selection_cropped/image_gathered" | wc -l)"
 
 say "waiting for STAC to finish (GPU $GPU_A)"
