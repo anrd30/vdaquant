@@ -4,7 +4,7 @@
 #   sparse: official frame strides (7-Scenes every 200th, NRGBD every 500th frame)
 #   dense:  every 20th frame, so each scene is a stream of ~50-80 frames
 #
-#   C=<code_run dir> G=<gpu> WAIT=<file to wait for, optional> bash scripts/svg_recon.sh
+#   C=<code_run dir> G=<gpu> [WAIT=<file>] [KVS="spec ..."] [SETTINGS="sparse dense"] bash scripts/svg_recon.sh
 set -u
 : "${C:?set C}" "${G:?set G}"
 SVG=$C/svg_tcc/StreamVGGT
@@ -25,9 +25,11 @@ cd "$SVG/src" || exit 1
   && nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader -i $G; } \
   > "$OUT/preflight.log" 2>&1 || { echo "PREFLIGHT FAILED, see $OUT/preflight.log"; exit 1; }
 
-for setting in "sparse 0 0" "dense 20 20"; do
-  set -- $setting; name=$1; a=$2; b=$3
-  for kv in none plain:a2g64 kivi:2:64 delta:int4:bin:8 delta:int4:a2g64:8; do
+KVS=${KVS:-"none plain:a2g64 kivi:2:64 delta:int4:bin:8 delta:int4:a2g64:8"}
+SETTINGS=${SETTINGS:-"sparse dense"}
+for name in $SETTINGS; do
+  case $name in sparse) a=0; b=0 ;; dense) a=20; b=20 ;; esac
+  for kv in $KVS; do
     o=$OUT/${name}_${kv//:/_}
     [ -e "$o/done" ] && continue
     "$PY" -u "$CODE/scripts/streamvggt_kv_launch.py" --kv "$kv" --task mv_recon --kf $a $b -- \
