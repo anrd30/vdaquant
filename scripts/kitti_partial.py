@@ -9,6 +9,7 @@ their paths inside the zips under --dst, which is the layout prepare_kitti.py ex
 """
 import argparse
 import os
+import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 
@@ -30,10 +31,22 @@ def fetch(url, names, dst, threads):
     chunks = [todo[i::threads] for i in range(threads)]
 
     def work(chunk):
-        with RemoteZip(url) as z:
-            for n in chunk:
-                z.extract(n, dst)
-        return len(chunk)
+        done, tries = 0, 0
+        pending = list(chunk)
+        while pending and tries < 20:          # the server drops connections: reopen and continue
+            try:
+                with RemoteZip(url) as z:
+                    while pending:
+                        z.extract(pending[0], dst)
+                        pending.pop(0)
+                        done += 1
+            except Exception as e:             # RemoteIOError, timeouts, resets
+                tries += 1
+                print(f'retry {tries} ({len(pending)} left): {str(e)[:80]}', flush=True)
+                time.sleep(min(60, 5 * tries))
+        if pending:
+            raise RuntimeError(f'{len(pending)} files not fetched from {url}')
+        return done
     with ThreadPoolExecutor(threads) as ex:
         return sum(ex.map(work, [c for c in chunks if c]))
 
