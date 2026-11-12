@@ -151,25 +151,26 @@ def memory_table(out):
 
 
 def speed_table(out):
-    """Median ms/frame (mean of repeats), idle GPU, one Sintel scene."""
-    rs = []
-    for f in ('timing_kernel', 'timing_kernel2'):
-        rs += load(f) or []
+    """A100: per run the median ms/frame over 40 frames; reported: median over the 5 interleaved runs."""
+    import statistics
+    rs = json.load(open(REPO / 'results' / 'vda_timing_a100.json'))['results']
 
     def stat(enc, cfg, key):
-        v = [r[key] for r in rs if r['encoder'] == enc and r['config'] == cfg]
-        return sum(v) / len(v) if v else None
+        v = [r[key] for r in rs if r['encoder'] == enc and r['config'] == cfg and r.get(key) is not None]
+        if not v:
+            return None
+        return max(v) if key == 'peak_mb' else statistics.median(v)
 
     items = [('fp32', 'FP32'), (G64, 'INT2 asym.'), (OURS, 'TCC-1, $K{=}8$'), (OURS4, 'TCC-1, $K{=}4$'), (TCC2, 'TCC-2')]
-    L = [r'\begin{tabular}{l' + 'rrr' * 3 + '}', r'\toprule',
-         ' & ' + ' & '.join(f'\\multicolumn{{3}}{{c}}{{ViT-{e[-1].upper()}}}' for e in ENCS) + r' \\',
-         r'\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}',
-         'Cache & ' + ' & '.join(['ms', 'FPS', 'peak'] * 3) + r' \\', r'\midrule']
+    L = [r'\begin{tabular}{l' + 'rr' * 3 + '}', r'\toprule',
+         ' & ' + ' & '.join(f'\\multicolumn{{2}}{{c}}{{ViT-{e[-1].upper()}}}' for e in ENCS) + r' \\',
+         r'\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}',
+         'Cache & ' + ' & '.join(['ms', 'FPS'] * 3) + r' \\', r'\midrule']
     for cfg, lab in items:
         c = []
         for e in ENCS:
-            ms, fps, pk = (stat(e, cfg, k) for k in ('ms_median', 'fps', 'peak_mb'))
-            c += [f'{ms:.0f}', f'{fps:.1f}', f'{pk:.0f}'] if ms else ['--'] * 3
+            ms, fps = (stat(e, cfg, k) for k in ('ms_median', 'fps'))
+            c += [f'{ms:.0f}', f'{fps:.1f}'] if ms else ['--'] * 2
         L.append(f'{lab} & ' + ' & '.join(c) + r' \\')
     L += [r'\bottomrule', r'\end{tabular}']
     (out / 'tab_speed.tex').write_text('\n'.join(L), encoding='utf-8')
