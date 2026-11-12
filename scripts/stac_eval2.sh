@@ -63,8 +63,8 @@ say "waiting for the KITTI benchmark (GPU $GPU_A)"
 while ! grep -q "KITTI DONE" "$C/svg_kitti2/STATUS.txt" 2>/dev/null; do sleep 120; done
 for data in bonn sintel; do
   for cfg in "full --mode full" \
-             "default --mode stac --attn_backend triton --voxel_backend python" \
-             "recommended --mode stac --attn_backend triton --voxel_backend python -win 4 -ck 4 -hh 2 -ret_sz 2 -ret_buf"; do
+             "default --mode stac" \
+             "recommended --mode stac -win 4 -ck 4 -hh 2 -ret_sz 2 -ret_buf"; do
     set -- $cfg; name=$1; shift
     say "START $data $name"
     if run "$name" "$data" "$@"; then say "OK $data $name"; else say "FAILED $data $name (see $OUT/${data}_$name.log)"; fi
