@@ -176,4 +176,16 @@ check('TCC max |d delta1|', mx[0], r'$\delta_1$ within 0.001 and AbsRel within 0
 check('TCC max |d AbsRel|', mx[1], r'$\delta_1$ within 0.001 and AbsRel within 0.0004', '{:.4f}')
 check('INT2 max |d AbsRel|', mx[2], r'AbsRel up to 0.0023', '{:.4f}')
 
+print('== zero-cache control (VDA)')
+zd1, zdev = [], []
+for ds in ('sintel', 'bonn'):
+    for e in ('vits', 'vitb', 'vitl'):
+        rs = m.pair_rows(ds, e)
+        b, z = m.row(rs, 'fp32'), m.row(rs, 'zero')
+        zd1.append(abs(z['delta1'] - b['delta1']))
+        zdev.append(z['fid_rel_dev_pct'])
+check('zero cache max |d delta1|', max(zd1), r'per-frame $\delta_1$ within 0.006', '{:.3f}')
+check('zero cache deviation min', min(zdev), r'output moves by 16--38\%', '{:.0f}')
+check('zero cache deviation max', max(zdev), r'output moves by 16--38\%', '{:.0f}')
+
 print(f'\n{ok} OK, {bad} MISMATCH')
