@@ -155,8 +155,11 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
                 'delta1': float(np.mean([m['delta1'] for m in scene_acc])) if scene_acc else None,
                 'tae': r['tae_percent'], 'tae_covis': r['tae_covis_percent'], 'n': len(frames),
                 'fid_rel_dev': fid[0] if fid else None, 'fid_flicker': fid[1] if fid else None}
-        except ValueError:
-            per_scene[name] = {'delta1': None, 'tae': None, 'tae_covis': None, 'n': len(frames)}
+        except (ValueError, TypeError, AttributeError):     # no camera data (e.g. KITTI drives)
+            per_scene[name] = {
+                'delta1': float(np.mean([m['delta1'] for m in scene_acc])) if scene_acc else None,
+                'tae': None, 'tae_covis': None, 'n': len(frames),
+                'fid_rel_dev': fid[0] if fid else None, 'fid_flicker': fid[1] if fid else None}
         print(f"    {name:24s} n={len(frames):3d} d1={per_scene[name]['delta1']}", flush=True)
 
     res = {
@@ -181,7 +184,7 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dataset', default='sintel', choices=['sintel', 'bonn'])
+    ap.add_argument('--dataset', default='sintel', choices=['sintel', 'bonn', 'bonn5', 'kittiseq'])
     ap.add_argument('--encoder', default='vits', choices=list(CFGS))
     ap.add_argument('--ckpt', default=None)
     ap.add_argument('--configs', default='fp32,fp16,bw16:4,bw16:3')

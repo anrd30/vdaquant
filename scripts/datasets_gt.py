@@ -860,7 +860,33 @@ def load_tum_gt(
     return samples
 
 
+def load_kitti_seq_gt(cache_dir: Path, max_samples: Optional[int] = None, download: bool = False):
+    """KITTI validation drives as video sequences, as prepared for the StreamVGGT/MonST3R
+    video-depth benchmark: depth_selection/val_selection_cropped/{image_gathered,
+    groundtruth_depth_gathered}/<drive>/<frame>.png (depth: uint16 / 256 = metres).
+    No camera poses in this layout (K and pose are None)."""
+    base = Path(cache_dir) / "depth_selection" / "val_selection_cropped"
+    img_root, gt_root = base / "image_gathered", base / "groundtruth_depth_gathered"
+    if not img_root.is_dir():
+        raise RuntimeError(f"KITTI sequences not found under {img_root}")
+    samples = []
+    for seq_dir in sorted(p for p in img_root.iterdir() if p.is_dir()):
+        for frame_idx, img_path in enumerate(sorted(seq_dir.glob("*.png"))):
+            depth_path = gt_root / seq_dir.name / img_path.name
+            if not depth_path.exists():
+                continue
+            rgb = np.array(Image.open(img_path).convert("RGB"), dtype=np.uint8)
+            depth = np.array(Image.open(depth_path)).astype(np.float32) / 256.0
+            samples.append({"rgb": rgb, "depth": depth, "valid_mask": depth > 0,
+                            "scene": seq_dir.name, "frame_idx": frame_idx, "K": None, "pose": None})
+            if max_samples is not None and len(samples) >= max_samples:
+                return samples
+    return samples
+
+
 DATASET_GT_CONFIG = {
+    "kittiseq": {"loader": load_kitti_seq_gt,      "cache_subdir": "kitti",    "gt_range": (0.1, 80.0), "auto_download": False},
+    "bonn5":  {"loader": load_bonn_gt,             "cache_subdir": "bonn5",    "gt_range": (0.1, 10.0), "auto_download": False},
     "nyuv2":  {"loader": load_nyuv2_gt_test_split, "cache_subdir": "nyuv2_gt", "gt_range": (0.1, 10.0), "auto_download": True},
     "kitti":  {"loader": load_kitti_gt,            "cache_subdir": "kitti",    "gt_range": (0.1, 80.0), "auto_download": False},
     "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 70.0), "auto_download": False},
