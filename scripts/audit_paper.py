@@ -170,7 +170,7 @@ def dd(cfg, key, sets):
     return [m.seq_val(ds, e, cfg, key) - m.seq_val(ds, e, 'fp32', key) for ds in sets for e in m.ENCS]
 
 
-MAINSETS, BONN5 = ('bonn', 'sintel'), ('bonn5',)
+MAINSETS, BONN5 = ('bonn', 'sintel'), ('bonn5', 'kittiseq')   # extra sets: Bonn-5 full length, KITTI drives
 tcc = max(abs(x) for c in TCCS for x in dd(c, 'delta1_seq', MAINSETS))
 check('TCC max |d delta1_seq| (abstract)', tcc, r'keeps $\delta_1$ within 0.002 of the uncompressed model, where', '{:.3f}')
 check('TCC max |d delta1_seq| (results)', tcc, r'keep $\delta_1$ within 0.002 of the FP32 cache', '{:.3f}')
@@ -184,6 +184,11 @@ check('win16 max AbsRel rise', max(dd(m.WIN16, 'abs_rel_seq', MAINSETS)), r'rais
 b5 = max(abs(x) for x in dd(m.OURS, 'delta1_seq', BONN5))
 check('bonn5 TCC-1 (bound 0.002)', 0.002 if b5 <= 0.002 else b5, r'\ours-1 stays within 0.002 and', '{:.3f}')
 check('bonn5 win16 max drop', -min(dd(m.WIN16, 'delta1_seq', BONN5)), r'the window loses up to 0.013', '{:.3f}')
+kd = lambda c: [m.seq_val('kittiseq', e, c, 'fid_rel_dev') for e in m.ENCS]
+check('KITTI VDA TCC-1 dev min', min(kd(m.OURS)), r'deviates by 0.54--0.64\%', '{:.2f}')
+check('KITTI VDA TCC-1 dev max', max(kd(m.OURS)), r'deviates by 0.54--0.64\%', '{:.2f}')
+check('KITTI VDA INT2 dev min', min(kd(m.G64)), r'against 1.12--1.59\% for asymmetric INT2', '{:.2f}')
+check('KITTI VDA INT2 dev max', max(kd(m.G64)), r'against 1.12--1.59\% for asymmetric INT2', '{:.2f}')
 check('3-bit formats max |d|', max(abs(x) for c in (m.G32, m.TCC2) for x in dd(c, 'delta1_seq', MAINSETS)),
       r'all formats stay within 0.002', '{:.3f}')
 size = [m.seq_rows(ds, e)[m.WIN16]['cache_mb'] / m.seq_rows(ds, e)[m.OURS]['cache_mb']

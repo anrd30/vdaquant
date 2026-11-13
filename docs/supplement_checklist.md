@@ -49,4 +49,4 @@ Everything the main paper (main_12nov_v9.tex) promises or relies on, and where t
 - Zero cache under per-sequence alignment: on Bonn it RAISES delta1_seq (0.966 -> 0.984, ViT-S) while deviation is 24-38%; on Sintel it lowers it by 0.014-0.029. Explain neutrally (streaming FP32 drifts in scale over long Bonn videos; one fit per video penalises drift). Kept out of main Table 1 on purpose.
 - Note the scale-only per-sequence variant (delta1_seq_scale ~0.45) is not meaningful in disparity; do not report.
 - Table 1 sources: delta1/AbsRel from results/2026-11-13_vda_extra2 (A100 rerun, Bonn restricted to balloon/crowd/kidnapping_box), Dev from the main runs; rerun reproduces per-frame delta1 to 1.1e-4 (audit_paper.py).
-- VDA KITTI (kittiseq) still to be run; add to this table when it arrives.
+- VDA KITTI (kittiseq, 13 drives): DONE 11-13, in text (TCC-1 dev 0.54-0.64 vs INT2 1.12-1.59; window up to -0.007 delta1). Add full table to supplement.
