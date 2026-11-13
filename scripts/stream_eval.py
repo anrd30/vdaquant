@@ -57,6 +57,35 @@ def _pool_align_lowmem(pred_disps, gt_depths, gt_range):
 
 
 _suite._pool_align_scene_disparity = _pool_align_lowmem
+
+
+def seq_aligned_metrics(preds, gts, gt_range, shift=True):
+    """delta1 and AbsRel with ONE alignment per sequence (instead of per frame): the
+    predicted disparity is mapped by s*d + t (shift=True, VDA's video protocol) or
+    s*d (shift=False), fitted by least squares over all valid pixels of the sequence,
+    then converted to depth and clipped to gt_range. Averaged over frames."""
+    gts_t = [torch.from_numpy(g).float() for g in gts]
+    if shift:
+        s, t = _pool_align_lowmem(preds, gts_t, gt_range)
+    else:
+        num = den = 0.0
+        for p, g in zip(preds, gts_t):
+            m = (g > 1e-3) & (g < gt_range[1])
+            num += float((p[m].double() * (1.0 / g[m].double())).sum())
+            den += float((p[m].double() ** 2).sum())
+        s, t = num / max(den, 1e-12), 0.0
+    d1, ar = [], []
+    for p, g in zip(preds, gts_t):
+        m = (g > 1e-3) & (g < gt_range[1])
+        if not m.any():
+            continue
+        disp = (s * p.double() + t).clamp(min=1.0 / gt_range[1])
+        dep = (1.0 / disp).clamp(gt_range[0], gt_range[1])[m]
+        gg = g[m].double()
+        d1.append(float((torch.maximum(dep / gg, gg / dep) < 1.25).double().mean()))
+        ar.append(float(((dep - gg).abs() / gg).mean()))
+    return float(np.mean(d1)), float(np.mean(ar))
+
 from video_depth_anything.video_depth_stream import VideoDepthAnything  # noqa: E402
 from research.models.stream_cache import cache_nbytes, enable_compressed_cache  # noqa: E402
 
@@ -98,7 +127,7 @@ def reset_stream(model):
 
 
 def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, age_spec=None,
-               predictor='prev', drop=1):
+               predictor='prev', drop=1, window=0):
     gc.collect()
     torch.cuda.empty_cache()
     model = VideoDepthAnything(**CFGS[args.encoder])
@@ -111,11 +140,12 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         mode = 'age'
     else:
         model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, delta=delta,
-                                        residual_mode=residual_mode, drop=drop,
+                                        residual_mode=residual_mode, drop=drop, window=window,
                                         **({'predictor': predictor} if delta else {}))
 
     acc, tae, tae_cov, cov_frac, per_scene = [], [], [], [], {}
-    is_ref = mode == 'fp32' and not delta and drop == 1
+    seq_all = []
+    is_ref = mode == 'fp32' and not delta and drop == 1 and not window
     fid_dev, fid_flk = [], []
     n_skip, peak, cache_mb, t0 = 0, 0, 0.0, time.time()
     for name, frames in scenes.items():
@@ -144,7 +174,12 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
             except ValueError:
                 n_skip += 1
         acc.extend(scene_acc)
+        seq_ss = seq_aligned_metrics(preds, gts, gt_range, shift=True)
+        seq_s = seq_aligned_metrics(preds, gts, gt_range, shift=False)
+        seq_all.append(seq_ss + seq_s)
         try:
+            if args.no_tae:
+                raise ValueError('TAE skipped')
             r = compute_tae_geometric_for_scene(preds, gts, [f['K'] for f in frames],
                                                 [f['pose'] for f in frames], gt_range,
                                                 covis_tau=args.covis_tau)
@@ -154,11 +189,13 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
             per_scene[name] = {
                 'delta1': float(np.mean([m['delta1'] for m in scene_acc])) if scene_acc else None,
                 'tae': r['tae_percent'], 'tae_covis': r['tae_covis_percent'], 'n': len(frames),
+                'delta1_seq': seq_ss[0], 'abs_rel_seq': seq_ss[1], 'delta1_seq_scale': seq_s[0], 'abs_rel_seq_scale': seq_s[1],
                 'fid_rel_dev': fid[0] if fid else None, 'fid_flicker': fid[1] if fid else None}
         except (ValueError, TypeError, AttributeError):     # no camera data (e.g. KITTI drives)
             per_scene[name] = {
                 'delta1': float(np.mean([m['delta1'] for m in scene_acc])) if scene_acc else None,
                 'tae': None, 'tae_covis': None, 'n': len(frames),
+                'delta1_seq': seq_ss[0], 'abs_rel_seq': seq_ss[1], 'delta1_seq_scale': seq_s[0], 'abs_rel_seq_scale': seq_s[1],
                 'fid_rel_dev': fid[0] if fid else None, 'fid_flicker': fid[1] if fid else None}
         print(f"    {name:24s} n={len(frames):3d} d1={per_scene[name]['delta1']}", flush=True)
 
@@ -166,6 +203,10 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         'mode': mode, 'bits': bits if mode == 'bw16' else None,
         'delta1': float(np.mean([m['delta1'] for m in acc])),
         'abs_rel': float(np.mean([m['abs_rel'] for m in acc])),
+        'delta1_seq': float(np.mean([x[0] for x in seq_all])),
+        'abs_rel_seq': float(np.mean([x[1] for x in seq_all])),
+        'delta1_seq_scale': float(np.mean([x[2] for x in seq_all])),
+        'abs_rel_seq_scale': float(np.mean([x[3] for x in seq_all])),
         'tae_percent': float(np.mean(tae)) if tae else None,
         'tae_covis_percent': float(np.mean(tae_cov)) if tae_cov else None,
         'covis_fraction': float(np.mean(cov_frac)) if cov_frac else None,
@@ -193,6 +234,7 @@ def main():
     ap.add_argument('--max-scenes', type=int, default=1000)
     ap.add_argument('--max-samples', type=int, default=None)
     ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--no-tae', action='store_true', help='skip the camera-based TAE (slow)')
     ap.add_argument('--out', default=None)
     args = ap.parse_args()
     args.ckpt = args.ckpt or str(REPO / 'checkpoints' / f'video_depth_anything_{args.encoder}.pth')
@@ -219,6 +261,8 @@ def main():
             continue
         spec, drop = (cfg.split('@drop') + ['1'])[:2]    # e.g. int4-g16@drop2: keep every 2nd frame
         drop = int(drop)
+        spec, window = (spec.split('@win') + ['0'])[:2]  # e.g. int4-g16@win16: keep the last 16 frames
+        window = int(window)
         parts = spec.split(':')
         mode = parts[0]
         b = int(parts[1]) if len(parts) > 1 and parts[1] else 3
@@ -227,7 +271,7 @@ def main():
         pred = parts[4] if len(parts) > 4 else 'prev'        # predictor: prev|none|extrap2
         print(f"  config {cfg}", flush=True)
         r = run_config(args, mode, b, scenes, gt_range, delta=dk, residual_mode=rmode, predictor=pred,
-                       drop=drop)
+                       drop=drop, window=window)
         r['config'] = cfg
         results.append(r)
         print(json.dumps({k: v for k, v in r.items() if k != 'per_scene'}), flush=True)

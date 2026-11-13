@@ -775,7 +775,8 @@ def _patch_temporal_attention(attn):
 def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int = 0,
                             kv: bool = False, lazy: bool = True, delta: int = 0,
                             residual_mode: Optional[str] = None,
-                            predictor: str = 'prev', predictor_params=None, drop: int = 1):
+                            predictor: str = 'prev', predictor_params=None, drop: int = 1,
+                            window: int = 0):
     """Patch a streaming VideoDepthAnything so its frame cache is compressed.
 
     drop=n>1 stores only every n-th frame (frame dropping baseline): a dropped
@@ -803,8 +804,9 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
     31 cached frames are recomputed every frame).  kv=True caches the
     projected W_k h and W_v h instead (2x the entries, no recomputation).
     """
-    if mode == 'fp32' and not kv and not delta and drop == 1:
+    if mode == 'fp32' and not kv and not delta and drop == 1 and not window:
         return model
+    assert not window or not (delta or kv or drop > 1), 'short window is implemented for plain storage'
     assert drop == 1 or not (delta or kv), "frame dropping is implemented for plain storage"
 
     assert not (kv and delta), "delta coding is implemented for the h cache only"
@@ -902,6 +904,10 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
                 self.frame_cache_list.append(self.frame_cache_list[-1])
             else:
                 self.frame_cache_list.append(compress(new_cache))
+            if window:      # short-window baseline: only the first frame and the last `window`
+                L = self.frame_cache_list   # entries stay stored; older slots refer to the
+                for j in range(1, len(L) - window):        # oldest kept entry (no memory)
+                    L[j] = L[len(L) - window]
 
         self.frame_id_list.append(self.id)
         if self.id + INFER_LEN > self.gap + 1:
