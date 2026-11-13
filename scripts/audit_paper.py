@@ -77,8 +77,8 @@ r = get(model='StreamVGGT', data='kitti', a='TCC-2', b='KIVI')['dev']['ci95']
 check('KITTI TCC-2/KIVI CI low', r[0], r'and 3.7--4.7$\times$', '{:.1f}')
 check('KITTI TCC-2/KIVI CI high', r[1], r'and 3.7--4.7$\times$', '{:.1f}')
 r = get(model='StreamVGGT', data='sintel', a='TCC-1', b='INT2 g64')['dev']['ci95']
-check('Sintel TCC-1/INT2 CI low', r[0], r'Sintel of 1.7--3.0$\times$', '{:.1f}')
-check('Sintel TCC-1/INT2 CI high', r[1], r'Sintel of 1.7--3.0$\times$', '{:.1f}')
+check('Sintel TCC-1/INT2 CI low', r[0], r'Sintel are 1.7--3.0$\times$', '{:.1f}')
+check('Sintel TCC-1/INT2 CI high', r[1], r'Sintel are 1.7--3.0$\times$', '{:.1f}')
 r = get(model='StreamVGGT', data='sintel', a='TCC-1', b='KIVI')['dev']['ci95']
 check('Sintel TCC-1/KIVI CI low', r[0], r'and 1.35--2.5$\times$', '{:.2f}')
 check('Sintel TCC-1/KIVI CI high', r[1], r'and 1.35--2.5$\times$', '{:.1f}')
