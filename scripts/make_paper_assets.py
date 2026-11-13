@@ -67,46 +67,74 @@ FORMATS = [('zero', 'Zero cache', None), ('int2-g16', 'INT2 symmetric', None),
            (TCC2, '\\textbf{TCC-2}, $K{=}8$', 2)]
 
 
+SEQ = REPO / 'results' / '2026-11-13_vda_extra2'   # A100 rerun with per-sequence GT metrics
+BONN3 = ('balloon', 'crowd', 'kidnapping_box')     # the paper's Bonn scenes (the rerun has all 8)
+WIN16 = 'int4-g16@win16'
+
+
+def seq_rows(ds, enc):
+    return {r.get('config', r['mode']): r for r in json.load(open(SEQ / f'{ds}_{enc}.json'))['results']}
+
+
+def seq_val(ds, enc, cfg, key):
+    """Scene mean of a per-scene metric in the rerun (Bonn: the paper's three scenes)."""
+    ps = seq_rows(ds, enc)[cfg]['per_scene']
+    sc = BONN3 if ds == 'bonn' else sorted(ps)
+    return sum(ps[x][key] for x in sc) / len(sc)
+
+
+MAIN = [('fp32', 'FP32 cache', None), ('int2-g16', 'INT2 symmetric', None),
+        (G64, 'INT2 asym., $g{=}64$', 1), (WIN16, 'INT4, last 16 frames', 1),
+        (OURS, '\\textbf{TCC-1}, $K{=}8$', 1), (OURS4, '\\textbf{TCC-1}, $K{=}4$', 1),
+        (G32, 'INT2 asym., $g{=}32$', 2), (TCC2, '\\textbf{TCC-2}, $K{=}8$', 2)]
+
+
 def main_table(out):
-    """One row per cache format; columns Bonn S/B/L and Sintel S/B/L."""
-    data = {(ds, e): pair_rows(ds, e) for ds in ('bonn', 'sintel') for e in ENCS}
+    """Rows: cache formats. Columns: Bonn/Sintel x S/B/L x (delta1, AbsRel, deviation).
+    delta1/AbsRel: per-sequence scale-and-shift alignment (rerun). Deviation: the main runs
+    (the rerun reproduces their per-frame delta1 exactly; the short window exists only in the rerun)."""
     order = [(ds, e) for ds in ('bonn', 'sintel') for e in ENCS]
+    main = {k: pair_rows(*k) for k in order}
 
-    def val(key, cfg, field):
-        rs = data[key]
-        r, b = row(rs, cfg), row(rs, 'fp32')
-        if field in ('fid_rel_dev_pct', 'fid_flicker_pct'):
-            return r[field]
-        return rel(r, b, field)
-
-    def cells(cfg, grp, field, fmt):
-        out_ = []
-        for k in order:
-            v = val(k, cfg, field)
-            txt = fmt(v)
-            if grp is not None and field.startswith('fid'):
-                best = min(val(k, c, field) for c, _, g in FORMATS if g == grp)
-                if v == best:
-                    txt = f'\\textbf{{{txt}}}'
-            out_.append(txt)
-        return out_
+    def dev(k, cfg):
+        if cfg == 'fp32':
+            return None
+        r = row(main[k], cfg)
+        return r['fid_rel_dev_pct'] if r else seq_val(*k, cfg, 'fid_rel_dev')
 
     def bits_of(cfg):
-        v = [bits(row(data[k], cfg), row(data[k], 'fp32')) for k in (('bonn', 'vits'), ('sintel', 'vits'))]
+        v = []
+        for ds in ('bonn', 'sintel'):
+            r, b = row(main[ds, 'vits'], cfg), row(main[ds, 'vits'], 'fp32')
+            if r is None:                         # short window: rerun only
+                rr = seq_rows(ds, 'vits')
+                r, b = rr[cfg], rr['fp32']
+            v.append(32 * r['cache_mb'] / b['cache_mb'])
         return f'{v[0]:.2f}' if abs(v[0] - v[1]) < 0.005 else f'{v[0]:.2f}/{v[1]:.2f}'
 
-    head = ' & '.join(['S', 'B', 'L'] * 4)
-    L = [r'\begin{tabular}{lc' + 'rrr' * 4 + '}', r'\toprule',
-         r' & & \multicolumn{6}{c}{Deviation from FP32 output (\%)} & \multicolumn{6}{c}{Flicker deviation (\%)} \\',
-         r'\cmidrule(lr){3-8}\cmidrule(lr){9-14}',
-         r' & & \multicolumn{3}{c}{Bonn} & \multicolumn{3}{c}{Sintel} & \multicolumn{3}{c}{Bonn} & \multicolumn{3}{c}{Sintel} \\',
-         f'Cache format & bits & {head} \\\\', r'\midrule']
-    f2 = lambda v: f'{v:.2f}'
-    for i, (cfg, lab, g) in enumerate(FORMATS):
-        if i in (2, 5):
+    L = [r'\begin{tabular}{lc' + 'rrr' * 6 + '}', r'\toprule',
+         r' & & \multicolumn{9}{c}{Bonn} & \multicolumn{9}{c}{Sintel} \\',
+         r'\cmidrule(lr){3-11}\cmidrule(lr){12-20}',
+         r' & & ' + ' & '.join(rf'\multicolumn{{3}}{{c}}{{ViT-{x}}}' for x in 'SBLSBL') + r' \\',
+         ''.join(rf'\cmidrule(lr){{{3 + 3 * i}-{5 + 3 * i}}}' for i in range(6)),
+         r'Cache format & bits & ' + ' & '.join([r'$\delta_1\!\uparrow$', r'Rel$\downarrow$', r'Dev$\downarrow$'] * 6) + r' \\',
+         r'\midrule']
+    for i, (cfg, lab, g) in enumerate(MAIN):
+        if i in (1, 2, 6):
             L.append(r'\midrule')
-        L.append(f'{lab} & {bits_of(cfg)} & ' + ' & '.join(cells(cfg, g, 'fid_rel_dev_pct', f2)
-                                                           + cells(cfg, g, 'fid_flicker_pct', f2)) + r' \\')
+        cells = []
+        for k in order:
+            cells += [f"{seq_val(*k, cfg, 'delta1_seq'):.3f}", f"{seq_val(*k, cfg, 'abs_rel_seq'):.3f}"]
+            v = dev(k, cfg)
+            if v is None:
+                cells.append('--')
+                continue
+            txt = f'{v:.2f}'
+            if g is not None and v == min(dev(k, c) for c, _, gg in MAIN if gg == g):
+                txt = rf'\textbf{{{txt}}}'
+            cells.append(txt)
+        b = '32' if cfg == 'fp32' else bits_of(cfg)
+        L.append(f'{lab} & {b} & ' + ' & '.join(cells) + r' \\')
     L += [r'\bottomrule', r'\end{tabular}']
     (out / 'tab_main.tex').write_text('\n'.join(L), encoding='utf-8')
 

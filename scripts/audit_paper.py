@@ -161,31 +161,46 @@ fps = [1000 / med(e, c) for e in ('vits', 'vitb', 'vitl') for c in tccs]
 check('TCC FPS min', min(fps), r'runs at 10--20 frames per second', '{:.0f}')
 check('TCC FPS max', max(fps), r'runs at 10--20 frames per second', '{:.0f}')
 
-print('== VDA ground-truth metrics')
-mx = [0, 0, 0]
-for ds in ('sintel', 'bonn'):
-    for e in ('vits', 'vitb', 'vitl'):
-        rs = m.pair_rows(ds, e)
-        b = m.row(rs, 'fp32')
-        for c in tccs:
-            x = m.row(rs, c)
-            mx[0] = max(mx[0], abs(x['delta1'] - b['delta1']))
-            mx[1] = max(mx[1], abs(x['abs_rel'] - b['abs_rel']))
-        mx[2] = max(mx[2], abs(m.row(rs, 'int2-g64-asym')['abs_rel'] - b['abs_rel']))
-check('TCC max |d delta1|', mx[0], r'$\delta_1$ within 0.001 and AbsRel within 0.0004', '{:.3f}')
-check('TCC max |d AbsRel|', mx[1], r'$\delta_1$ within 0.001 and AbsRel within 0.0004', '{:.4f}')
-check('INT2 max |d AbsRel|', mx[2], r'AbsRel up to 0.0023', '{:.4f}')
+print('== VDA ground-truth metrics (per-sequence alignment, A100 rerun)')
+TCCS = (m.OURS, m.OURS4, m.TCC2)
 
-print('== zero-cache control (VDA)')
-zd1, zdev = [], []
-for ds in ('sintel', 'bonn'):
-    for e in ('vits', 'vitb', 'vitl'):
-        rs = m.pair_rows(ds, e)
-        b, z = m.row(rs, 'fp32'), m.row(rs, 'zero')
-        zd1.append(abs(z['delta1'] - b['delta1']))
-        zdev.append(z['fid_rel_dev_pct'])
-check('zero cache max |d delta1|', max(zd1), r'per-frame $\delta_1$ within 0.006', '{:.3f}')
-check('zero cache deviation min', min(zdev), r'output moves by 16--38\%', '{:.0f}')
-check('zero cache deviation max', max(zdev), r'output moves by 16--38\%', '{:.0f}')
+
+def dd(cfg, key, sets):
+    """changes of a scene-mean GT metric vs FP32 over (dataset, encoder) pairs"""
+    return [m.seq_val(ds, e, cfg, key) - m.seq_val(ds, e, 'fp32', key) for ds in sets for e in m.ENCS]
+
+
+MAINSETS, BONN5 = ('bonn', 'sintel'), ('bonn5',)
+tcc = max(abs(x) for c in TCCS for x in dd(c, 'delta1_seq', MAINSETS))
+check('TCC max |d delta1_seq| (abstract)', tcc, r'keeps $\delta_1$ within 0.002 of the uncompressed model, where', '{:.3f}')
+check('TCC max |d delta1_seq| (results)', tcc, r'keep $\delta_1$ within 0.002 of the FP32 cache', '{:.3f}')
+check('TCC max |d delta1_seq| (contrib.)', tcc, r'it keeps $\delta_1$ within 0.002 of the uncompressed model and', '{:.3f}')
+check('INT2 sym max drop', -min(dd('int2-g16', 'delta1_seq', MAINSETS)), r'symmetric INT2 lowers $\delta_1$ by up to 0.009', '{:.3f}')
+check('INT2 g64 max drop', -min(dd(m.G64, 'delta1_seq', MAINSETS)), r'asymmetric INT2 by up to 0.005', '{:.3f}')
+w = dd(m.WIN16, 'delta1_seq', MAINSETS)
+check('win16 max drop (abstract)', -min(w), r'16 most recent frames loses up to 0.008', '{:.3f}')
+check('win16 max drop', -min(w), r'window lowers it by up to 0.008', '{:.3f}')
+check('win16 max AbsRel rise', max(dd(m.WIN16, 'abs_rel_seq', MAINSETS)), r'raises AbsRel by up to 0.015', '{:.3f}')
+b5 = max(abs(x) for x in dd(m.OURS, 'delta1_seq', BONN5))
+check('bonn5 TCC-1 (bound 0.002)', 0.002 if b5 <= 0.002 else b5, r'\ours-1 stays within 0.002 and', '{:.3f}')
+check('bonn5 win16 max drop', -min(dd(m.WIN16, 'delta1_seq', BONN5)), r'the window loses up to 0.013', '{:.3f}')
+check('3-bit formats max |d|', max(abs(x) for c in (m.G32, m.TCC2) for x in dd(c, 'delta1_seq', MAINSETS)),
+      r'all formats stay within 0.002', '{:.3f}')
+size = [m.seq_rows(ds, e)[m.WIN16]['cache_mb'] / m.seq_rows(ds, e)[m.OURS]['cache_mb']
+        for ds in MAINSETS for e in m.ENCS]
+check('win16 smaller (min)', 100 * (1 - max(size)), r'cache 11--18\% smaller', '{:.0f}')
+check('win16 smaller (max)', 100 * (1 - min(size)), r'cache 11--18\% smaller', '{:.0f}')
+# the rerun reproduces the main runs (Sintel all scenes; Bonn: the paper's three)
+def frame_mean(ds, e, c):           # the main runs average per-frame delta1 over valid frames
+    if ds != 'bonn':                   # all Sintel scenes: the rerun's own aggregate
+        return m.seq_rows(ds, e)[c]['delta1']
+    ps = m.seq_rows(ds, e)[c]['per_scene']
+    sc = m.BONN3 if ds == 'bonn' else sorted(ps)
+    return sum(ps[x]['delta1'] * ps[x]['n'] for x in sc) / sum(ps[x]['n'] for x in sc)
+
+
+rep = max(abs(frame_mean(ds, e, c) - m.row(m.pair_rows(ds, e), c)['delta1'])
+          for ds in MAINSETS for e in m.ENCS for c in ('fp32',) + TCCS + (m.G64, m.G32, 'int2-g16'))
+print(f'   rerun vs main runs, max |d per-frame delta1| = {rep:.1e}')
 
 print(f'\n{ok} OK, {bad} MISMATCH')

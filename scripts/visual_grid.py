@@ -35,7 +35,7 @@ STREAM = [('FP32 cache (32 b)', 'fp32'),
           ('INT2 asym. (3.0 b)', 'int2-g32-asym'),
           ('TCC-2 (2.9 b)', 'int4-g16::d8:int2-g64-asym'),
           ('1-bit, no prediction', 'bin-g16'),
-          ('cache removed', 'zero')]
+          ('zero cache', 'zero')]
 OFFLINE = [('FP32', None),
            ('INT3 g64, 3.125 b', 'scalar_g8:64:3'),
            ('E8 g64, 2.625 b', 'lattice_e8:64:3'),
