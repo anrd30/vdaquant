@@ -42,8 +42,10 @@ run() {   # run <dataset> <gpu>
   done
 }
 
-( run sintel "$GPU_A"; run bonn5 "$GPU_A"; say "LANE A FINISHED" ) &
-( run bonn "$GPU_B"; run kittiseq "$GPU_B"; say "LANE B FINISHED" ) &
+DATASETS_A=${DATASETS_A:-"sintel bonn5"}
+DATASETS_B=${DATASETS_B:-"bonn kittiseq"}
+( for d in $DATASETS_A; do run $d "$GPU_A"; done; say "LANE A FINISHED" ) &
+( for d in $DATASETS_B; do run $d "$GPU_B"; done; say "LANE B FINISHED" ) &
 wait
 (cd "$OUT" && tar czf "$C/vda_extra2.tgz" STATUS.txt *.json *.log)
 say "ALL FINISHED (results in $C/vda_extra2.tgz)"

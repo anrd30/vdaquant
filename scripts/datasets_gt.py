@@ -865,6 +865,7 @@ def load_kitti_seq_gt(cache_dir: Path, max_samples: Optional[int] = None, downlo
     video-depth benchmark: depth_selection/val_selection_cropped/{image_gathered,
     groundtruth_depth_gathered}/<drive>/<frame>.png (depth: uint16 / 256 = metres).
     No camera poses in this layout (K and pose are None)."""
+    from PIL import Image
     base = Path(cache_dir) / "depth_selection" / "val_selection_cropped"
     img_root, gt_root = base / "image_gathered", base / "groundtruth_depth_gathered"
     if not img_root.is_dir():
