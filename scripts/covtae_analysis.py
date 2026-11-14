@@ -38,6 +38,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from datasets_gt import group_samples_by_scene, load_gt_dataset  # noqa: E402
@@ -77,6 +78,42 @@ def rel_pose(p1, p2):
     T12 = np.linalg.inv(T21)
     f = lambda T: (torch.tensor(T[:3, :3], device=DEV), torch.tensor(T[:3, 3], device=DEV))
     return f(T21), f(T12)
+
+
+# ------------------------------------------------------------------ flow-warping error (Lai et al. 2018)
+def read_flo(path):
+    """Middlebury .flo (Sintel ground-truth flow): float magic 202021.25, int32 w, h, then h*w*2 float32."""
+    with open(path, 'rb') as f:
+        assert np.fromfile(f, np.float32, 1)[0] == 202021.25, path
+        w, h = np.fromfile(f, np.int32, 2)
+        return np.fromfile(f, np.float32, 2 * w * h).reshape(h, w, 2)
+
+
+def warp_back(img, flow):
+    """img_t sampled at x + flow_{t-1->t}(x): bilinear, zeros outside (as Resample2d in evaluate_WarpError.py)."""
+    H, W = img.shape
+    yy, xx = torch.meshgrid(torch.arange(H, dtype=img.dtype, device=img.device),
+                            torch.arange(W, dtype=img.dtype, device=img.device), indexing='ij')
+    gx = 2.0 * (xx + flow[..., 0]) / (W - 1) - 1.0
+    gy = 2.0 * (yy + flow[..., 1]) / (H - 1) - 1.0
+    g = torch.stack((gx, gy), -1)[None]
+    return F.grid_sample(img[None, None], g, mode='bilinear', padding_mode='zeros', align_corners=True)[0, 0]
+
+
+def warp_errors(depths, flows, nocs, cov_prev, scale):
+    """evaluate_WarpError.py: per frame t, sum(noc * (warp(F_t) - F_{t-1})^2) / sum(noc), mean over frames.
+    F = aligned disparity / scale (scale fixed per scene from ground truth, the same for every variant).
+    Masks: Sintel's non-occlusion mask (as Lai et al.), none, and the ground-truth co-visibility mask."""
+    out = {'warp_noc': [], 'warp_all': [], 'warp_cov': []}
+    for i, (fl, noc) in enumerate(zip(flows, nocs)):
+        if fl is None:
+            continue
+        f0, f1 = 1.0 / depths[i] / scale, 1.0 / depths[i + 1] / scale
+        sq = (warp_back(f1, fl) - f0) ** 2
+        for k, m in (('warp_noc', noc), ('warp_all', torch.ones_like(noc)), ('warp_cov', cov_prev[i].to(sq.dtype))):
+            n = float(m.sum())
+            out[k].append(float((sq * m).sum()) / (n if n > 0 else sq.numel()))
+    return {k: {'mean': float(np.mean(v)), 'median': float(np.median(v))} for k, v in out.items() if v}
 
 
 # ------------------------------------------------------------------ alignment
@@ -219,6 +256,8 @@ def main():
     ap.add_argument('--data-dir', default=None)
     ap.add_argument('--out', required=True)
     ap.add_argument('--no-controls', action='store_true')
+    ap.add_argument('--flow-root', default=None,
+                    help='Sintel training dir with flow/ and occlusions/: adds the flow-warping error (Lai et al.)')
     args = ap.parse_args()
 
     dumps = sorted(Path(args.dumps).glob(f'{args.dataset}_{args.encoder}_w*_*.json'))
@@ -246,6 +285,23 @@ def main():
         poses = [np.asarray(f['pose'], dtype=np.float64) for f in fr]
         codes = gt_codes(gts, Ks, poses)
         seed = zlib.crc32(scene.encode())
+        flows = nocs = None
+        if args.flow_root:
+            fr_root = Path(args.flow_root)
+            flows, nocs = [], []
+            for a, b in zip(fr[:-1], fr[1:]):
+                fp = fr_root / 'flow' / scene / f"frame_{a['frame_idx']:04d}.flo"
+                op = fr_root / 'occlusions' / scene / f"frame_{a['frame_idx']:04d}.png"
+                if b['frame_idx'] != a['frame_idx'] + 1 or not fp.exists() or not op.exists():
+                    flows.append(None)
+                    nocs.append(None)
+                    continue
+                flows.append(torch.from_numpy(read_flo(fp).astype(np.float64)).to(DEV))
+                occ = np.asarray(Image.open(op).convert('L'), dtype=np.float64) / 255.0
+                nocs.append(torch.from_numpy(1.0 - occ).to(DEV))
+            cov_prev = [c[1] <= TAUS.index(0.05) for c in codes]   # co-visible pixels in frame t-1 space
+            gvalid = torch.cat([(1.0 / g[(g > LO) & (g < dmax)]) for g in gts])
+            wscale = float(gvalid.max()) if gvalid.numel() else 1.0
 
         # variants are built one at a time (a long Bonn scene holds ~2.4 GB per variant)
         load = lambda stem: [torch.from_numpy(npz[stem][f'{scene}|{i:05d}'].astype(np.float64)).to(DEV)
@@ -277,6 +333,8 @@ def main():
             r = scene_tae(depths, gts, Ks, poses, codes, dmax, depths_up)
             del depths_up
             r['delta1_scene_aligned'], r['delta1_frame_aligned'] = delta1_metrics(disps, gts, depths, dmax)
+            if flows is not None:
+                r.update(warp_errors(depths, flows, nocs, cov_prev, wscale))
             r['align'] = st
             result['variants'].setdefault(tag, {})[scene] = r
             del disps, depths

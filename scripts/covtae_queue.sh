@@ -15,6 +15,8 @@ REQ_MAXS=${MAXS:-2000}
 REQ_ENCS=${ENCS:-"vits vitl"}
 REQ_GPU_A=${GPU_A:-2}
 REQ_GPU_B=${GPU_B:-0}
+REQ_PREDICT=${PREDICT:-1}                 # PREDICT=0: analysis only, on predictions already saved
+REQ_ANALYSIS_ARGS=${ANALYSIS_ARGS:-}      # e.g. "--flow-root benchmark_data/sintel/training"
 SELF=$(cd "$(dirname "$0")/.." && pwd)
 C=$(dirname "$SELF")
 source "$C/svg_env.sh"
@@ -46,19 +48,19 @@ analyse() {   # analyse <dataset> <encoder> <gpu>
   local ds=$1 enc=$2 gpu=$3
   say "START analysis $ds $enc"
   (cd "$SELF" && CUDA_VISIBLE_DEVICES=$gpu "$PY" -u -X utf8 scripts/covtae_analysis.py --dataset "$ds" --encoder "$enc" \
-      --dumps "$DUMPS" --out "$OUT/analysis_${ds}_${enc}.json" > "$OUT/logs/analysis_${ds}_${enc}.log" 2>&1) \
+      --dumps "$DUMPS" --out "$OUT/analysis_${ds}_${enc}.json" $REQ_ANALYSIS_ARGS > "$OUT/logs/analysis_${ds}_${enc}.log" 2>&1) \
       && say "OK analysis $ds $enc" || say "FAILED analysis $ds $enc"
 }
 
 lane() {   # lane <dataset> <gpu> <max-scenes>
-  for enc in $ENCS; do predict "$1" "$enc" "$2" "$3"; done
+  if [ "$REQ_PREDICT" = 1 ]; then for enc in $ENCS; do predict "$1" "$enc" "$2" "$3"; done; fi
   for enc in $ENCS; do analyse "$1" "$enc" "$2"; done
   say "LANE $1 FINISHED"
 }
 
 df -h "$OUT" | tail -1 | sed 's/^/disk: /' | tee -a "$OUT/STATUS.txt"
 DATASETS=$REQ_DATASETS
-echo "settings: datasets=[$DATASETS] encoders=[$ENCS] max_samples=$REQ_MAXS gpu_a=$GPU_A gpu_b=$GPU_B" | tee -a "$OUT/STATUS.txt"
+echo "settings: datasets=[$DATASETS] encoders=[$ENCS] max_samples=$REQ_MAXS predict=$REQ_PREDICT analysis_args=[$REQ_ANALYSIS_ARGS] gpu_a=$GPU_A gpu_b=$GPU_B" | tee -a "$OUT/STATUS.txt"
 case " $DATASETS " in *" sintel "*) ( lane sintel "$GPU_A" 23 ) & ;; esac
 case " $DATASETS " in *" bonn "*) ( lane bonn "$GPU_B" 8 ) & ;; esac
 wait
