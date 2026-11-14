@@ -50,3 +50,13 @@ Everything the main paper (main_12nov_v9.tex) promises or relies on, and where t
 - Note the scale-only per-sequence variant (delta1_seq_scale ~0.45) is not meaningful in disparity; do not report.
 - Table 1 sources: delta1/AbsRel from results/2026-11-13_vda_extra2 (A100 rerun, Bonn restricted to balloon/crowd/kidnapping_box), Dev from the main runs; rerun reproduces per-frame delta1 to 1.1e-4 (audit_paper.py).
 - VDA KITTI (kittiseq, 13 drives): DONE 11-13, in text (TCC-1 dev 0.54-0.64 vs INT2 1.12-1.59; window up to -0.007 delta1). Add full table to supplement.
+
+## Concurrent work comparison (reviewers ask for TempoKV / CORAL-KV) - planned 2026-11-18..20
+- CVPR 2027 rule: work first public on/after 2026-09-15 is contemporaneous; cite+discuss, compare "where reasonably feasible";
+  no rejection solely for contemporaneous similar/stronger work. TempoKV arXiv 2610.15324 (11 Oct 2026, code "will be released",
+  none yet), CORAL-KV arXiv 2610.12514 (7 Oct 2026, no code); both on video generators.
+- Plan: re-implement core predictors inside tcc/stream_cache.py with identical keyframes/quantizers/bits:
+  (1) TempoKV-style fitted linear temporal predictor (least squares on reconstructed history, calibrated on held-out scenes,
+      closed loop); (2) CORAL-KV-style cross-layer predictor if VDA's layer shapes allow.
+- Report deviation/flicker/delta1_seq on Sintel+Bonn ViT-S (B/L if time) in a supplement table; rebuttal cites the rule + table.
+- Paper text (frozen Nov 16) already cites both as concurrent and states differences (fitted predictors vs none; keyframes; 1-bit).
