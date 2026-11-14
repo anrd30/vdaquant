@@ -25,7 +25,7 @@ say() { echo "[$(date +%H:%M)] $*" | tee -a "$OUT/STATUS.txt"; }
 predict() {   # predict <dataset> <encoder> <gpu> <max-scenes>
   local ds=$1 enc=$2 gpu=$3 ns=$4
   local common="--dataset $ds --encoder $enc --eval-mode temporal --quantizer lattice_e8 --scale-bits 8
-                --no-qjl --rht-seed 0 --max-samples 2000 --max-scenes $ns --tae-covis-tau 0.05 --dump-preds $DUMPS"
+                --no-qjl --rht-seed 0 --max-samples ${MAXS:-2000} --max-scenes $ns --tae-covis-tau 0.05 --dump-preds $DUMPS"
   say "START predict $ds $enc (FP32 + 8/4/3/2 bit, window 32)"
   (cd "$SELF" && CUDA_VISIBLE_DEVICES=$gpu "$PY" -u -X utf8 scripts/run_pareto_benchmark_suite.py $common \
       --bits 8 4 3 2 --temporal-window 32 --output-dir "$OUT/live_${ds}_${enc}_w32" > "$OUT/logs/${ds}_${enc}_w32.log" 2>&1) \
@@ -51,8 +51,9 @@ lane() {   # lane <dataset> <gpu> <max-scenes>
 }
 
 df -h "$OUT" | tail -1 | sed 's/^/disk: /' | tee -a "$OUT/STATUS.txt"
-( lane sintel "$GPU_A" 23 ) &
-( lane bonn "$GPU_B" 8 ) &
+DATASETS=${DATASETS:-"sintel bonn"}      # e.g. DATASETS=bonn MAXS=6000 for all eight Bonn sequences
+case " $DATASETS " in *" sintel "*) ( lane sintel "$GPU_A" 23 ) & ;; esac
+case " $DATASETS " in *" bonn "*) ( lane bonn "$GPU_B" 8 ) & ;; esac
 wait
 (cd "$OUT" && tar czf "$C/covtae_results.tgz" STATUS.txt analysis_*.json logs live_*)
 say "ALL FINISHED (results in $C/covtae_results.tgz; predictions stay in $DUMPS)"
