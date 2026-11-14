@@ -196,6 +196,9 @@ def _code_bits(bits: int, binary: bool) -> int:
     return 4 if bits <= 4 else 8
 
 
+FAST_ENCODE = True              # encoder reuses its codes for the reconstruction; vectorised packing (bit-identical)
+
+
 def pack_codes(codes: torch.Tensor, nb: int) -> torch.Tensor:
     """Unsigned codes in [0, 2**nb) -> flat uint8, ``8 // nb`` codes per byte.
 
@@ -209,6 +212,9 @@ def pack_codes(codes: torch.Tensor, nb: int) -> torch.Tensor:
     if pad:
         flat = torch.cat([flat, flat.new_zeros(pad)])
     flat = flat.reshape(-1, per)
+    if FAST_ENCODE:             # same integer result: codes occupy disjoint bit ranges, so sum == or
+        shifts = torch.arange(0, 8, nb, device=flat.device, dtype=torch.uint8)
+        return (flat << shifts).sum(-1, dtype=torch.int32).to(torch.uint8)
     out = flat[:, 0].clone()
     for k in range(1, per):
         out |= flat[:, k] << (nb * k)
@@ -279,7 +285,7 @@ def parse_scalar_spec(mode: str):
     return bits, group, 'rht' in parts, 'asym' in parts
 
 
-def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor) -> _ScalarTensor:
+def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor, want_rec: bool = False):
     bits, g, rot, asym = parse_scalar_spec(mode)
     # 8-bit scale index (as g16) for any group size with '-s8', e.g. 'bin-g32-s8'
     s8 = g == 16 or 's8' in mode.split('-')
@@ -322,8 +328,29 @@ def scalar_compress(t: torch.Tensor, mode: str, signs: torch.Tensor) -> _ScalarT
             scale_st = scale.half().reshape(-1)
         off = h
         codes = ((xg / scale.clamp(min=1e-12)).round().clamp(-h, h - 1) + h).to(torch.uint8)
-    return _ScalarTensor(pack_codes(codes, nb), scale_st, zero, step, kind, off, nb,
-                         (G, xg.shape[1]), shape, t.dtype, rot)
+    packed = _ScalarTensor(pack_codes(codes, nb), scale_st, zero, step, kind, off, nb,
+                           (G, xg.shape[1]), shape, t.dtype, rot)
+    if not want_rec:
+        return packed
+    if rot:                         # rotated codes: reconstruct through the decoder
+        return packed, scalar_decompress(packed, signs)
+    return packed, _dequant(codes, packed)
+
+
+def _dequant(codes: torch.Tensor, p: _ScalarTensor) -> torch.Tensor:
+    """scalar_decompress's arithmetic applied to the codes before packing (same values, same order)."""
+    if p.kind == 'bin':
+        q = codes.float() * 2.0 - 1.0
+    elif p.kind == 'sym':
+        q = (codes.to(torch.int16) - p.off).float()
+    else:
+        q = codes.float()
+    scale = p.scale.float().unsqueeze(1)
+    if p.step is not None:
+        scale = scale * p.step
+    zero = p.zero.float().unsqueeze(1) if p.zero is not None else 0.0
+    x = q * scale + zero
+    return x.reshape(-1, p.shape[-1]).reshape(p.shape).to(p.dtype)
 
 
 def scalar_decompress(p: _ScalarTensor, signs: torch.Tensor) -> torch.Tensor:
@@ -711,10 +738,17 @@ class _DeltaEncoder:
             if self.open_loop:      # residual against the true previous entry, which
                 pred = self.t1      # the decoder does not have: errors are not corrected
             payload = [c if p is None else c - p for c, p in zip(cur, pred)]
-        e = CompressedEntry(payload, self.mode if intra else self.residual_mode,
-                            self.bits, signs)
+        mode_now = self.mode if intra else self.residual_mode
+        if FAST_ENCODE and mode_now.startswith(('int', 'bin')):
+            e = CompressedEntry.__new__(CompressedEntry)
+            e.mode, e.signs = mode_now, signs
+            pairs = [scalar_compress(t, mode_now, signs, want_rec=True) for t in payload]
+            e.items = [p for p, _ in pairs]
+            dec = [r.float() for _, r in pairs]
+        else:
+            e = CompressedEntry(payload, mode_now, self.bits, signs)
+            dec = [e[i].float() for i in range(len(e))]
         e.intra = intra
-        dec = [e[i].float() for i in range(len(e))]
         if intra:
             rec, self.h2, self.since_intra = dec, None, 0
         else:
