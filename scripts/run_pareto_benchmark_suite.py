@@ -1634,9 +1634,9 @@ def main():
                 f"ToU-gated (see scripts/download_datasets.sh), and 'all' can't mix GT ranges. "
                 f"Do not fabricate GT results for them."
             )
-    elif args.eval_mode == "temporal" and args.dataset not in ("sintel", "bonn", "tum"):
+    elif args.eval_mode == "temporal" and args.dataset not in ("sintel", "bonn", "tum", "scannet"):
         raise ValueError(
-            "--eval-mode temporal currently supports --dataset sintel, bonn, or tum "
+            "--eval-mode temporal currently supports --dataset sintel, bonn, tum, or scannet "
             "(the datasets with both real consecutive-video structure and "
             "camera pose data for geometric TAE)."
         )
