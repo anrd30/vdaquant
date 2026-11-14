@@ -256,30 +256,39 @@ def main():
     ap.add_argument('--data-dir', default=None)
     ap.add_argument('--out', required=True)
     ap.add_argument('--no-controls', action='store_true')
+    ap.add_argument('--max-per-scene', type=int, default=None,
+                    help='use only the first N frames of every scene (longer saved predictions are cut)')
+    ap.add_argument('--tags', default=None, help='comma-separated subset of saved runs, e.g. w32_fp32,wS_streamvggt-none')
     ap.add_argument('--flow-root', default=None,
                     help='Sintel training dir with flow/ and occlusions/: adds the flow-warping error (Lai et al.)')
     args = ap.parse_args()
 
     dumps = sorted(Path(args.dumps).glob(f'{args.dataset}_{args.encoder}_w*_*.json'))
+    if args.tags:
+        keep = set(args.tags.split(','))
+        dumps = [d for d in dumps if d.stem[len(f'{args.dataset}_{args.encoder}_'):] in keep]
     if not dumps:
         raise SystemExit(f'no dumps for {args.dataset}/{args.encoder} in {args.dumps}')
-    meta0 = json.loads(dumps[0].read_text())
+    metas = [json.loads(d.read_text()) for d in dumps]
+    assert len({m['max_samples'] for m in metas}) == 1, 'saved runs loaded different frame sets (max_samples)'
+    mps = args.max_per_scene
+    meta0 = metas[0]
     data_dir = Path(args.data_dir) if args.data_dir else Path(__file__).resolve().parents[1] / 'benchmark_data'
     samples, gt_range = load_gt_dataset(args.dataset, data_dir, max_samples=meta0['max_samples'], require_cam=True)
     scenes = group_samples_by_scene(samples)
     dmax = float(gt_range[1])
-    names = [s for s in scenes if s in meta0['scenes']]
+    names = [s for s in scenes if all(s in m['scenes'] for m in metas)]
     print(f'{args.dataset}/{args.encoder}: {len(names)} scenes, dumps: {[d.stem for d in dumps]}', flush=True)
 
     npz = {d.stem: np.load(d.with_suffix('.npz')) for d in dumps}
-    result = {'dataset': args.dataset, 'encoder': args.encoder, 'gt_range': list(gt_range), 'taus': list(TAUS),
+    result = {'dataset': args.dataset, 'encoder': args.encoder, 'gt_range': list(gt_range), 'taus': list(TAUS), 'max_per_scene': mps, 'runs': [d.stem for d in dumps],
               'variants': {}}
     t0 = time.time()
     for scene in names:
-        fr = scenes[scene]
-        for stem, d in zip([x.stem for x in dumps], dumps):
-            n = json.loads(d.read_text())['scenes'][scene]
-            assert n == len(fr), (stem, scene, n, len(fr))
+        fr = scenes[scene][:mps] if mps else scenes[scene]
+        for stem, m in zip([x.stem for x in dumps], metas):
+            n = m['scenes'][scene]
+            assert n == len(fr) or (mps and n >= len(fr)), (stem, scene, n, len(fr))
         gts = [torch.from_numpy(np.asarray(f['depth'], dtype=np.float64)).to(DEV) for f in fr]
         Ks = [np.asarray(f['K'], dtype=np.float64) for f in fr]
         poses = [np.asarray(f['pose'], dtype=np.float64) for f in fr]
