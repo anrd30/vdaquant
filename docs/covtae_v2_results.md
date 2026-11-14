@@ -55,3 +55,38 @@ Unmasked warping: GT worse than model; rewards blur/collapse/constant; per-frame
 Official mask: per-frame worse in S 20/23, L 16/23 scenes; but GT ~ model (0.00187 vs 0.00198), weak flicker response
 (GT jitter 1/5/10%: 0.00190/0.00263/0.00439 vs cov-TAE 1.55/5.39/9.67). Likely cause (unverified): depth values change
 with camera motion, so flow-warped depth differs even for perfect GT; 3D reprojection accounts for this.
+
+## Model comparison: StreamVGGT vs VDA (2026-11-14 night reruns, all OK)
+Source: results/2026-11-14_covtae_bonnL/analysis_models_{sintel,bonn}_{vits,vitl}.json (server runs 21:58-22:31).
+StreamVGGT (bf16, no cache coding): Sintel all frames; Bonn first 110 frames per sequence (all models cut to 110).
+| Sintel (mean of 23 scenes) | TAE | VDA eval_tae.py | cov-TAE | warp (occl. mask) |
+|---|---|---|---|---|
+| GT | 51.81 | 53.68 | 0.62 | 0.00187 |
+| StreamVGGT | 52.11 | 52.53 | 7.48 | 0.00220 |
+| VDA-S video | 54.30 | 55.36 | 5.86 | 0.00198 |
+| VDA-L video | 54.59 | 55.72 | 6.51 | 0.00197 |
+Ranking flip on Sintel: standard TAE puts StreamVGGT ahead of both VDA models (on the mean); cov-TAE and masked
+warping put both VDA models ahead. Per scene, StreamVGGT lower than VDA-S/L: TAE 12/23, 12/23 (coin flip);
+cov-TAE 10/23, 7/23; masked warp 5/23, 5/23. Not a clean flip per scene: state it as "TAE cannot separate
+them, cov-TAE and warping both prefer VDA". delta1 (scene-aligned): StreamVGGT 0.644, VDA-S 0.580, VDA-L 0.607.
+ViT-L Sintel: per-frame w1 (51.66) and 2-bit (52.17) both beat FP32 video (54.59) on mean TAE; cov-TAE ranks
+FP32 first (6.51 < 7.98, 8.08).
+| Bonn, 110 frames x 8 seq | TAE | cov-TAE | delta1 |
+|---|---|---|---|
+| GT | 12.65 | 0.80 | 1.000 |
+| StreamVGGT | 2.32 | 1.24 | 0.987 |
+| VDA-S video | 2.52 | 1.49 | 0.986 |
+| VDA-L video | 2.57 | 1.49 | 0.986 |
+Bonn: no flip; StreamVGGT lower than VDA-S under both (7/8 scenes), VDA-L TAE 7/8, cov 6/8.
+
+## Bonn ViT-L, all frames (rerun of the failed 19:18 analysis)
+GT 13.79 / cov 0.84; FP32 3.35 / 1.85; per-frame 3.74 / 2.43 (worse on both, TAE 7/8, cov 8/8);
+2-bit 3.10 / 1.85 (delta1 0.896 vs 0.924): TAE prefers 2-bit in 8/8 scenes, cov-TAE prefers FP32 in 5/8 (means tied).
+Same at 110 frames (TAE 0/8 for FP32, cov 5/8). Honest reading: mild quantisation smoothing lowers TAE;
+cov-TAE does not reward it but barely separates the two.
+
+## Kinect-hole check (all 8 Bonn sequences, S and L identical for GT)
+GT: TAE 13.79, TAE excluding clipped/hole pixels (tae_noclip) 4.05, target-valid only 13.77, cov-TAE 0.84.
+FP32 ViT-S 3.22 / 3.22 / 3.00 / 1.84. GT still worse than the model with holes removed in 7/8 sequences.
+Remaining GT error sits on non-co-visible pixels (GT 60.3% vs model 7.5%; co-visible fraction 0.78).
+So holes explain most of GT's standard TAE but not the ranking; occlusion handling does.
