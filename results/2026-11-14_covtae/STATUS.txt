@@ -1,0 +1,27 @@
+disk: /dev/sdb1        19T   12T  6.2T  65% /media/rvcse22/CSERV
+[10:16] START predict sintel vits (FP32 + 8/4/3/2 bit, window 32)
+[10:16] START predict bonn vits (FP32 + 8/4/3/2 bit, window 32)
+[10:28] OK predict sintel vits w32
+[10:28] START predict sintel vits (FP32, window 1)
+[10:30] OK predict sintel vits w1
+[10:30] START predict sintel vitl (FP32 + 8/4/3/2 bit, window 32)
+[10:33] OK predict bonn vits w32
+[10:33] START predict bonn vits (FP32, window 1)
+[10:38] OK predict bonn vits w1
+[10:38] START predict bonn vitl (FP32 + 8/4/3/2 bit, window 32)
+[11:06] OK predict sintel vitl w32
+[11:06] START predict sintel vitl (FP32, window 1)
+[11:11] OK predict sintel vitl w1
+[11:11] START analysis sintel vits
+[11:17] OK analysis sintel vits
+[11:17] START analysis sintel vitl
+[11:23] OK predict bonn vitl w32
+[11:23] START predict bonn vitl (FP32, window 1)
+[11:23] OK analysis sintel vitl
+[11:23] LANE sintel FINISHED
+[11:31] OK predict bonn vitl w1
+[11:31] START analysis bonn vits
+[11:40] OK analysis bonn vits
+[11:40] START analysis bonn vitl
+[11:49] OK analysis bonn vitl
+[11:49] LANE bonn FINISHED
