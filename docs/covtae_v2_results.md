@@ -38,3 +38,20 @@ Share of TAE error in the top 1% pixels: Sintel GT 0.50, model 0.30. Co-visible 
 Constant depth per frame fools BOTH metrics (Sintel TAE=cov 3.5-4.3, Bonn 0.6-0.7, delta1 ~0.35-0.47):
 temporal scores must be reported with accuracy. The old claim "TAE is not fooled by constant depth" is false.
 VDA reports TAE only on ScanNet (eval_tae.sh: 20 scenes, frames 10-180, no mask).
+
+## Flow-warping error (Lai et al. 2018 formula, Sintel GT flow + occlusions), 2026-11-14 evening
+Source: results/2026-11-14_covtae_flow/analysis_sintel_{vits,vitl}.json (re-analysis of the same saved predictions;
+TAE identical to the morning run on every scene and variant). F = aligned disparity / scene max GT disparity.
+Exact VDA eval_tae.py TAE (tae_upstream): FP32 ViT-S 55.36 (old paper's upstream number), GT 53.69.
+| Sintel ViT-S (mean over scenes) | TAE | warp no mask | warp official occl. mask | cov-TAE |
+|---|---|---|---|---|
+| GT | 51.81 | 0.00885 | 0.00187 | 0.62 |
+| FP32 | 54.30 | 0.00738 | 0.00198 | 5.86 |
+| per-frame (w1) | 53.82 | 0.00704 | 0.00219 | 9.69 |
+| blur 8 | 41.59 | 0.00684 | 0.00202 | 8.87 |
+| 2-bit | 10.53 | 0.00495 | 0.00213 | 8.70 |
+| const | 4.31 | 0.00395 | 0.00215 | 4.31 |
+Unmasked warping: GT worse than model; rewards blur/collapse/constant; per-frame ranked better (scenes: S 11/23, L 7/23 correct).
+Official mask: per-frame worse in S 20/23, L 16/23 scenes; but GT ~ model (0.00187 vs 0.00198), weak flicker response
+(GT jitter 1/5/10%: 0.00190/0.00263/0.00439 vs cov-TAE 1.55/5.39/9.67). Likely cause (unverified): depth values change
+with camera motion, so flow-warped depth differs even for perfect GT; 3D reprojection accounts for this.
