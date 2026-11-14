@@ -48,9 +48,10 @@ DEV = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 # ------------------------------------------------------------------ geometry
-def reproject(d1, R, t, K):
-    """z-buffered depth of frame-1 pixels seen from frame 2 (0 where nothing lands); mirrors
-    run_pareto_benchmark_suite._tae_geometric_single with scatter_zbuffer=True."""
+def reproject(d1, R, t, K, zbuffer=True):
+    """Depth of frame-1 pixels seen from frame 2 (0 where nothing lands). zbuffer=True mirrors
+    run_pareto_benchmark_suite._tae_geometric_single (nearest surface wins); zbuffer=False is VDA's
+    eval_tae.py exactly (depth_proj[Y, X] = Z: last write wins, order not defined on GPU)."""
     H, W = d1.shape
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     yy, xx = torch.meshgrid(torch.arange(H, dtype=d1.dtype, device=d1.device),
@@ -60,6 +61,10 @@ def reproject(d1, R, t, K):
     u = torch.round(P[:, 0] * fx / Z + cx).long()
     v = torch.round(P[:, 1] * fy / Z + cy).long()
     ok = (u >= 0) & (u < W) & (v >= 0) & (v < H)
+    if not zbuffer:
+        out = torch.zeros((H, W), dtype=d1.dtype, device=d1.device)
+        out[v[ok], u[ok]] = Z[ok]
+        return out
     flat = torch.full((H * W,), float('inf'), dtype=d1.dtype, device=d1.device)
     if ok.any():
         flat.scatter_reduce_(0, v[ok] * W + u[ok], Z[ok], reduce='amin', include_self=True)
@@ -153,8 +158,11 @@ def gt_codes(gts, Ks, poses):
     return codes
 
 
-def scene_tae(depths, gts, Ks, poses, codes, dmax):
-    keys = ['tae', 'tae_gtvalid', 'tae_noclip', 'noncov', 'cov_gtden', 'top1share'] + [f'cov{t:g}' for t in TAUS]
+def scene_tae(depths, gts, Ks, poses, codes, dmax, depths_up=None):
+    """depths_up: the same prediction aligned exactly as eval_tae.py (raw prediction clipped to >= 1e-3
+    before the fit); used for 'tae_upstream' with eval_tae.py's last-write-wins reprojection."""
+    keys = ['tae', 'tae_gtvalid', 'tae_noclip', 'noncov', 'cov_gtden', 'top1share', 'tae_upstream'] + \
+           [f'cov{t:g}' for t in TAUS]
     per = {k: [] for k in keys}
     frac = {f'cov{t:g}': [] for t in TAUS}
     i05 = TAUS.index(0.05)
@@ -162,6 +170,11 @@ def scene_tae(depths, gts, Ks, poses, codes, dmax):
         (R21, t21), (R12, t12) = rel_pose(poses[i], poses[i + 1])
         K = torch.tensor(Ks[i], device=DEV, dtype=torch.float64)
         vals = {k: [] for k in keys}
+        if depths_up is not None:
+            for a1, a2, R, t in ((depths_up[i], depths_up[i + 1], R21, t21), (depths_up[i + 1], depths_up[i], R12, t12)):
+                pu = reproject(a1, R, t, K, zbuffer=False)
+                mu = (pu > 0) & (a2 > 0)
+                vals['tae_upstream'].append(float(((a2 - pu).abs() / a2)[mu].mean()) if mu.any() else 0.0)
         for d1, d2, g2, R, t, c in ((depths[i], depths[i + 1], gts[i + 1], R21, t21, codes[i][0]),
                                     (depths[i + 1], depths[i], gts[i], R12, t12, codes[i][1])):
             proj = reproject(d1, R, t, K)
@@ -188,7 +201,8 @@ def scene_tae(depths, gts, Ks, poses, codes, dmax):
                 vals[f'cov{tau:g}'].append(mean_over(base & m))
                 frac[f'cov{tau:g}'].append(float(m.double().mean()))
         for k in keys:
-            per[k].append(sum(vals[k]) / 2.0)
+            if vals[k]:
+                per[k].append(sum(vals[k]) / 2.0)
     out = {k: {'mean': 100 * float(np.mean(v)), 'median': 100 * float(np.median(v))} for k, v in per.items() if v}
     out['top1share'] = {kk: vv / 100 for kk, vv in out['top1share'].items()}   # a share, not a percent
     out['covis_fraction'] = {k: float(np.mean(v)) for k, v in frac.items()}
@@ -259,7 +273,9 @@ def main():
         for tag, make in variants:
             disps = make()
             depths, st = align_scene(disps, gts, dmax)
-            r = scene_tae(depths, gts, Ks, poses, codes, dmax)
+            depths_up, _ = align_scene([d.clamp(min=LO) for d in disps], gts, dmax)   # eval_tae.py clips first
+            r = scene_tae(depths, gts, Ks, poses, codes, dmax, depths_up)
+            del depths_up
             r['delta1_scene_aligned'], r['delta1_frame_aligned'] = delta1_metrics(disps, gts, depths, dmax)
             r['align'] = st
             result['variants'].setdefault(tag, {})[scene] = r
