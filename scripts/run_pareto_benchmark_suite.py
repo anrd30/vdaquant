@@ -1338,6 +1338,28 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
 
     covis_tau = getattr(args, "tae_covis_tau", None)
 
+    def _dump(scene_preds, tag):
+        """Save raw predicted disparities (float16) so every TAE variant and
+        control can be computed offline from one forward pass (cov-TAE v2)."""
+        root = getattr(args, "dump_preds", None)
+        if not root:
+            return
+        out = Path(root)
+        out.mkdir(parents=True, exist_ok=True)
+        stem = f"{args.dataset}_{args.encoder}_w{window}_{tag}"
+        arrays, meta = {}, {}
+        for scene, (pred_disps, _g, _k, _p) in scene_preds.items():
+            meta[scene] = len(pred_disps)
+            for i, p in enumerate(pred_disps):
+                a = p.detach().float().cpu().numpy() if torch.is_tensor(p) else np.asarray(p)
+                arrays[f"{scene}|{i:05d}"] = a.astype(np.float16)
+        np.savez(out / f"{stem}.npz", **arrays)
+        (out / f"{stem}.json").write_text(json.dumps({
+            "scenes": meta, "window": window, "tag": tag, "dataset": args.dataset,
+            "encoder": args.encoder, "quantizer": args.quantizer,
+            "scale_bits": args.scale_bits, "max_samples": args.max_samples}))
+        print(f"        [dump] {stem}: {sum(meta.values())} frames -> {out}")
+
     def evaluate_predictions(scene_preds):
         acc_metrics_all = []
         tae_list = []
@@ -1427,7 +1449,10 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
     dataset_results = {}
 
     print(f"  [1/N] Running FP32 Reference (real video windows, window={window})...")
-    fp32_metrics = evaluate_predictions(predict_scene(model))
+    _sp = predict_scene(model)
+    _dump(_sp, getattr(args, "dump_tag", None) or "fp32")
+    fp32_metrics = evaluate_predictions(_sp)
+    del _sp
     fp32_metrics["mem_savings_x"] = 1.0
     fp32_metrics["mem_savings_fp16_x"] = 0.5
     fp32_metrics["nominal_savings_x"] = 1.0
@@ -1460,7 +1485,10 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
                 use_rotation=args.use_rotation, rht_seed=args.rht_seed,
             )
 
-        metrics = evaluate_predictions(predict_scene(model_quant))
+        _sp = predict_scene(model_quant)
+        _dump(_sp, f"{bit}bit")
+        metrics = evaluate_predictions(_sp)
+        del _sp
 
         bit_accounting = bit_accounting_for(
             args.quantizer, bit, args.use_qjl, args.scale_bits,
@@ -1490,7 +1518,7 @@ def main():
                          help="VDA encoder variant (S4). head_dim is 64 for all, so surgery/"
                               "quantizers are encoder-independent; vitl tests cross-scale "
                               "generalization (docs/optimization_ledger.md G4).")
-    parser.add_argument("--bits", nargs="+", type=int, default=[8, 4, 3, 2], help="Quantization bit-widths to sweep")
+    parser.add_argument("--bits", nargs="*", type=int, default=[8, 4, 3, 2], help="Quantization bit-widths to sweep")
     parser.add_argument("--max-samples", type=int, default=20, help="Number of video frames per dataset")
     parser.add_argument("--output-dir", type=str, default="outputs/pareto_results", help="Directory to save benchmark reports and charts")
     parser.add_argument("--test-mode", action="store_true", help="Run fast verification test")
@@ -1561,6 +1589,10 @@ def main():
                               "agree within this relative tolerance. Masks are GT-only so every "
                               "config gets the same mask; excludes disocclusion/out-of-frame "
                               "inflation (docs/optimization_ledger.md F16).")
+    parser.add_argument("--dump-preds", type=str, default=None,
+                        help="[--eval-mode temporal] save raw predicted disparities (float16 .npz) per config here")
+    parser.add_argument("--dump-tag", type=str, default=None,
+                        help="[--eval-mode temporal] file tag for the FP32 run (default fp32)")
     parser.add_argument("--no-scatter-zbuffer", action="store_true", default=False,
                          help="[--eval-mode temporal] Disable the per-target z-buffer at "
                               "the reprojection scatter and instead use the upstream VDA "
