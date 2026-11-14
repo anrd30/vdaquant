@@ -267,14 +267,18 @@ def main():
     if args.tags:
         keep = set(args.tags.split(','))
         dumps = [d for d in dumps if d.stem[len(f'{args.dataset}_{args.encoder}_'):] in keep]
+    else:                       # other models (StreamVGGT, '_wS_') only when asked for by --tags
+        dumps = [d for d in dumps if '_wS_' not in d.stem]
     if not dumps:
         raise SystemExit(f'no dumps for {args.dataset}/{args.encoder} in {args.dumps}')
     metas = [json.loads(d.read_text()) for d in dumps]
-    assert len({m['max_samples'] for m in metas}) == 1, 'saved runs loaded different frame sets (max_samples)'
+    # runs may record different max_samples (e.g. 2000 vs 6000 on Sintel's 1064 frames); the frames
+    # actually used are checked scene by scene below
     mps = args.max_per_scene
     meta0 = metas[0]
     data_dir = Path(args.data_dir) if args.data_dir else Path(__file__).resolve().parents[1] / 'benchmark_data'
-    samples, gt_range = load_gt_dataset(args.dataset, data_dir, max_samples=meta0['max_samples'], require_cam=True)
+    samples, gt_range = load_gt_dataset(args.dataset, data_dir, max_samples=max(m['max_samples'] for m in metas),
+                                        require_cam=True)
     scenes = group_samples_by_scene(samples)
     dmax = float(gt_range[1])
     names = [s for s in scenes if all(s in m['scenes'] for m in metas)]

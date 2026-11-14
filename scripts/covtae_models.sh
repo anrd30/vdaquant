@@ -58,8 +58,10 @@ analyse() {   # analyse <dataset> <encoder> <extra args...>
       && say "OK analysis models $ds $enc" || say "FAILED analysis models $ds $enc"
 }
 
-dump sintel 2000
-dump bonn 6000 110
+if [ "${SKIP_DUMP:-0}" != 1 ]; then          # SKIP_DUMP=1: reuse the StreamVGGT predictions
+  dump sintel 2000
+  dump bonn 6000 110
+fi
 for enc in vits vitl; do analyse sintel $enc --flow-root benchmark_data/sintel/training; done
 for enc in vits vitl; do wait_dumps $enc; analyse bonn $enc --max-per-scene 110; done
 (cd "$OUT" && tar czf "$C/covtae_models.tgz" STATUS_models.txt analysis_models_*.json logs/streamvggt_*.log logs/analysis_models_*.log)
