@@ -180,7 +180,7 @@ def memory_table(out):
 def speed_table(out):
     """A100: per run the median ms/frame over 40 frames; reported: median over the 5 interleaved runs."""
     import statistics
-    rs = json.load(open(REPO / 'results' / 'vda_timing_a100.json'))['results']
+    rs = json.load(open(REPO / 'results' / 'vda_timing_a100_fastenc.json'))['results']
 
     def stat(enc, cfg, key):
         v = [r[key] for r in rs if r['encoder'] == enc and r['config'] == cfg and r.get(key) is not None]

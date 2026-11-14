@@ -148,18 +148,19 @@ check('7sc TCC-1 median', rf['dense/7scenes']['methods']['delta_int4_bin_8']['me
 check('NRGBD TCC-1 median', rf['dense/NRGBD']['methods']['delta_int4_bin_8']['median'], r'(3.77\% and 1.62\%)', '{:.2f}')
 
 print('== VDA speed (A100)')
-tm = json.load(open(R / 'vda_timing_a100.json'))['results']
+tm = json.load(open(R / 'vda_timing_a100_fastenc.json'))['results']   # encoder reuses its codes (bit-identical)
 med = lambda e, c: st.median(x['ms_median'] for x in tm if x['encoder'] == e and x['config'] == c)
 tccs = ('int4-g16::d8:bin-g16', 'int4-g16::d4:bin-g16', 'int4-g16::d8:int2-g64-asym')
 add = [med(e, c) - med(e, 'fp32') for e in ('vits', 'vitb', 'vitl') for c in tccs]
-check('TCC added ms min', min(add), r'adds 4--11\,ms per frame to the FP32 cache', '{:.0f}')
-check('TCC added ms max', max(add), r'adds 4--11\,ms per frame to the FP32 cache', '{:.0f}')
+check('TCC added ms min', min(add), r'adds 2--6\,ms per frame to the FP32 cache', '{:.0f}')
+check('TCC added ms (abstract)', max(add), r'adds 2--6\,ms per frame to VDA on an A100', '{:.0f}')
+check('TCC added ms max', max(add), r'adds 2--6\,ms per frame to the FP32 cache', '{:.0f}')
 add2 = [med(e, 'int2-g64-asym') - med(e, 'fp32') for e in ('vits', 'vitb', 'vitl')]
-check('INT2 added ms min', min(add2), r'(asymmetric INT2: 3--7\,ms)', '{:.0f}')
-check('INT2 added ms max', max(add2), r'(asymmetric INT2: 3--7\,ms)', '{:.0f}')
+check('INT2 added ms min', min(add2), r'(asymmetric INT2: 1--5\,ms)', '{:.0f}')
+check('INT2 added ms max', max(add2), r'(asymmetric INT2: 1--5\,ms)', '{:.0f}')
 fps = [1000 / med(e, c) for e in ('vits', 'vitb', 'vitl') for c in tccs]
-check('TCC FPS min', min(fps), r'runs at 10--20 frames per second', '{:.0f}')
-check('TCC FPS max', max(fps), r'runs at 10--20 frames per second', '{:.0f}')
+check('TCC FPS min', min(fps), r'runs at 10--24 frames per second', '{:.0f}')
+check('TCC FPS max', max(fps), r'runs at 10--24 frames per second', '{:.0f}')
 
 print('== VDA ground-truth metrics (per-sequence alignment, A100 rerun)')
 TCCS = (m.OURS, m.OURS4, m.TCC2)
