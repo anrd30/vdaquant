@@ -860,6 +860,81 @@ def load_tum_gt(
     return samples
 
 
+# =============================================================================
+# ScanNet v2 (Dai et al., CVPR 2017), frames exported from .sens by
+# scripts/scannet_sens_export.py (scripts/scannet_prepare.sh).
+# VDA's TAE protocol (benchmark/eval/eval_tae.sh): the first 20 scenes of the
+# test split (scene0707_00 ...), frames 10..179, depth / 1000, max depth 10 m.
+# =============================================================================
+class _LazyRGB(dict):
+    """A sample whose 'rgb' is decoded from disk on access, so that loading 3k+
+    1296x968 frames for analysis does not hold them all in memory."""
+
+    def __missing__(self, key):
+        if key == "rgb":
+            import cv2
+            img = cv2.imread(str(self["rgb_path"]), cv2.IMREAD_COLOR)
+            if img is None:
+                raise IOError(f"cannot read {self['rgb_path']}")
+            return np.ascontiguousarray(img[:, :, ::-1])
+        raise KeyError(key)
+
+
+def load_scannet_gt(
+    cache_dir: Path,
+    max_samples: Optional[int] = None,
+    download: bool = False,
+    require_cam: bool = False,
+    frames: Optional[str] = None,
+):
+    """
+    cache_dir/<scene>/{color/<i>.jpg, depth/<i>.png, pose/<i>.txt, intrinsic/intrinsic_depth.txt}.
+    Color (1296x968) is passed to the model at full resolution; predictions are compared at the
+    depth resolution (640x480) with the depth intrinsics, as in VDA's eval_tae.py (which resizes
+    the prediction to the depth map). frames: "start:end" (default "10:180", env VDAQ_SCANNET_FRAMES).
+    Frames whose pose is not finite (tracking failures) are dropped when require_cam.
+    Returns the same sample dicts as load_bonn_gt ("pose" camera-to-world).
+    """
+    import os
+    from PIL import Image
+
+    cache_dir = Path(cache_dir)
+    if not cache_dir.is_dir():
+        raise RuntimeError(f"ScanNet root not found at {cache_dir}; run scripts/scannet_prepare.sh")
+    frames = frames or os.environ.get("VDAQ_SCANNET_FRAMES", "10:180")
+    f0, f1 = (int(x) for x in frames.split(":"))
+    scene_dirs = sorted(p for p in cache_dir.iterdir() if p.is_dir() and p.name.startswith("scene"))
+    if not scene_dirs:
+        raise RuntimeError(f"No scene*/ folders under {cache_dir}; run scripts/scannet_prepare.sh")
+
+    samples, dropped = [], 0
+    for scene_dir in scene_dirs:
+        K = np.loadtxt(scene_dir / "intrinsic" / "intrinsic_depth.txt")[:3, :3].astype(np.float64)
+        ids = sorted(int(p.stem) for p in (scene_dir / "depth").glob("*.png"))
+        ids = [i for i in ids if f0 <= i < f1]
+        if len(ids) < f1 - f0:
+            raise RuntimeError(f"ScanNet {scene_dir.name}: frames {f0}..{f1 - 1} needed, found {len(ids)} "
+                               f"(export more with scannet_sens_export.py --max-frames)")
+        for i in ids:
+            pose = np.loadtxt(scene_dir / "pose" / f"{i}.txt").astype(np.float64)
+            if not np.isfinite(pose).all():
+                pose = None
+                if require_cam:
+                    dropped += 1
+                    continue
+            depth = np.array(Image.open(scene_dir / "depth" / f"{i}.png")).astype(np.float32) / 1000.0
+            s = _LazyRGB(depth=depth, valid_mask=(depth > 0.1) & (depth < 10.0), scene=scene_dir.name,
+                         frame_idx=i, K=K.copy(), pose=pose, rgb_path=scene_dir / "color" / f"{i}.jpg")
+            samples.append(s)
+            if max_samples is not None and len(samples) >= max_samples:
+                break
+        if max_samples is not None and len(samples) >= max_samples:
+            break
+    if dropped:
+        print(f"  [ScanNet] dropped {dropped} frame(s) without a valid pose")
+    return samples
+
+
 def load_kitti_seq_gt(cache_dir: Path, max_samples: Optional[int] = None, download: bool = False):
     """KITTI validation drives as video sequences, as prepared for the StreamVGGT/MonST3R
     video-depth benchmark: depth_selection/val_selection_cropped/{image_gathered,
@@ -893,6 +968,7 @@ DATASET_GT_CONFIG = {
     "sintel": {"loader": load_sintel_gt,           "cache_subdir": "sintel",   "gt_range": (0.1, 70.0), "auto_download": False},
     "bonn":   {"loader": load_bonn_gt,             "cache_subdir": "bonn",     "gt_range": (0.1, 10.0), "auto_download": False},
     "tum":    {"loader": load_tum_gt,              "cache_subdir": "tum",      "gt_range": (0.1, 10.0), "auto_download": False},
+    "scannet": {"loader": load_scannet_gt,         "cache_subdir": "scannet",  "gt_range": (0.1, 10.0), "auto_download": False},
 }
 
 
@@ -920,7 +996,7 @@ def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None
     data_dir = Path(data_dir)
     cache = data_dir / cfg["cache_subdir"]
     kwargs = {"max_samples": max_samples, "download": cfg["auto_download"]}
-    if cfg["loader"] in (load_sintel_gt, load_bonn_gt, load_tum_gt):
+    if cfg["loader"] in (load_sintel_gt, load_bonn_gt, load_tum_gt, load_scannet_gt):
         kwargs["require_cam"] = require_cam
     samples = cfg["loader"](cache, **kwargs)
     return samples, cfg["gt_range"]

@@ -63,6 +63,8 @@ DATASETS=$REQ_DATASETS
 echo "settings: datasets=[$DATASETS] encoders=[$ENCS] max_samples=$REQ_MAXS predict=$REQ_PREDICT analysis_args=[$REQ_ANALYSIS_ARGS] gpu_a=$GPU_A gpu_b=$GPU_B" | tee -a "$OUT/STATUS.txt"
 case " $DATASETS " in *" sintel "*) ( lane sintel "$GPU_A" 23 ) & ;; esac
 case " $DATASETS " in *" bonn "*) ( lane bonn "$GPU_B" 8 ) & ;; esac
+# ScanNet (VDA's TAE protocol: 20 test scenes x frames 10..179 = 3400 frames, so MAXS >= 3400)
+case " $DATASETS " in *" scannet "*) ( lane scannet "$GPU_A" 20 ) & ;; esac
 wait
 (cd "$OUT" && tar czf "$C/covtae_results.tgz" STATUS.txt analysis_*.json logs live_*)
 say "ALL FINISHED (results in $C/covtae_results.tgz; predictions stay in $DUMPS)"

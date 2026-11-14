@@ -1298,7 +1298,7 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
     from video_depth_anything.video_depth import VideoDepthAnything
     from datasets_gt import load_gt_dataset, group_samples_by_scene, chunk_scene_into_windows
 
-    if args.dataset not in ("sintel", "bonn", "tum"):
+    if args.dataset not in ("sintel", "bonn", "tum", "scannet"):
         raise ValueError(
             f"--eval-mode temporal currently supports --dataset sintel, bonn, or tum "
             f"(the datasets with both real consecutive-video structure and "
@@ -1329,7 +1329,12 @@ def run_temporal_eval(model, model_configs, ckpt_loaded, possible_ckpts, args, d
                     window_preds = [torch.rand(*f["depth"].shape) for f in window_frames]
                 # Discard the padded tail — see chunk_scene_into_windows docstring.
                 for i in range(n_real):
-                    pred_disps.append(window_preds[i])
+                    p = window_preds[i]
+                    dh, dw = window_frames[i]["depth"].shape
+                    if tuple(p.shape) != (dh, dw):   # ScanNet: 1296x968 color, 640x480 depth (as eval_tae.py)
+                        p = F.interpolate(p[None, None].float(), size=(dh, dw), mode='bilinear',
+                                          align_corners=False)[0, 0]
+                    pred_disps.append(p)
                     gt_depths.append(window_frames[i]["depth"])
                     Ks.append(window_frames[i]["K"])
                     poses.append(window_frames[i]["pose"])
