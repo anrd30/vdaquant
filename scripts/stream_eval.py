@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO = SCRIPT_DIR.parent
@@ -154,7 +155,10 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         preds = []
         for f in frames:
             d = model.infer_video_depth_one(f['rgb'], input_size=args.size, device='cuda')
-            preds.append(torch.from_numpy(np.ascontiguousarray(d)).float())
+            p = torch.from_numpy(np.ascontiguousarray(d)).float()
+            if tuple(p.shape) != tuple(f['depth'].shape):   # ScanNet: 1296x968 colour, 640x480 depth (as eval_tae.py)
+                p = F.interpolate(p[None, None], size=f['depth'].shape, mode='bilinear', align_corners=False)[0, 0]
+            preds.append(p)
         peak = max(peak, torch.cuda.max_memory_allocated())
         cache_mb = max(cache_mb, cache_nbytes(model) / 2 ** 20)
         if is_ref:
@@ -225,7 +229,7 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dataset', default='sintel', choices=['sintel', 'bonn', 'bonn5', 'kittiseq'])
+    ap.add_argument('--dataset', default='sintel', choices=['sintel', 'bonn', 'bonn5', 'kittiseq', 'scannet'])
     ap.add_argument('--encoder', default='vits', choices=list(CFGS))
     ap.add_argument('--ckpt', default=None)
     ap.add_argument('--configs', default='fp32,fp16,bw16:4,bw16:3')
