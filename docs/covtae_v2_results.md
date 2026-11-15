@@ -90,3 +90,22 @@ GT: TAE 13.79, TAE excluding clipped/hole pixels (tae_noclip) 4.05, target-valid
 FP32 ViT-S 3.22 / 3.22 / 3.00 / 1.84. GT still worse than the model with holes removed in 7/8 sequences.
 Remaining GT error sits on non-co-visible pixels (GT 60.3% vs model 7.5%; co-visible fraction 0.78).
 So holes explain most of GT's standard TAE but not the ranking; occlusion handling does.
+
+## ScanNet (VDA's own TAE benchmark), 2026-11-15
+Source: results/2026-11-15_covtae_scannet/analysis_scannet_{vits,vitl}.json. 20 test scenes (scene0707_00..0726_00),
+frames 10..179, depth/1000, range 0.1-10 m, full frame with depth intrinsics (VDA's script crops 8/11 px but keeps
+uncropped K, so absolute values are not comparable to VDA's published ScanNet TAE).
+| ScanNet | TAE | VDA eval_tae.py | tae_noclip | cov-TAE | delta1 |
+|---|---|---|---|---|---|
+| GT | 11.01 | 14.26 | 2.02 | 0.368 | 1.000 |
+| VDA-S w32 FP32 | 1.016 | 1.018 | 1.016 | 0.753 | 0.848 |
+| VDA-L w32 FP32 | 0.922 | 0.925 | 0.922 | 0.643 | 0.862 |
+| VDA-S per-frame (w1) | 1.887 | | | 1.691 | 0.843 |
+| VDA-S blur 8 | 0.898 | | | 0.746 | 0.845 |
+| VDA-S 2-bit | 2.402 | | | 2.303 | 0.696 |
+| VDA-S jitter 5% | 3.394 | | | 3.185 | 0.842 |
+| constant depth (S) | 0.746 | | | 0.736 | 0.556 |
+Per scene (S / L): GT worse than model under TAE 20/20 and 20/20; better under cov-TAE 19/20 and 19/20;
+holes excluded (tae_noclip) GT still worse 19/20 and 20/20. Per-frame worse under both 20/20.
+2-bit worse than FP32: S TAE 19/20, cov 19/20; L TAE 15/20, cov 20/20. Bit sweep monotone under both.
+Blur lowers TAE (1.016 -> 0.898), cov-TAE flat (0.753 -> 0.746). Constant depth fools both (report with delta1).
