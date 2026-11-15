@@ -153,7 +153,8 @@ med = lambda e, c: st.median(x['ms_median'] for x in tm if x['encoder'] == e and
 tccs = ('int4-g16::d8:bin-g16', 'int4-g16::d4:bin-g16', 'int4-g16::d8:int2-g64-asym')
 add = [med(e, c) - med(e, 'fp32') for e in ('vits', 'vitb', 'vitl') for c in tccs]
 check('TCC added ms min', min(add), r'adds 2--6\,ms per frame to the FP32 cache', '{:.0f}')
-check('TCC added ms (abstract)', max(add), r'adds 2--6\,ms per frame to VDA on an A100', '{:.0f}')
+if 'per frame to VDA on an A100' in tex:   # v28 abstract only (v29 drops the sentence)
+    check('TCC added ms (abstract)', max(add), r'adds 2--6\,ms per frame to VDA on an A100', '{:.0f}')
 check('TCC added ms max', max(add), r'adds 2--6\,ms per frame to the FP32 cache', '{:.0f}')
 add2 = [med(e, 'int2-g64-asym') - med(e, 'fp32') for e in ('vits', 'vitb', 'vitl')]
 check('INT2 added ms min', min(add2), r'(asymmetric INT2: 1--5\,ms)', '{:.0f}')
