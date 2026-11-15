@@ -611,21 +611,25 @@ def fit_linear_predictor(cache_sequences, ridge: float = 1e-3):
     Returns a list over layers of (a, b, c) float32 CPU tensors of shape (C,),
     to be passed to ``enable_compressed_cache(..., predictor_params=...)``.
     """
-    T, L = len(cache_sequences), len(cache_sequences[0])
-    assert T >= 4, "need at least 4 calibration frames"
+    # several videos: a list of such lists (no pair spans two videos)
+    seqs = cache_sequences if isinstance(cache_sequences[0][0], (list, tuple)) else [cache_sequences]
+    L = len(seqs[0][0])
+    assert sum(max(len(s) - 2, 0) for s in seqs) >= 2, "need at least 4 calibration frames"
     out = []
     for l in range(L):
-        C = cache_sequences[0][l].shape[-1]
-        X = [cache_sequences[t][l].detach().double().reshape(-1, C) for t in range(T)]
-        gram = torch.zeros(C, 3, 3, dtype=torch.float64, device=X[0].device)
-        rhs = torch.zeros(C, 3, dtype=torch.float64, device=X[0].device)
+        C = seqs[0][0][l].shape[-1]
+        dev = seqs[0][0][l].device
+        gram = torch.zeros(C, 3, 3, dtype=torch.float64, device=dev)
+        rhs = torch.zeros(C, 3, dtype=torch.float64, device=dev)
         n = 0
-        for t in range(2, T):
-            x1, x2, y = X[t - 1], X[t - 2], X[t] - X[t - 1]
-            f = torch.stack([x1, x2, torch.ones_like(x1)])          # (3, N, C)
-            gram += torch.einsum('knc,lnc->ckl', f, f)
-            rhs += torch.einsum('knc,nc->ck', f, y)
-            n += x1.shape[0]
+        for seq in seqs:
+            X = [seq[t][l].detach().double().reshape(-1, C) for t in range(len(seq))]
+            for t in range(2, len(X)):
+                x1, x2, y = X[t - 1], X[t - 2], X[t] - X[t - 1]
+                f = torch.stack([x1, x2, torch.ones_like(x1)])          # (3, N, C)
+                gram += torch.einsum('knc,lnc->ckl', f, f)
+                rhs += torch.einsum('knc,nc->ck', f, y)
+                n += x1.shape[0]
         gram, rhs = gram / n, rhs / n
         d = torch.diagonal(gram, dim1=-2, dim2=-1)                  # (C, 3)
         gram = gram + torch.diag_embed(ridge * d + 1e-12)
@@ -709,10 +713,14 @@ class _DeltaEncoder:
     """
 
     def __init__(self, delta: int, mode: str, residual_mode: str, bits: int,
-                 predictor: str = 'prev', params=None):
+                 predictor: str = 'prev', params=None, adaptive: Optional[float] = None):
         assert predictor in PREDICTORS, predictor
         assert predictor != 'linfit' or params is not None, "linfit needs predictor_params"
         self.delta, self.mode, self.residual_mode, self.bits = delta, mode, residual_mode, bits
+        # adaptive=a: also start a keyframe when the residual carries more than a fraction a of the
+        # entry's variance (summed over layers); None: keyframes only every `delta` frames
+        self.adaptive = adaptive
+        self.n_intra = self.n_entries = 0
         self.open_loop = predictor == 'open'
         self.predictor = 'prev' if self.open_loop else predictor
         self.params = params
@@ -738,6 +746,14 @@ class _DeltaEncoder:
             if self.open_loop:      # residual against the true previous entry, which
                 pred = self.t1      # the decoder does not have: errors are not corrected
             payload = [c if p is None else c - p for c, p in zip(cur, pred)]
+            if self.adaptive is not None:
+                e_res = sum(float(r.double().pow(2).sum()) for r in payload)
+                e_var = sum(float((c.double() - c.double().mean(dim=tuple(range(c.dim() - 1)), keepdim=True))
+                                  .pow(2).sum()) for c in cur)
+                if e_res > self.adaptive * e_var:
+                    intra, payload, pred = True, cur, None
+        self.n_entries += 1
+        self.n_intra += intra
         mode_now = self.mode if intra else self.residual_mode
         if FAST_ENCODE and mode_now.startswith(('int', 'bin')):
             e = CompressedEntry.__new__(CompressedEntry)
@@ -810,7 +826,7 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
                             kv: bool = False, lazy: bool = True, delta: int = 0,
                             residual_mode: Optional[str] = None,
                             predictor: str = 'prev', predictor_params=None, drop: int = 1,
-                            window: int = 0):
+                            window: int = 0, adaptive: Optional[float] = None):
     """Patch a streaming VideoDepthAnything so its frame cache is compressed.
 
     drop=n>1 stores only every n-th frame (frame dropping baseline): a dropped
@@ -856,8 +872,10 @@ def enable_compressed_cache(model, mode: str = 'bw16', bits: int = 3, seed: int 
 
     original = model.infer_video_depth_one
     state = {'signs': None}
-    enc = (_DeltaEncoder(delta, mode, residual_mode, bits, predictor, predictor_params)
+    assert adaptive is None or delta, 'adaptive keyframes need delta coding'
+    enc = (_DeltaEncoder(delta, mode, residual_mode, bits, predictor, predictor_params, adaptive)
            if delta else None)
+    model._delta_encoder = enc
     model._delta_hidden = []
     attns = [m for m in model.head.modules() if type(m).__name__ == 'TemporalAttention']
     if kv:

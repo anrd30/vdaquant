@@ -127,10 +127,60 @@ def reset_stream(model):
     model.id = -1
 
 
+_LINFIT = {}
+_MOD_REF = {}
+
+
+def linfit_params(args):
+    """Fit the 'linfit' predictor (a*rec[t-1] + b*rec[t-2] + c per layer and channel) on the FP32 caches
+    of another dataset (args.linfit_calib), at most 60 frames per scene and args.linfit_frames in all."""
+    key = (args.encoder, args.linfit_calib, args.linfit_frames)
+    if key in _LINFIT:
+        return _LINFIT[key]
+    from research.models.stream_cache import fit_linear_predictor
+    assert args.linfit_calib and args.linfit_calib != args.dataset, 'calibrate on a different dataset'
+    samples, _ = load_gt_dataset(args.linfit_calib, REPO / 'benchmark_data', max_samples=None, require_cam=False)
+    model = VideoDepthAnything(**CFGS[args.encoder])
+    model.load_state_dict(torch.load(args.ckpt, map_location='cpu'), strict=True)
+    model = model.cuda().eval()
+    seqs, total = [], 0
+    with torch.no_grad():
+        for name, frames in group_samples_by_scene(samples).items():
+            frames = frames[:min(60, args.linfit_frames - total)]
+            if len(frames) < 4:
+                break
+            reset_stream(model)
+            seq = []
+            for f in frames:
+                model.infer_video_depth_one(f['rgb'], input_size=args.size, device='cuda')
+                seq.append([t.detach().float().cpu() for t in model.frame_cache_list[-1]])
+            seqs.append(seq)
+            total += len(frames)
+    del model
+    torch.cuda.empty_cache()
+    params = fit_linear_predictor(seqs)
+    _LINFIT[key] = params
+    print(f"    linfit: fitted on {args.linfit_calib}, {len(seqs)} scenes, {total} frames; "
+          f"mean a {np.mean([float(p[0].mean()) for p in params]):.3f} "
+          f"b {np.mean([float(p[1].mean()) for p in params]):.3f}", flush=True)
+    return params
+
+
+def _module_hooks(model, store):
+    """Keep the latest output of each temporal module (VDA's head has four, two attention layers each)."""
+    hs = []
+    for k, mod in enumerate(model.head.motion_modules):
+        def hook(_m, _inp, out, k=k):
+            store[k] = (out[0] if isinstance(out, (tuple, list)) else out).detach()
+        hs.append(mod.register_forward_hook(hook))
+    return hs
+
+
 def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, age_spec=None,
-               predictor='prev', drop=1, window=0):
+               predictor='prev', drop=1, window=0, adaptive=None):
     gc.collect()
     torch.cuda.empty_cache()
+    params = linfit_params(args) if predictor == 'linfit' else None
     model = VideoDepthAnything(**CFGS[args.encoder])
     model.load_state_dict(torch.load(args.ckpt, map_location='cpu'), strict=True)
     model = model.cuda().eval()
@@ -142,7 +192,12 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
     else:
         model = enable_compressed_cache(model, mode=mode, bits=bits, seed=args.seed, delta=delta,
                                         residual_mode=residual_mode, drop=drop, window=window,
-                                        **({'predictor': predictor} if delta else {}))
+                                        **({'predictor': predictor} if delta else {}),
+                                        **({'predictor_params': params} if params is not None else {}),
+                                        **({'adaptive': adaptive} if adaptive is not None else {}))
+    mod_out = {}
+    hooks = _module_hooks(model, mod_out) if args.module_err else []
+    mod_err = {}
 
     acc, tae, tae_cov, cov_frac, per_scene = [], [], [], [], {}
     seq_all = []
@@ -153,12 +208,19 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         reset_stream(model)
         torch.cuda.reset_peak_memory_stats()
         preds = []
-        for f in frames:
+        for fi, f in enumerate(frames):
             d = model.infer_video_depth_one(f['rgb'], input_size=args.size, device='cuda')
             p = torch.from_numpy(np.ascontiguousarray(d)).float()
             if tuple(p.shape) != tuple(f['depth'].shape):   # ScanNet: 1296x968 colour, 640x480 depth (as eval_tae.py)
                 p = F.interpolate(p[None, None], size=f['depth'].shape, mode='bilinear', align_corners=False)[0, 0]
             preds.append(p)
+            if args.module_err and fi % args.module_err == 0:
+                for k, o in mod_out.items():
+                    if is_ref:
+                        _MOD_REF[(name, fi, k)] = o.half().cpu()
+                    elif (name, fi, k) in _MOD_REF:
+                        r = _MOD_REF[(name, fi, k)].to(o.device).float()
+                        mod_err.setdefault(k, []).append(float((o.float() - r).norm() / (r.norm() + 1e-12)))
         peak = max(peak, torch.cuda.max_memory_allocated())
         cache_mb = max(cache_mb, cache_nbytes(model) / 2 ** 20)
         if is_ref:
@@ -167,6 +229,11 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         if fid:
             fid_dev.append(fid[0])
             fid_flk.append(fid[1])
+        dev_frames = None
+        if args.per_frame and name in _REF and not is_ref:
+            dev_frames = [round(100 * float(np.abs(d.numpy() - r.astype(np.float32)).mean()
+                                            / (np.abs(r.astype(np.float32)).mean() + 1e-8)), 4)
+                          for d, r in zip(preds, _REF[name])]
         gts = [f['depth'] for f in frames]
         scene_acc = []
         for pred, gt in zip(preds, gts):
@@ -201,6 +268,8 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
                 'tae': None, 'tae_covis': None, 'n': len(frames),
                 'delta1_seq': seq_ss[0], 'abs_rel_seq': seq_ss[1], 'delta1_seq_scale': seq_s[0], 'abs_rel_seq_scale': seq_s[1],
                 'fid_rel_dev': fid[0] if fid else None, 'fid_flicker': fid[1] if fid else None}
+        if dev_frames is not None:
+            per_scene[name]['dev_per_frame'] = dev_frames
         print(f"    {name:24s} n={len(frames):3d} d1={per_scene[name]['delta1']}", flush=True)
 
     res = {
@@ -221,6 +290,15 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         'minutes': (time.time() - t0) / 60, 'per_scene': per_scene,
         'plan_bits': plan_bits(plan) if age_spec else None,
     }
+    enc = getattr(model, '_delta_encoder', None)
+    if enc is not None:
+        res['keyframe_fraction'] = enc.n_intra / max(enc.n_entries, 1)
+    if adaptive is not None:
+        res['adaptive'] = adaptive
+    if args.module_err and mod_err:
+        res['module_rel_err_pct'] = {str(k): 100 * float(np.mean(v)) for k, v in sorted(mod_err.items())}
+    for h in hooks:
+        h.remove()
     del model
     gc.collect()
     torch.cuda.empty_cache()
@@ -240,6 +318,17 @@ def main():
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--no-tae', action='store_true', help='skip the camera-based TAE (slow)')
     ap.add_argument('--out', default=None)
+    # supplement experiments (all off by default; the paper's runs use none of them)
+    ap.add_argument('--stride', type=int, default=1, help='keep every n-th frame of each scene')
+    ap.add_argument('--splice', type=int, default=0,
+                    help='n>0: streams of the first n frames of scene 2i followed by the first n of scene 2i+1 '
+                         '(an abrupt cut); ground-truth metrics across the cut are not meaningful, use fidelity')
+    ap.add_argument('--per-frame', action='store_true', help='store the per-frame deviation of every scene')
+    ap.add_argument('--module-err', type=int, default=0,
+                    help='n>0: relative error of each temporal module output against FP32, every n-th frame')
+    ap.add_argument('--linfit-calib', default=None,
+                    help="dataset whose FP32 caches fit the 'linfit' predictor (use a different one than --dataset)")
+    ap.add_argument('--linfit-frames', type=int, default=150)
     args = ap.parse_args()
     args.ckpt = args.ckpt or str(REPO / 'checkpoints' / f'video_depth_anything_{args.encoder}.pth')
 
@@ -247,6 +336,12 @@ def main():
                                         max_samples=args.max_samples, require_cam=True)
     groups = group_samples_by_scene(samples)
     scenes = {k: groups[k] for k in list(groups)[:args.max_scenes]}
+    if args.stride > 1:
+        scenes = {k: v[::args.stride] for k, v in scenes.items() if len(v[::args.stride]) >= 4}
+    if args.splice:
+        names = list(scenes)
+        scenes = {f'{a}+{b}': scenes[a][:args.splice] + scenes[b][:args.splice]
+                  for a, b in zip(names[0::2], names[1::2])}
     print(f"[{args.dataset}] {len(scenes)} scenes, {sum(len(v) for v in scenes.values())} frames, "
           f"gt_range={gt_range}", flush=True)
 
@@ -272,10 +367,15 @@ def main():
         b = int(parts[1]) if len(parts) > 1 and parts[1] else 3
         dk = int(parts[2][1:]) if len(parts) > 2 and parts[2] else 0
         rmode = parts[3] if len(parts) > 3 and parts[3] else None
-        pred = parts[4] if len(parts) > 4 else 'prev'        # predictor: prev|none|extrap2
+        pred, adaptive = 'prev', None                        # predictor: prev|none|extrap2|linfit|open
+        for tok in parts[4:]:                                # aX: adaptive keyframe at residual/variance > X
+            if tok.startswith('a') and tok[1:].replace('.', '', 1).isdigit():
+                adaptive = float(tok[1:])
+            elif tok:
+                pred = tok
         print(f"  config {cfg}", flush=True)
         r = run_config(args, mode, b, scenes, gt_range, delta=dk, residual_mode=rmode, predictor=pred,
-                       drop=drop, window=window)
+                       drop=drop, window=window, adaptive=adaptive)
         r['config'] = cfg
         results.append(r)
         print(json.dumps({k: v for k, v in r.items() if k != 'per_scene'}), flush=True)
