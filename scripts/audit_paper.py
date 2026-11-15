@@ -210,6 +210,17 @@ check('ScanNet TCC-2 dev min', min(sd(m.TCC2)), r'\ours-2 by 0.07--0.11\%.', '{:
 check('ScanNet TCC-2 dev max', max(sd(m.TCC2)), r'\ours-2 by 0.07--0.11\%.', '{:.2f}')
 check('ScanNet INT2 bits', 32 * scn['vits'][m.G64]['cache_mb'] / scn['vits']['fp32']['cache_mb'],
       r'against 1.15--2.26\% for asymmetric INT2 at 2.50 bits', '{:.2f}')
+MEM = r'On Sintel and ScanNet the ratios are $15.7\times$ and $11.1\times$, and on ScanNet peak memory drops by 43--58\%.'
+for c, lab in ((m.OURS, 'TCC-1'), (m.TCC2, 'TCC-2')):
+    sin = [m.row(m.pair_rows('sintel', e), 'fp32')['cache_mb'] / m.row(m.pair_rows('sintel', e), c)['cache_mb']
+           for e in m.ENCS]
+    sca = [scn[e]['fp32']['cache_mb'] / scn[e][c]['cache_mb'] for e in m.ENCS]
+    for name, v in (('Sintel', sin), ('ScanNet', sca)):
+        check(f'{name} {lab} cache ratio min', min(v), MEM, '${:.1f}\\times$')
+        check(f'{name} {lab} cache ratio max', max(v), MEM, '${:.1f}\\times$')
+cut = [100 * (1 - scn[e][m.OURS]['peak_mb'] / scn[e]['fp32']['peak_mb']) for e in m.ENCS]
+check('ScanNet TCC-1 peak cut min', min(cut), MEM, '{:.0f}--')
+check('ScanNet TCC-1 peak cut max', max(cut), MEM, '--{:.0f}\\%')
 size = [m.seq_rows(ds, e)[m.WIN16]['cache_mb'] / m.seq_rows(ds, e)[m.OURS]['cache_mb']
         for ds in MAINSETS for e in m.ENCS]
 check('win16 smaller (min)', 100 * (1 - max(size)), r'cache 11--18\% smaller', '{:.0f}')
