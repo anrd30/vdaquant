@@ -192,7 +192,24 @@ check('KITTI VDA TCC-1 dev max', max(kd(m.OURS)), r'deviates by 0.54--0.64\%', '
 check('KITTI VDA INT2 dev min', min(kd(m.G64)), r'against 1.12--1.59\% for asymmetric INT2', '{:.2f}')
 check('KITTI VDA INT2 dev max', max(kd(m.G64)), r'against 1.12--1.59\% for asymmetric INT2', '{:.2f}')
 check('3-bit formats max |d|', max(abs(x) for c in (m.G32, m.TCC2) for x in dd(c, 'delta1_seq', MAINSETS)),
-      r'all formats stay within 0.002', '{:.3f}')
+      r'all formats in Table~\ref{tab:main} stay within 0.002', '{:.3f}')
+
+print('== VDA on ScanNet (20 test scenes, frames 10-179)')
+scn = {e: {r['config']: r for r in json.load(open(R / '2026-11-15_scannet_tcc' / f'scannet_{e}.json'))['results']}
+       for e in m.ENCS}
+assert all(scn[e]['fp32']['n_frames'] == 3400 and scn[e]['fp32']['n_skipped_frames'] == 0 for e in m.ENCS)
+sd = lambda c: [scn[e][c]['fid_rel_dev_pct'] for e in m.ENCS]
+s1 = max(abs(scn[e][c]['delta1_seq'] - scn[e]['fp32']['delta1_seq']) for e in m.ENCS for c in (m.OURS, m.OURS4))
+check('ScanNet TCC-1 |d delta1_seq| (bound 0.001)', 0.001 if s1 <= 0.001 else s1,
+      r'\ours-1 stays within 0.001 and deviates by 0.43--0.54\%', '{:.3f}')
+check('ScanNet TCC-1 dev min', min(sd(m.OURS)), r'deviates by 0.43--0.54\%', '{:.2f}')
+check('ScanNet TCC-1 dev max', max(sd(m.OURS)), r'deviates by 0.43--0.54\%', '{:.2f}')
+check('ScanNet INT2 dev min', min(sd(m.G64)), r'against 1.15--2.26\% for asymmetric INT2 at 2.50 bits, and', '{:.2f}')
+check('ScanNet INT2 dev max', max(sd(m.G64)), r'against 1.15--2.26\% for asymmetric INT2 at 2.50 bits, and', '{:.2f}')
+check('ScanNet TCC-2 dev min', min(sd(m.TCC2)), r'\ours-2 by 0.07--0.11\%.', '{:.2f}')
+check('ScanNet TCC-2 dev max', max(sd(m.TCC2)), r'\ours-2 by 0.07--0.11\%.', '{:.2f}')
+check('ScanNet INT2 bits', 32 * scn['vits'][m.G64]['cache_mb'] / scn['vits']['fp32']['cache_mb'],
+      r'against 1.15--2.26\% for asymmetric INT2 at 2.50 bits', '{:.2f}')
 size = [m.seq_rows(ds, e)[m.WIN16]['cache_mb'] / m.seq_rows(ds, e)[m.OURS]['cache_mb']
         for ds in MAINSETS for e in m.ENCS]
 check('win16 smaller (min)', 100 * (1 - max(size)), r'cache 11--18\% smaller', '{:.0f}')
