@@ -1,8 +1,8 @@
 #!/bin/bash
 # CVPR supplement: every experiment for the reviewer-style questions, in one queue.
 #   lane A (GPU_A): frame-stride sweep (Sintel, Bonn); abrupt scene cuts (ScanNet splices, per-frame deviation)
-#   lane B (GPU_B): rate-fidelity of fixed K vs adaptive keyframes; fitted temporal predictor (calibrated on another
-#                   dataset); error after each temporal module; cache redundancy per layer/dataset/stride
+#   lane B (GPU_B): rate-fidelity of fixed K vs adaptive keyframes; error after each temporal module;
+#                   cache redundancy per layer/dataset/stride
 #   then, alone on GPU_A: decoder latency vs keyframe interval K
 # Results: $C/supp/*.json, packed into $C/supp.tgz.   GPU_A=2 GPU_B=0 bash scripts/supp_queue.sh
 set -u
@@ -43,17 +43,12 @@ lane_a() {
 }
 
 lane_b() {
-  local g=$REQ_GPU_B enc ds cal
+  local g=$REQ_GPU_B enc ds
   local RD="fp32"
   for k in 2 4 8 16 32; do RD="$RD,int4-g16::d$k:bin-g16"; done
   for a in 0.25 0.35 0.5 0.75; do RD="$RD,int4-g16::d32:bin-g16:a$a"; done
   for ds in sintel bonn scannet; do ev $g "rate_${ds}_vits" --dataset $ds --encoder vits --configs "$RD"; done
   for enc in $REQ_ENCS; do
-    for ds in sintel bonn scannet; do
-      cal=sintel; [ "$ds" = sintel ] && cal=bonn
-      ev $g "linfit_${ds}_$enc" --dataset $ds --encoder $enc --linfit-calib $cal --linfit-frames 150 \
-         --configs "fp32,$TCC1,$TCC1:linfit,$TCC1:extrap2,$TCC2,$TCC2:linfit"
-    done
     for ds in sintel bonn; do
       ev $g "moderr_${ds}_$enc" --dataset $ds --encoder $enc --module-err 4 \
          --configs "fp32,int2-g16,int2-g64-asym,$TCC1,$TCC2"
