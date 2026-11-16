@@ -290,10 +290,18 @@ def bonn_scenes():
     (OUT / 'tab_bonn_svg_scenes.tex').write_text('\n'.join(L), encoding='utf-8')
 
 
-# XStreamVGGT with the authors' released code (simulated 4-bit quantization, full-precision pruned cache):
-# deviation / flicker (%) recorded from the server run in docs/todo_cvpr.md (line 162); raw output not kept.
-XS_RELEASED = {('bonn', 2048): (4.853, 1.149), ('bonn', 47000): (5.560, 0.546),
-               ('sintel', 2048): (13.327, 3.892), ('sintel', 12000): (6.316, 1.891)}
+def xs_released():
+    """XStreamVGGT run with the authors' released code: summary lines of results/xstream_authors.log
+    (server svg_queue/xstream_authors.log), e.g. 'bonn_2048  0.00  4.853  1.149  5/5  0'."""
+    import re
+    out = {}
+    for line in open(R / 'xstream_authors.log', encoding='utf8', errors='replace'):
+        mt = re.match(r'^(bonn|sintel)_(\d+)\s+\S+\s+([\d.]+)\s+([\d.]+)\s+(\d+)/(\d+)', line)
+        if mt:
+            assert mt.group(5) == mt.group(6), line          # every sequence evaluated
+            out[(mt.group(1), int(mt.group(2)))] = (float(mt.group(3)), float(mt.group(4)))
+    assert len(out) == 4, out
+    return dict(sorted(out.items()))
 
 
 def xstream_table():
@@ -302,7 +310,7 @@ def xstream_table():
     L = [r'\begin{tabular}{lrrrrr}', r'\toprule',
          r' & & \multicolumn{2}{c}{Released code} & \multicolumn{2}{c}{Our implementation} \\',
          r'\cmidrule(lr){3-4}\cmidrule(lr){5-6}', r'Data & Tokens & Dev. & Flk. & Dev. & Flk. \\', r'\midrule']
-    for (ds, tok), (dv, fl) in XS_RELEASED.items():
+    for (ds, tok), (dv, fl) in xs_released().items():
         o = ours[ds][f'xstream:{tok}:4:4']
         L.append(f"{ds.capitalize()} & {tok} & {dv:.2f} & {fl:.2f} & {o['fid_rel_dev_pct']:.2f} & {o['fid_flicker_pct']:.2f} \\\\")
     L += [r'\bottomrule', r'\end{tabular}']
