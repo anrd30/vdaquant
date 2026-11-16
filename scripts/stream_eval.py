@@ -229,6 +229,20 @@ def run_config(args, mode, bits, scenes, gt_range, delta=0, residual_mode=None, 
         if fid:
             fid_dev.append(fid[0])
             fid_flk.append(fid[1])
+        if args.save_preds:                                   # qualitative figures (supplement)
+            import cv2
+            sd = Path(args.save_preds) / f"{args.dataset}_{args.encoder}"
+            sd.mkdir(parents=True, exist_ok=True)
+            tag = 'cfg_' + ''.join(ch if ch.isalnum() else '_' for ch in (age_spec or f'{mode}_{delta}_{residual_mode}_{predictor}_{adaptive}_{window}'))
+            keep = list(range(0, len(preds), args.save_every))
+            np.savez_compressed(sd / f"{name}__{tag}.npz", idx=np.array(keep),
+                                pred=np.stack([preds[i].numpy().astype(np.float16) for i in keep]))
+            gfile = sd / f"{name}__gt.npz"
+            if not gfile.exists():
+                rgb = [cv2.resize(np.asarray(frames[i]['rgb']), (frames[i]['depth'].shape[1], frames[i]['depth'].shape[0]))
+                       for i in keep]
+                np.savez_compressed(gfile, idx=np.array(keep), rgb=np.stack(rgb).astype(np.uint8),
+                                    gt=np.stack([frames[i]['depth'].astype(np.float16) for i in keep]))
         dev_frames = None
         if args.per_frame and name in _REF and not is_ref:
             dev_frames = [round(100 * float(np.abs(d.numpy() - r.astype(np.float32)).mean()
@@ -329,6 +343,9 @@ def main():
     ap.add_argument('--linfit-calib', default=None,
                     help="dataset whose FP32 caches fit the 'linfit' predictor (use a different one than --dataset)")
     ap.add_argument('--linfit-frames', type=int, default=150)
+    ap.add_argument('--save-preds', default=None,
+                    help='dir: save float16 depth of every --save-every-th frame per scene and config (+ RGB, GT)')
+    ap.add_argument('--save-every', type=int, default=40)
     args = ap.parse_args()
     args.ckpt = args.ckpt or str(REPO / 'checkpoints' / f'video_depth_anything_{args.encoder}.pth')
 
