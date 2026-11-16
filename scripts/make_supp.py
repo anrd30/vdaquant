@@ -202,8 +202,71 @@ def figures():
     plt.close(fig)
 
 
+SVG_FMT = [('none', 'Uncompressed (16-bit)'), ('plain:int4', 'INT4'), ('plain:a2g32', 'INT2 asym., $g{=}32$'),
+           ('kivi:2:64:w4', 'KIVI + 4 recent frames'), ('delta:int4:a2g64:8', '\\textbf{TCC-2}, $K{=}8$'),
+           ('plain:int2', 'INT2 symmetric'), ('plain:a2g64', 'INT2 asym., $g{=}64$'), ('kivi:2:64', 'KIVI'),
+           ('delta:int4:bin:4', '\\textbf{TCC-1}, $K{=}4$'), ('delta:int4:bin:8', '\\textbf{TCC-1}, $K{=}8$'),
+           ('xstream:2048:4:4', 'XStreamVGGT, 2048 tokens'), ('zero', 'Zero cache')]
+
+
+def svg_table(ds):
+    d = {r['kv']: r for r in json.load(open(R / f'fidelity_{ds}.json'))['results']}
+    L = [r'\begin{tabular}{lrrrrrr}', r'\toprule',
+         r'Cache & bits & Cache (MB) & Peak (MB) & s/frame & Dev. & Flk. \\', r'\midrule']
+    for kv, lab in SVG_FMT:
+        if kv not in d:
+            continue
+        r = d[kv]
+        ref = kv == 'none'
+        bits_s = '16' if ref else f(r.get('ideal_bits'))
+        cache_s = '--' if ref else f(r.get('cache_mb_max'), 0)
+        L.append(f"{lab} & {bits_s} & {cache_s} & {f(r.get('peak_mb_max'), 0)} & "
+                 f"{f(r.get('seconds_per_frame'))} & {'--' if ref else f(r.get('fid_rel_dev_pct'))} & "
+                 f"{'--' if ref else f(r.get('fid_flicker_pct'))} \\\\")
+    L += [r'\bottomrule', r'\end{tabular}']
+    (OUT / f'tab_svg_{ds}.tex').write_text('\n'.join(L), encoding='utf-8')
+
+
+def boot_table():
+    b = json.load(open(R / 'paper_bootstrap.json'))
+    L = [r'\begin{tabular}{llllrrr}', r'\toprule',
+         r'Model & Data & Enc. & Comparison ($A$ vs.\ $B$) & Dev.\ ratio $B/A$ & 95\% interval & $A$ wins \\',
+         r'\midrule']
+    for r in b['results']:
+        if 'drop2' in r['b'] and not r['enc']:      # StreamVGGT frame-dropping row: not a comparison the paper makes
+            continue
+        dv = r['dev']
+        L.append(f"{r['model']} & {r['data'].capitalize()} & {ENC.get(r['enc'], r['enc'])} & {r['a']} vs.\\ {r['b']} & "
+                 f"{dv['ratio']:.2f} & [{dv['ci95'][0]:.2f}, {dv['ci95'][1]:.2f}] & {dv['wins_a']}/{r['n_scenes']} \\\\")
+    L += [r'\bottomrule', r'\end{tabular}']
+    (OUT / 'tab_boot.tex').write_text('\n'.join(L).replace('_', '\\_').replace('\\\\_', '\\_'), encoding='utf-8')
+    return len(b['results']), b['n_boot']
+
+
+def open_table():
+    base = R / '2026-11-02_streaming' / 'streaming_vda'
+    L = [r'\begin{tabular}{llrrrrrr}', r'\toprule',
+         r' & & \multicolumn{3}{c}{TCC-1, $K{=}8$} & \multicolumn{3}{c}{TCC-2, $K{=}8$} \\',
+         r'\cmidrule(lr){3-5}\cmidrule(lr){6-8}',
+         r'Data & Enc. & closed & open & ratio & closed & open & ratio \\', r'\midrule']
+    for ds in ('sintel', 'bonn'):
+        for e in ENC:
+            X = {r['config']: r for r in json.load(open(base / f'{ds}_{e}_open.json'))['results']}
+            cells = []
+            for c in (TCC1, TCC2):
+                a, o = X[c]['fid_rel_dev_pct'], X[c + ':open']['fid_rel_dev_pct']
+                cells += [f'{a:.2f}', f'{o:.2f}', f'{o / a:.1f}$\\times$']
+            L.append(f"{ds.capitalize() if e == 'vits' else ''} & {ENC[e]} & " + ' & '.join(cells) + r' \\')
+    L += [r'\bottomrule', r'\end{tabular}']
+    (OUT / 'tab_open.tex').write_text('\n'.join(L), encoding='utf-8')
+
+
 def main():
     OUT.mkdir(exist_ok=True)
+    for ds in ('sintel', 'bonn', 'kitti'):
+        svg_table(ds)
+    print('bootstrap comparisons / resamples:', boot_table())
+    open_table()
     full_compact('bonn')
     full_compact('sintel')
     figures()
