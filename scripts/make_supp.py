@@ -261,8 +261,99 @@ def open_table():
     (OUT / 'tab_open.tex').write_text('\n'.join(L), encoding='utf-8')
 
 
+def bonn_scenes():
+    """Per-scene deviation on Bonn (paper Sec. 4 promises per-scene results instead of intervals)."""
+    L = [r'\begin{tabular}{llrrrrr}', r'\toprule',
+         r'Enc. & Cache & ' + ' & '.join(m.BONN3).replace('_', r'\_') + r' & mean \\', r'\midrule']
+    for e in ENC:
+        rs = m.pair_rows('bonn', e)
+        for i, (c, lab) in enumerate([('int2-g64-asym', 'INT2 asym., $g{=}64$'), (TCC1, 'TCC-1, $K{=}8$'),
+                                      (TCC1K4, 'TCC-1, $K{=}4$'), ('int2-g32-asym', 'INT2 asym., $g{=}32$'),
+                                      (TCC2, 'TCC-2, $K{=}8$')]):
+            ps = m.row(rs, c)['per_scene']
+            v = [ps[s]['fid_rel_dev'] for s in m.BONN3]
+            L.append(f"{ENC[e] if i == 0 else ''} & {lab} & " + ' & '.join(f'{x:.2f}' for x in v)
+                     + f' & {np.mean(v):.2f} \\\\')
+        L.append(r'\midrule')
+    L[-1] = r'\bottomrule'
+    L.append(r'\end{tabular}')
+    (OUT / 'tab_bonn_vda_scenes.tex').write_text('\n'.join(L), encoding='utf-8')
+    d = {r['kv']: r for r in json.load(open(R / 'fidelity_bonn.json'))['results']}
+    sc = sorted(d['delta:int4:bin:8']['per_sequence'])
+    L = [r'\begin{tabular}{l' + 'r' * (len(sc) + 1) + '}', r'\toprule',
+         'Cache & ' + ' & '.join(s.replace('_', r'\_') for s in sc) + r' & mean \\', r'\midrule']
+    for kv, lab in [('plain:a2g64', 'INT2 asym., $g{=}64$'), ('kivi:2:64', 'KIVI'), ('delta:int4:bin:8', 'TCC-1, $K{=}8$'),
+                    ('plain:a2g32', 'INT2 asym., $g{=}32$'), ('delta:int4:a2g64:8', 'TCC-2, $K{=}8$')]:
+        v = [d[kv]['per_sequence'][s]['fid_rel_dev_pct'] for s in sc]
+        L.append(f'{lab} & ' + ' & '.join(f'{x:.2f}' for x in v) + f' & {np.mean(v):.2f} \\\\')
+    L += [r'\bottomrule', r'\end{tabular}']
+    (OUT / 'tab_bonn_svg_scenes.tex').write_text('\n'.join(L), encoding='utf-8')
+
+
+# XStreamVGGT with the authors' released code (simulated 4-bit quantization, full-precision pruned cache):
+# deviation / flicker (%) recorded from the server run in docs/todo_cvpr.md (line 162); raw output not kept.
+XS_RELEASED = {('bonn', 2048): (4.853, 1.149), ('bonn', 47000): (5.560, 0.546),
+               ('sintel', 2048): (13.327, 3.892), ('sintel', 12000): (6.316, 1.891)}
+
+
+def xstream_table():
+    ours = {ds: {r['kv']: r for r in json.load(open(R / '2026-11-12_q5_stac' / 'svg_queue5' / f'fid_xs_{ds}.json'))['results']}
+            for ds in ('sintel', 'bonn')}
+    L = [r'\begin{tabular}{lrrrrr}', r'\toprule',
+         r' & & \multicolumn{2}{c}{Released code} & \multicolumn{2}{c}{Our implementation} \\',
+         r'\cmidrule(lr){3-4}\cmidrule(lr){5-6}', r'Data & Tokens & Dev. & Flk. & Dev. & Flk. \\', r'\midrule']
+    for (ds, tok), (dv, fl) in XS_RELEASED.items():
+        o = ours[ds][f'xstream:{tok}:4:4']
+        L.append(f"{ds.capitalize()} & {tok} & {dv:.2f} & {fl:.2f} & {o['fid_rel_dev_pct']:.2f} & {o['fid_flicker_pct']:.2f} \\\\")
+    L += [r'\bottomrule', r'\end{tabular}']
+    (OUT / 'tab_xstream.tex').write_text('\n'.join(L), encoding='utf-8')
+
+
+RECON_M = [('plain_a2g64', 'INT2 asym., $g{=}64$'), ('kivi_2_64', 'KIVI'), ('delta_int4_bin_8', 'TCC-1, $K{=}8$'),
+           ('delta_int4_a2g64_8', 'TCC-2, $K{=}8$')]
+
+
+def recon_table():
+    rf = json.load(open(R / '2026-11-11_timing' / 'recon_fidelity.json'))
+    keys = ['dense/7scenes', 'dense/NRGBD', 'sparse/7scenes', 'sparse/NRGBD']
+    L = [r'\begin{tabular}{l' + 'rr' * 4 + '}', r'\toprule',
+         ' & ' + ' & '.join(rf'\multicolumn{{2}}{{c}}{{{k.split("/")[0]}, {k.split("/")[1]}}}' for k in keys) + r' \\',
+         ''.join(rf'\cmidrule(lr){{{2 + 2 * i}-{3 + 2 * i}}}' for i in range(4)),
+         'Cache' + ' & mean & median' * 4 + r' \\', r'\midrule']
+    for mt, lab in RECON_M:
+        L.append(lab + ' & ' + ' & '.join(f"{rf[k]['methods'][mt]['mean']:.2f} & {rf[k]['methods'][mt]['median']:.2f}"
+                                          for k in keys) + r' \\')
+    L += [r'\bottomrule', r'\end{tabular}']
+    (OUT / 'tab_recon.tex').write_text('\n'.join(L), encoding='utf-8')
+
+
+def long_figure():
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    base = R / '2026-11-12_q5_stac' / 'svg_queue5' / 'longn'
+    fig, ax = plt.subplots(figsize=(6.8, 2.2))
+    for fn, lab, c in (('plain_a2g64', 'INT2 asym., g=64', '#888888'), ('kivi_2_64', 'KIVI', '#2ca02c'),
+                       ('delta_int4_bin_8', 'TCC-1, K=8', '#d62728'), ('delta_int4_a2g64_8', 'TCC-2, K=8', '#1f77b4')):
+        d = json.load(open(base / f'{fn}.json'))
+        s = d['scenes']['crowd2']
+        y = s['series']['dev']
+        x = np.linspace(0, s['frames'], len(y))
+        ax.plot(x, y, lw=1.1, label=lab, color=c)
+    ax.set_xlabel('frame (Bonn crowd2)')
+    ax.set_ylabel('deviation (%)')
+    ax.legend(frameon=False, fontsize=7, ncol=4)
+    fig.tight_layout()
+    fig.savefig(OUT / 'fig_long.pdf')
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(exist_ok=True)
+    bonn_scenes()
+    xstream_table()
+    recon_table()
+    long_figure()
     for ds in ('sintel', 'bonn', 'kitti'):
         svg_table(ds)
     print('bootstrap comparisons / resamples:', boot_table())
