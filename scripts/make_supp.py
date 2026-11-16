@@ -356,8 +356,50 @@ def long_figure():
     plt.close(fig)
 
 
+def qual_figure():
+    """RGB, FP32-cache depth, and deviation maps of INT2 asym / TCC-1 / TCC-2 for one frame per dataset
+    (VDA-S; predictions saved before the paper deadline in results/2026-11-16_supp_vis)."""
+    import glob
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    P = R / '2026-11-16_supp_vis' / 'preds'
+    tags = [('fp32_0_None', None), ('int2_g64_asym_0', 'INT2 asym.'), ('int4_g16_8_bin_g16', 'TCC-1'),
+            ('int4_g16_8_int2_g64_asym', 'TCC-2')]
+    rows = [('sintel', 'Sintel'), ('bonn', 'Bonn'), ('kittiseq', 'KITTI'), ('scannet', 'ScanNet')]
+    fig, axs = plt.subplots(4, 5, figsize=(7.0, 5.0))
+    for r, (ds, dname) in enumerate(rows):
+        d = P / f'{ds}_vits'
+        scene = sorted(p.split('__')[0] for p in map(lambda x: Path(x).name, glob.glob(str(d / '*__gt.npz'))))[0]
+        g = np.load(d / f'{scene}__gt.npz')
+        k = len(g['idx']) // 2
+        pr = {}
+        for t, _ in tags:
+            f = [x for x in glob.glob(str(d / f'{scene}__cfg_{t}*.npz'))]
+            pr[t] = np.load(f[0])['pred'][k].astype(np.float32)
+        ref = pr['fp32_0_None']
+        errs = {t: 100 * np.abs(pr[t] - ref) / (np.abs(ref).mean() + 1e-8) for t, lab in tags if lab}
+        vmax = np.percentile(errs['int2_g64_asym_0'], 99)
+        axs[r, 0].imshow(g['rgb'][k])
+        axs[r, 1].imshow(ref, cmap='inferno')
+        for c, (t, lab) in enumerate([x for x in tags if x[1]]):
+            axs[r, 2 + c].imshow(errs[t], cmap='magma', vmin=0, vmax=vmax)
+            axs[r, 2 + c].text(0.03, 0.05, f'{errs[t].mean():.2f}%', color='w', fontsize=6.5,
+                               transform=axs[r, 2 + c].transAxes)
+        axs[r, 0].set_ylabel(dname, fontsize=8)
+    for c, t in enumerate(['RGB', 'FP32 cache (disparity)', 'INT2 asym., 2.5 b', 'TCC-1, ~2 b', 'TCC-2, ~2.9 b']):
+        axs[0, c].set_title(t, fontsize=7.5)
+    for a in axs.ravel():
+        a.set_xticks([])
+        a.set_yticks([])
+    fig.tight_layout(pad=0.3, w_pad=0.2, h_pad=0.2)
+    fig.savefig(OUT / 'fig_qual.pdf', dpi=200)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(exist_ok=True)
+    qual_figure()
     bonn_scenes()
     xstream_table()
     recon_table()
