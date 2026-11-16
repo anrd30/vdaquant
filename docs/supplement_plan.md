@@ -53,3 +53,16 @@ D2 Commands for every table (README of the anonymous release) and the result-fil
 - scripts/audit_supp.py: every number in the supplement text traced to results/ (as audit_paper.py).
 - Anonymity: no names, server paths, IPs in PDF text or metadata; \pdfinfoomitdate and empty trailer id (as main.tex).
 - Page flow: each section text -> its table/figure; S-numbering; cross-references to paper sections.
+
+## Style guide (user, 2026-11-16): match STAC's CVPR 2026 supplement (Downloads/Wang_STAC_..._supplemental.pdf)
+- Two columns (official \maketitlesupplementary), lettered sections A-D with A.1 subsections; each subsection:
+  question -> how measured (equation) -> figure -> what it means. No [!htbp]/[H] floats: figures/tables at [t];
+  one-column figures for plots, figure*/table* only for wide grids and wide tables -> no random gaps.
+- Captions: "Figure N. **Bold title.** One or two explanatory sentences."
+- Real images inside analysis figures (frame thumbnails); an algorithm box (closed-loop encode / decode) with
+  line numbers referenced in the text.
+- New visuals (server run, <1 h): qualitative grids per dataset (Sintel, Bonn, KITTI, ScanNet: RGB, FP32 depth,
+  INT2/KIVI/TCC-1/TCC-2 depth + error maps); scene-cut strip (fixed K vs adaptive); long-video frames 100/400/700
+  (crowd2); StreamVGGT point clouds (7-Scenes/NRGBD) uncompressed vs TCC vs KIVI.
+- Sections: A cache analysis (redundancy, module error, cross-layer); B method (algorithm, formats, kernel);
+  C VDA results (+ qualitative grids, cuts); D StreamVGGT (tables, long video, 3D, XStreamVGGT/STAC).
