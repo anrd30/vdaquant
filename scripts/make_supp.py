@@ -401,9 +401,9 @@ def qual_figure():
                              fontsize=7.5)
     cax = fig.add_subplot(gs[:, 6])
     cb = fig.colorbar(im, cax=cax)
-    cb.set_label('difference from FP32 cache (% of mean disparity)', fontsize=6.5)
+    cb.set_label('difference (%)', fontsize=7)
     cb.ax.tick_params(labelsize=6)
-    fig.savefig(OUT / 'fig_qual.pdf', dpi=200)
+    fig.savefig(OUT / 'fig_qual.pdf', dpi=200, bbox_inches='tight', pad_inches=0.02)
     plt.close(fig)
 
 
