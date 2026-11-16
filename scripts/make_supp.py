@@ -367,32 +367,41 @@ def qual_figure():
     tags = [('fp32_0_None', None), ('int2_g64_asym_0', 'INT2 asym.'), ('int4_g16_8_bin_g16', 'TCC-1'),
             ('int4_g16_8_int2_g64_asym', 'TCC-2')]
     rows = [('sintel', 'Sintel'), ('bonn', 'Bonn'), ('kittiseq', 'KITTI'), ('scannet', 'ScanNet')]
-    fig, axs = plt.subplots(4, 5, figsize=(7.0, 5.0))
-    for r, (ds, dname) in enumerate(rows):
+    VMAX = 4.0                                   # one scale for every panel: % of the mean disparity
+    data = []
+    for ds, dname in rows:
         d = P / f'{ds}_vits'
-        scene = sorted(p.split('__')[0] for p in map(lambda x: Path(x).name, glob.glob(str(d / '*__gt.npz'))))[0]
+        scene = sorted(Path(x).name.split('__')[0] for x in glob.glob(str(d / '*__gt.npz')))[0]
         g = np.load(d / f'{scene}__gt.npz')
         k = len(g['idx']) // 2
-        pr = {}
-        for t, _ in tags:
-            f = [x for x in glob.glob(str(d / f'{scene}__cfg_{t}*.npz'))]
-            pr[t] = np.load(f[0])['pred'][k].astype(np.float32)
+        pr = {t: np.load(glob.glob(str(d / f'{scene}__cfg_{t}*.npz'))[0])['pred'][k].astype(np.float32) for t, _ in tags}
         ref = pr['fp32_0_None']
-        errs = {t: 100 * np.abs(pr[t] - ref) / (np.abs(ref).mean() + 1e-8) for t, lab in tags if lab}
-        vmax = np.percentile(errs['int2_g64_asym_0'], 99)
-        axs[r, 0].imshow(g['rgb'][k])
-        axs[r, 1].imshow(ref, cmap='inferno')
-        for c, (t, lab) in enumerate([x for x in tags if x[1]]):
-            axs[r, 2 + c].imshow(errs[t], cmap='magma', vmin=0, vmax=vmax)
-            axs[r, 2 + c].text(0.03, 0.05, f'{errs[t].mean():.2f}%', color='w', fontsize=6.5,
-                               transform=axs[r, 2 + c].transAxes)
-        axs[r, 0].set_ylabel(dname, fontsize=8)
-    for c, t in enumerate(['RGB', 'FP32 cache (disparity)', 'INT2 asym., 2.5 b', 'TCC-1, ~2 b', 'TCC-2, ~2.9 b']):
-        axs[0, c].set_title(t, fontsize=7.5)
-    for a in axs.ravel():
-        a.set_xticks([])
-        a.set_yticks([])
-    fig.tight_layout(pad=0.3, w_pad=0.2, h_pad=0.2)
+        errs = [(lab, 100 * np.abs(pr[t] - ref) / (np.abs(ref).mean() + 1e-8)) for t, lab in tags if lab]
+        data.append((dname, g['rgb'][k], ref, errs))
+    hr = [r[2].shape[0] / r[2].shape[1] for r in data]
+    W = 7.0
+    fig = plt.figure(figsize=(W, W / 5.25 * sum(hr) + 0.55))
+    gs = fig.add_gridspec(len(rows), 6, height_ratios=hr, width_ratios=[1, 1, 1, 1, 1, 0.05],
+                          hspace=0.06, wspace=0.03, left=0.04, right=0.95, top=0.95, bottom=0.01)
+    im = None
+    for r, (dname, rgb, ref, errs) in enumerate(data):
+        ax = fig.add_subplot(gs[r, 0]); ax.imshow(rgb, aspect='auto'); ax.set_ylabel(dname, fontsize=8)
+        ax2 = fig.add_subplot(gs[r, 1]); ax2.imshow(ref, cmap='inferno', aspect='auto')
+        axs_r = [ax, ax2]
+        for c, (lab, e) in enumerate(errs):
+            a3 = fig.add_subplot(gs[r, 2 + c])
+            im = a3.imshow(e, cmap='magma', vmin=0, vmax=VMAX, aspect='auto')
+            a3.text(0.03, 0.06, f'mean {e.mean():.2f}%', color='w', fontsize=6, transform=a3.transAxes)
+            axs_r.append(a3)
+        for c, a4 in enumerate(axs_r):
+            a4.set_xticks([]); a4.set_yticks([])
+            if r == 0:
+                a4.set_title(['RGB', 'FP32 cache (disparity)', 'INT2 asym., 2.5 b', 'TCC-1, ~2 b', 'TCC-2, ~2.9 b'][c],
+                             fontsize=7.5)
+    cax = fig.add_subplot(gs[:, 5])
+    cb = fig.colorbar(im, cax=cax)
+    cb.set_label('difference from FP32 cache (% of mean disparity)', fontsize=6.5)
+    cb.ax.tick_params(labelsize=6)
     fig.savefig(OUT / 'fig_qual.pdf', dpi=200)
     plt.close(fig)
 
