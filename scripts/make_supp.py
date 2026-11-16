@@ -377,28 +377,29 @@ def qual_figure():
         pr = {t: np.load(glob.glob(str(d / f'{scene}__cfg_{t}*.npz'))[0])['pred'][k].astype(np.float32) for t, _ in tags}
         ref = pr['fp32_0_None']
         errs = [(lab, 100 * np.abs(pr[t] - ref) / (np.abs(ref).mean() + 1e-8)) for t, lab in tags if lab]
-        data.append((dname, g['rgb'][k], ref, errs))
+        data.append((dname, g['rgb'][k], ref, errs, pr['int4_g16_8_bin_g16']))
     hr = [r[2].shape[0] / r[2].shape[1] for r in data]
     W = 7.0
-    fig = plt.figure(figsize=(W, W / 5.25 * sum(hr) + 0.55))
-    gs = fig.add_gridspec(len(rows), 6, height_ratios=hr, width_ratios=[1, 1, 1, 1, 1, 0.05],
+    fig = plt.figure(figsize=(W, W / 6.3 * sum(hr) + 0.55))
+    gs = fig.add_gridspec(len(rows), 7, height_ratios=hr, width_ratios=[1, 1, 1, 1, 1, 1, 0.05],
                           hspace=0.06, wspace=0.03, left=0.04, right=0.95, top=0.95, bottom=0.01)
     im = None
-    for r, (dname, rgb, ref, errs) in enumerate(data):
+    for r, (dname, rgb, ref, errs, tcc1) in enumerate(data):
         ax = fig.add_subplot(gs[r, 0]); ax.imshow(rgb, aspect='auto'); ax.set_ylabel(dname, fontsize=8)
         ax2 = fig.add_subplot(gs[r, 1]); ax2.imshow(ref, cmap='inferno', aspect='auto')
-        axs_r = [ax, ax2]
+        axd = fig.add_subplot(gs[r, 2]); axd.imshow(tcc1, cmap='inferno', vmin=ref.min(), vmax=ref.max(), aspect='auto')
+        axs_r = [ax, ax2, axd]
         for c, (lab, e) in enumerate(errs):
-            a3 = fig.add_subplot(gs[r, 2 + c])
+            a3 = fig.add_subplot(gs[r, 3 + c])
             im = a3.imshow(e, cmap='magma', vmin=0, vmax=VMAX, aspect='auto')
             a3.text(0.03, 0.06, f'mean {e.mean():.2f}%', color='w', fontsize=6, transform=a3.transAxes)
             axs_r.append(a3)
         for c, a4 in enumerate(axs_r):
             a4.set_xticks([]); a4.set_yticks([])
             if r == 0:
-                a4.set_title(['RGB', 'FP32 cache (disparity)', 'INT2 asym., 2.5 b', 'TCC-1, ~2 b', 'TCC-2, ~2.9 b'][c],
+                a4.set_title(['RGB', 'Depth: FP32 cache', 'Depth: TCC-1', 'Diff.: INT2 asym.', 'Diff.: TCC-1', 'Diff.: TCC-2'][c],
                              fontsize=7.5)
-    cax = fig.add_subplot(gs[:, 5])
+    cax = fig.add_subplot(gs[:, 6])
     cb = fig.colorbar(im, cax=cax)
     cb.set_label('difference from FP32 cache (% of mean disparity)', fontsize=6.5)
     cb.ax.tick_params(labelsize=6)
