@@ -822,7 +822,11 @@ def load_tum_gt(
 
         rgb_stamps = np.array([r[0] for r in rgb_index], dtype=np.float64)
 
+        _cap = int(__import__("os").environ.get("VDAQ_MAX_PER_SCENE", "0") or 0)
+        _n = 0
         for frame_idx, (d_stamp, d_relpath) in enumerate(depth_index):
+            if _cap and _n >= _cap:
+                break
             rgb_idx = int(np.argmin(np.abs(rgb_stamps - d_stamp)))
             if abs(rgb_stamps[rgb_idx] - d_stamp) > max_pair_dt:
                 continue
@@ -841,6 +845,7 @@ def load_tum_gt(
             depth = depth_u16.astype(np.float32) / 5000.0
             valid_mask = (depth > 0.1) & (depth < 10.0) & np.isfinite(depth)
 
+            _n += 1
             samples.append({
                 "rgb": rgb, "depth": depth, "valid_mask": valid_mask,
                 "scene": scene, "frame_idx": frame_idx,
@@ -935,6 +940,44 @@ def load_scannet_gt(
     return samples
 
 
+_7SCENES_K = np.array([[585.0, 0.0, 320.0], [0.0, 585.0, 240.0], [0.0, 0.0, 1.0]])
+
+
+def load_sevenscenes_gt(cache_dir: Path, max_samples: Optional[int] = None, download: bool = False,
+                        require_cam: bool = False):
+    """
+    7-Scenes (Shotton et al., CVPR 2013): cache_dir/<scene>_<seq>/frame-NNNNNN.{color.png,depth.png,pose.txt}
+    (scripts/covtae_get_data.sh). Depth uint16 in mm, 65535 = invalid; pose = 4x4 camera-to-world (KinectFusion);
+    intrinsics fx = fy = 585, principal point (320, 240), as commonly used for this dataset. The raw depth is not
+    registered to the colour image; the offset is the same for every method evaluated on a frame.
+    """
+    from PIL import Image
+    cache_dir = Path(cache_dir)
+    if not cache_dir.is_dir():
+        raise RuntimeError(f"7-Scenes root not found at {cache_dir}; run scripts/covtae_get_data.sh")
+    samples = []
+    for sd in sorted(p for p in cache_dir.iterdir() if p.is_dir()):
+        cap = int(__import__('os').environ.get('VDAQ_MAX_PER_SCENE', '0') or 0)
+        for i, dp in enumerate(sorted(sd.glob('frame-*.depth.png'))):
+            if cap and i >= cap:
+                break
+            stem = dp.name[:-len('.depth.png')]
+            pose = np.loadtxt(sd / f'{stem}.pose.txt').astype(np.float64)
+            if not np.isfinite(pose).all():
+                if require_cam:
+                    continue
+                pose = None
+            d = np.array(Image.open(dp)).astype(np.float32)
+            d[d >= 65535] = 0
+            depth = d / 1000.0
+            rgb = np.array(Image.open(sd / f'{stem}.color.png').convert('RGB'), dtype=np.uint8)
+            samples.append({"rgb": rgb, "depth": depth, "valid_mask": (depth > 0.1) & (depth < 10.0),
+                            "scene": sd.name, "frame_idx": i, "K": _7SCENES_K.copy(), "pose": pose})
+            if max_samples is not None and len(samples) >= max_samples:
+                return samples
+    return samples
+
+
 def load_kitti_seq_gt(cache_dir: Path, max_samples: Optional[int] = None, download: bool = False):
     """KITTI validation drives as video sequences, as prepared for the StreamVGGT/MonST3R
     video-depth benchmark: depth_selection/val_selection_cropped/{image_gathered,
@@ -969,6 +1012,7 @@ DATASET_GT_CONFIG = {
     "bonn":   {"loader": load_bonn_gt,             "cache_subdir": "bonn",     "gt_range": (0.1, 10.0), "auto_download": False},
     "tum":    {"loader": load_tum_gt,              "cache_subdir": "tum",      "gt_range": (0.1, 10.0), "auto_download": False},
     "scannet": {"loader": load_scannet_gt,         "cache_subdir": "scannet",  "gt_range": (0.1, 10.0), "auto_download": False},
+    "sevenscenes": {"loader": load_sevenscenes_gt, "cache_subdir": "sevenscenes", "gt_range": (0.1, 10.0), "auto_download": False},
 }
 
 
@@ -996,9 +1040,19 @@ def load_gt_dataset(name: str, data_dir: Path, max_samples: Optional[int] = None
     data_dir = Path(data_dir)
     cache = data_dir / cfg["cache_subdir"]
     kwargs = {"max_samples": max_samples, "download": cfg["auto_download"]}
-    if cfg["loader"] in (load_sintel_gt, load_bonn_gt, load_tum_gt, load_scannet_gt):
+    if cfg["loader"] in (load_sintel_gt, load_bonn_gt, load_tum_gt, load_scannet_gt, load_sevenscenes_gt):
         kwargs["require_cam"] = require_cam
     samples = cfg["loader"](cache, **kwargs)
+    import os
+    cap = int(os.environ.get("VDAQ_MAX_PER_SCENE", "0") or 0)   # optional: first N frames of every scene
+    if cap > 0:
+        count = {}
+        kept = []
+        for smp in samples:
+            count[smp.get("scene")] = count.get(smp.get("scene"), 0) + 1
+            if count[smp.get("scene")] <= cap:
+                kept.append(smp)
+        samples = kept
     return samples, cfg["gt_range"]
 
 

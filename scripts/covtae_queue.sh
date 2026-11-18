@@ -17,10 +17,12 @@ REQ_GPU_A=${GPU_A:-2}
 REQ_GPU_B=${GPU_B:-0}
 REQ_PREDICT=${PREDICT:-1}                 # PREDICT=0: analysis only, on predictions already saved
 REQ_ANALYSIS_ARGS=${ANALYSIS_ARGS:-}      # e.g. "--flow-root benchmark_data/sintel/training"
+REQ_MAXPS=${MAXPS:-}                      # e.g. MAXPS=300: first 300 frames of every scene (TUM, 7-Scenes)
 SELF=$(cd "$(dirname "$0")/.." && pwd)
 C=$(dirname "$SELF")
 source "$C/svg_env.sh"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID PYTHONUNBUFFERED=1
+[ -n "$REQ_MAXPS" ] && export VDAQ_MAX_PER_SCENE=$REQ_MAXPS
 PY=$C/svg_tcc/venv/bin/python
 OUT=$C/covtae
 DUMPS=$OUT/dumps
@@ -60,11 +62,14 @@ lane() {   # lane <dataset> <gpu> <max-scenes>
 
 df -h "$OUT" | tail -1 | sed 's/^/disk: /' | tee -a "$OUT/STATUS.txt"
 DATASETS=$REQ_DATASETS
-echo "settings: datasets=[$DATASETS] encoders=[$ENCS] max_samples=$REQ_MAXS predict=$REQ_PREDICT analysis_args=[$REQ_ANALYSIS_ARGS] gpu_a=$GPU_A gpu_b=$GPU_B" | tee -a "$OUT/STATUS.txt"
+echo "settings: datasets=[$DATASETS] encoders=[$ENCS] max_samples=$REQ_MAXS predict=$REQ_PREDICT analysis_args=[$REQ_ANALYSIS_ARGS] max_per_scene=[$REQ_MAXPS] gpu_a=$GPU_A gpu_b=$GPU_B" | tee -a "$OUT/STATUS.txt"
 case " $DATASETS " in *" sintel "*) ( lane sintel "$GPU_A" 23 ) & ;; esac
 case " $DATASETS " in *" bonn "*) ( lane bonn "$GPU_B" 8 ) & ;; esac
 # ScanNet (VDA's TAE protocol: 20 test scenes x frames 10..179 = 3400 frames, so MAXS >= 3400)
 case " $DATASETS " in *" scannet "*) ( lane scannet "$GPU_A" 20 ) & ;; esac
+# TUM RGB-D (8 sequences) and 7-Scenes (7 sequences), from scripts/covtae_get_data.sh; use MAXPS=300
+case " $DATASETS " in *" tum "*) ( lane tum "$GPU_A" 8 ) & ;; esac
+case " $DATASETS " in *" sevenscenes "*) ( lane sevenscenes "$GPU_B" 7 ) & ;; esac
 wait
 (cd "$OUT" && tar czf "$C/covtae_results.tgz" STATUS.txt analysis_*.json logs live_*)
 say "ALL FINISHED (results in $C/covtae_results.tgz; predictions stay in $DUMPS)"
